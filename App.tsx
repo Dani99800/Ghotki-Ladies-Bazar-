@@ -14,7 +14,8 @@ import {
   User as UserIcon, 
   Search,
   ShoppingCart,
-  ChevronLeft
+  ChevronLeft,
+  Play
 } from 'lucide-react';
 
 import { MOCK_SHOPS, MOCK_PRODUCTS } from './data';
@@ -30,11 +31,12 @@ import LoginView from './views/LoginView';
 import ExploreView from './views/ExploreView';
 import ShopsListView from './views/ShopsListView';
 import ProfileView from './views/ProfileView';
+import ReelsView from './views/ReelsView';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<UserType | null>(null);
   const [shops, setShops] = useState<Shop[]>(MOCK_SHOPS);
-  const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
+  const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [lang, setLang] = useState<'EN' | 'UR'>('EN');
@@ -45,11 +47,24 @@ const App: React.FC = () => {
     
     const savedCart = localStorage.getItem('glb_cart');
     if (savedCart) setCart(JSON.parse(savedCart));
+
+    const savedProducts = localStorage.getItem('glb_products');
+    if (savedProducts) {
+      setProducts(JSON.parse(savedProducts));
+    } else {
+      setProducts(MOCK_PRODUCTS);
+    }
   }, []);
 
   useEffect(() => {
     localStorage.setItem('glb_cart', JSON.stringify(cart));
   }, [cart]);
+
+  useEffect(() => {
+    if (products.length > 0) {
+      localStorage.setItem('glb_products', JSON.stringify(products));
+    }
+  }, [products]);
 
   const handleLogout = () => {
     setUser(null);
@@ -65,6 +80,10 @@ const App: React.FC = () => {
       }
       return [...prev, { ...product, quantity: 1 }];
     });
+  };
+
+  const addProduct = (newProduct: Product) => {
+    setProducts(prev => [newProduct, ...prev]);
   };
 
   const registerShop = (newShopData: Partial<Shop>) => {
@@ -118,6 +137,7 @@ const App: React.FC = () => {
         <Routes>
           <Route path="/" element={<BuyerHome shops={shops} products={products} addToCart={addToCart} lang={lang} />} />
           <Route path="/explore" element={<ExploreView products={products} shops={shops} addToCart={addToCart} lang={lang} />} />
+          <Route path="/reels" element={<ReelsView products={products} addToCart={addToCart} />} />
           <Route path="/shops" element={<ShopsListView shops={shops} lang={lang} />} />
           <Route path="/shop/:id" element={<ShopView shops={shops} products={products} addToCart={addToCart} lang={lang} />} />
           <Route path="/product/:id" element={<ProductView products={products} addToCart={addToCart} lang={lang} />} />
@@ -126,7 +146,7 @@ const App: React.FC = () => {
           <Route path="/login" element={<LoginView setUser={setUser} registerShop={registerShop} lang={lang} />} />
           <Route path="/profile" element={user ? <ProfileView user={user} onLogout={handleLogout} lang={lang} /> : <Navigate to="/login" />} />
           <Route path="/admin/*" element={user?.role === 'ADMIN' ? <AdminDashboard shops={shops} setShops={setShops} orders={orders} /> : <Navigate to="/login" />} />
-          <Route path="/seller/*" element={user?.role === 'SELLER' ? <SellerDashboard products={products} setProducts={setProducts} orders={orders} /> : <Navigate to="/login" />} />
+          <Route path="/seller/*" element={user ? <SellerDashboard products={products} user={user} addProduct={addProduct} orders={orders} /> : <Navigate to="/login" />} />
         </Routes>
 
         <BottomNav user={user} cartCount={cart.length} />

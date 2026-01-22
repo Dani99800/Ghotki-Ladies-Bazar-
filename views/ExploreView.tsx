@@ -1,7 +1,16 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter, Sparkles, ShoppingCart, Heart, MapPin, ChevronRight } from 'lucide-react';
+import { 
+  Search, 
+  Filter, 
+  Sparkles, 
+  ShoppingCart, 
+  Heart, 
+  MapPin, 
+  ChevronRight,
+  Play
+} from 'lucide-react';
 import { Product, Shop } from '../types';
 import { CATEGORIES, BAZAARS } from '../constants';
 
@@ -25,6 +34,25 @@ const ExploreView: React.FC<ExploreViewProps> = ({ products, shops, addToCart, l
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6 animate-in fade-in duration-500 pb-24">
+      {/* Video Reels Trigger */}
+      <button 
+        onClick={() => navigate('/reels')}
+        className="w-full relative h-24 bg-gradient-to-r from-pink-600 to-purple-600 rounded-[2rem] overflow-hidden group shadow-xl shadow-pink-100 flex items-center px-8 border-4 border-white active:scale-95 transition-all"
+      >
+        <div className="absolute top-0 left-0 w-full h-full bg-[url('https://images.unsplash.com/photo-1558769132-cb1aea458c5e?q=80&w=800')] bg-cover bg-center opacity-20 group-hover:scale-110 transition-transform duration-700" />
+        <div className="relative z-10 flex items-center justify-between w-full">
+           <div className="space-y-1">
+              <h2 className="text-white font-black text-xl uppercase italic tracking-tighter flex items-center gap-2">
+                Watch Reels <Sparkles className="w-4 h-4 text-yellow-300 fill-yellow-300" />
+              </h2>
+              <p className="text-white/80 text-[10px] font-bold uppercase tracking-widest">Live Fashion from Ghotki</p>
+           </div>
+           <div className="w-12 h-12 bg-white/20 backdrop-blur-xl rounded-full flex items-center justify-center text-white ring-4 ring-white/10 animate-pulse">
+              <Play className="w-6 h-6 fill-white" />
+           </div>
+        </div>
+      </button>
+
       <div className="flex items-center gap-2">
          <div className="relative flex-1">
            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />

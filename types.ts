@@ -42,9 +42,10 @@ export interface Product {
   price: number;
   category: string;
   images: string[];
-  videoUrl?: string;
+  videoUrl?: string; // High engagement video link
   tags: ('New' | 'Trending' | 'Best Seller' | 'Sale')[];
   stock: number;
+  createdAt?: string;
 }
 
 export interface CartItem extends Product {
@@ -62,14 +63,4 @@ export interface Order {
   status: 'PENDING' | 'PAID' | 'SHIPPED' | 'COMPLETED' | 'CANCELLED';
   paymentMethod: 'EasyPaisa' | 'JazzCash' | 'Bank Transfer';
   createdAt: string;
-}
-
-export interface AppState {
-  currentUser: User | null;
-  currentShop: Shop | null;
-  shops: Shop[];
-  products: Product[];
-  orders: Order[];
-  cart: CartItem[];
-  language: 'EN' | 'UR';
 }
