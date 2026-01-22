@@ -42,7 +42,14 @@ const App: React.FC = () => {
   useEffect(() => {
     const savedUser = localStorage.getItem('glb_user');
     if (savedUser) setUser(JSON.parse(savedUser));
+    
+    const savedCart = localStorage.getItem('glb_cart');
+    if (savedCart) setCart(JSON.parse(savedCart));
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem('glb_cart', JSON.stringify(cart));
+  }, [cart]);
 
   const handleLogout = () => {
     setUser(null);
@@ -98,7 +105,10 @@ const App: React.FC = () => {
     }));
   };
 
-  const clearCart = () => setCart([]);
+  const clearCart = () => {
+    setCart([]);
+    localStorage.removeItem('glb_cart');
+  };
 
   return (
     <Router>
@@ -107,9 +117,9 @@ const App: React.FC = () => {
         
         <Routes>
           <Route path="/" element={<BuyerHome shops={shops} products={products} addToCart={addToCart} lang={lang} />} />
-          <Route path="/explore" element={<ExploreView products={products} shops={shops} lang={lang} />} />
+          <Route path="/explore" element={<ExploreView products={products} shops={shops} addToCart={addToCart} lang={lang} />} />
           <Route path="/shops" element={<ShopsListView shops={shops} lang={lang} />} />
-          <Route path="/shop/:id" element={<ShopView shops={shops} products={products} lang={lang} />} />
+          <Route path="/shop/:id" element={<ShopView shops={shops} products={products} addToCart={addToCart} lang={lang} />} />
           <Route path="/product/:id" element={<ProductView products={products} addToCart={addToCart} lang={lang} />} />
           <Route path="/cart" element={<CartView cart={cart} removeFromCart={removeFromCart} updateQuantity={updateCartQuantity} lang={lang} />} />
           <Route path="/checkout" element={<CheckoutView cart={cart} clearCart={clearCart} user={user} lang={lang} />} />

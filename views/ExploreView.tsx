@@ -8,10 +8,11 @@ import { CATEGORIES, BAZAARS } from '../constants';
 interface ExploreViewProps {
   products: Product[];
   shops: Shop[];
+  addToCart: (p: Product) => void;
   lang: 'EN' | 'UR';
 }
 
-const ExploreView: React.FC<ExploreViewProps> = ({ products, shops, lang }) => {
+const ExploreView: React.FC<ExploreViewProps> = ({ products, shops, addToCart, lang }) => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCat, setActiveCat] = useState('All');
@@ -81,19 +82,13 @@ const ExploreView: React.FC<ExploreViewProps> = ({ products, shops, lang }) => {
         ))}
       </div>
 
-      <div className="flex items-center gap-2 mb-2 px-1">
-        <Sparkles className="w-4 h-4 text-pink-500" />
-        <h2 className="text-[10px] font-black uppercase tracking-widest text-gray-900">Handpicked for you</h2>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-4 pt-4">
         {filtered.length > 0 ? filtered.map(product => (
           <div 
             key={product.id}
-            onClick={() => navigate(`/product/${product.id}`)}
-            className="bg-white rounded-[2rem] overflow-hidden shadow-sm border border-gray-100 group cursor-pointer hover:shadow-md transition-all"
+            className="bg-white rounded-[2rem] overflow-hidden shadow-sm border border-gray-100 group cursor-pointer hover:shadow-md transition-all flex flex-col"
           >
-            <div className="relative aspect-[3/4] overflow-hidden">
+            <div className="relative aspect-[3/4] overflow-hidden" onClick={() => navigate(`/product/${product.id}`)}>
               <img src={product.images[0]} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt={product.name} />
               <button className="absolute top-3 right-3 p-2 bg-white/80 backdrop-blur rounded-full text-pink-600 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
                 <Heart className="w-4 h-4" />
@@ -102,17 +97,25 @@ const ExploreView: React.FC<ExploreViewProps> = ({ products, shops, lang }) => {
                 <span className="absolute bottom-3 left-3 bg-white/90 backdrop-blur text-pink-600 text-[8px] font-black px-2 py-1 rounded-lg uppercase tracking-widest">Trending</span>
               )}
             </div>
-            <div className="p-4 space-y-1">
-              <p className="text-[10px] font-bold text-gray-400 uppercase truncate">
-                {shops.find(s => s.id === product.shopId)?.name}
-              </p>
-              <h3 className="font-bold text-sm text-gray-800 truncate">{product.name}</h3>
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-pink-600 font-black text-sm">PKR {product.price.toLocaleString()}</span>
-                <div className="p-1.5 bg-pink-50 rounded-lg text-pink-600">
-                  <ShoppingCart className="w-3.5 h-3.5" />
-                </div>
+            <div className="p-4 space-y-2 flex-1 flex flex-col justify-between">
+              <div onClick={() => navigate(`/product/${product.id}`)}>
+                <p className="text-[10px] font-bold text-gray-400 uppercase truncate">
+                  {shops.find(s => s.id === product.shopId)?.name}
+                </p>
+                <h3 className="font-bold text-sm text-gray-800 truncate">{product.name}</h3>
+                <p className="text-pink-600 font-black text-sm">PKR {product.price.toLocaleString()}</p>
               </div>
+              
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  addToCart(product);
+                  navigate('/cart');
+                }}
+                className="w-full bg-pink-600 text-white py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-pink-100 active:scale-95 transition-all mt-2"
+              >
+                Buy Now
+              </button>
             </div>
           </div>
         )) : (

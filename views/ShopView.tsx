@@ -7,10 +7,11 @@ import { Shop, Product } from '../types';
 interface ShopViewProps {
   shops: Shop[];
   products: Product[];
+  addToCart: (p: Product) => void;
   lang: 'EN' | 'UR';
 }
 
-const ShopView: React.FC<ShopViewProps> = ({ shops, products, lang }) => {
+const ShopView: React.FC<ShopViewProps> = ({ shops, products, addToCart, lang }) => {
   const { id } = useParams();
   const navigate = useNavigate();
   const shop = shops.find(s => s.id === id);
@@ -79,21 +80,30 @@ const ShopView: React.FC<ShopViewProps> = ({ shops, products, lang }) => {
             {shopProducts.map(product => (
               <div 
                 key={product.id}
-                onClick={() => navigate(`/product/${product.id}`)}
-                className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 group cursor-pointer"
+                className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 group cursor-pointer flex flex-col"
               >
-                <div className="relative aspect-[3/4] overflow-hidden">
+                <div className="relative aspect-[3/4] overflow-hidden" onClick={() => navigate(`/product/${product.id}`)}>
                   <img src={product.images[0]} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                   {product.tags.includes('Sale') && (
                     <span className="absolute top-2 left-2 bg-red-600 text-white text-[8px] font-black px-2 py-1 rounded">SALE</span>
                   )}
                 </div>
-                <div className="p-3">
-                  <h3 className="font-bold text-sm truncate">{product.name}</h3>
-                  <div className="flex items-center justify-between mt-1">
+                <div className="p-3 flex-1 flex flex-col justify-between">
+                  <div onClick={() => navigate(`/product/${product.id}`)}>
+                    <h3 className="font-bold text-sm truncate">{product.name}</h3>
                     <span className="text-pink-600 font-bold text-sm">PKR {product.price}</span>
-                    <ShoppingCart className="w-4 h-4 text-gray-300" />
                   </div>
+                  
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      addToCart(product);
+                      navigate('/cart');
+                    }}
+                    className="w-full bg-pink-600 text-white py-2 rounded-xl text-[10px] font-black uppercase tracking-widest mt-2 active:scale-95 transition-all"
+                  >
+                    Buy
+                  </button>
                 </div>
               </div>
             ))}
