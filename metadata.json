@@ -1,0 +1,7 @@
+{
+  "name": "Ghotki Ladies Bazar",
+  "description": "A premium multi-vendor fashion marketplace digitizing local shops in Ghotki and beyond, featuring AI-powered product insights and a mobile-first shopping experience.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
