@@ -1,21 +1,27 @@
-
 import { GoogleGenAI } from "@google/genai";
 
-// Initialize safely. If the key is missing, the service will handle the error on call rather than at script load.
 const getAIClient = () => {
-  const apiKey = process.env.API_KEY;
+  // Use a fallback to empty string if process.env.API_KEY is replaced by an empty string by Vite
+  const apiKey = typeof process !== 'undefined' && process.env ? process.env.API_KEY : '';
+  
   if (!apiKey) {
-    console.warn("Gemini API Key is missing. AI features will be limited.");
+    console.warn("Gemini API Key is missing. AI features will be disabled.");
     return null;
   }
-  return new GoogleGenAI({ apiKey });
+  
+  try {
+    return new GoogleGenAI({ apiKey });
+  } catch (err) {
+    console.error("Failed to initialize GoogleGenAI:", err);
+    return null;
+  }
 };
 
 export const geminiService = {
   async generateProductDescription(productName: string, category: string): Promise<string> {
     try {
       const ai = getAIClient();
-      if (!ai) throw new Error("AI Client not initialized");
+      if (!ai) return "A premium quality product from our bazaar.";
 
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
@@ -31,7 +37,7 @@ export const geminiService = {
   async translateToUrdu(text: string): Promise<string> {
     try {
       const ai = getAIClient();
-      if (!ai) throw new Error("AI Client not initialized");
+      if (!ai) return text;
 
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
