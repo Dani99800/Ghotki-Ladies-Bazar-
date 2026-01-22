@@ -47,7 +47,7 @@ const App: React.FC = () => {
   const handleLogout = () => {
     setUser(null);
     localStorage.removeItem('glb_user');
-    window.location.href = '#/'; // Hard redirect to home
+    window.location.href = '#/'; 
   };
 
   const addToCart = (product: Product) => {
@@ -58,6 +58,30 @@ const App: React.FC = () => {
       }
       return [...prev, { ...product, quantity: 1 }];
     });
+  };
+
+  const registerShop = (newShopData: Partial<Shop>) => {
+    const shop: Shop = {
+      id: 's_' + Math.random().toString(36).substr(2, 9),
+      name: newShopData.name || 'New Shop',
+      ownerName: newShopData.ownerName || 'Owner',
+      mobile: newShopData.mobile || '',
+      whatsapp: newShopData.whatsapp || '',
+      bazaar: newShopData.bazaar || 'Main Bazar',
+      address: newShopData.address || '',
+      category: newShopData.category || 'Women',
+      logo: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&q=80&w=200',
+      banner: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&q=80&w=800',
+      bio: 'New store awaiting approval.',
+      status: 'PENDING',
+      isRegistrationPaid: true,
+      registrationFee: 2500,
+      payoutMethods: ['EasyPaisa'],
+      deliveryFee: 150,
+      pickupEnabled: true,
+      deliveryEnabled: true,
+    };
+    setShops(prev => [...prev, shop]);
   };
 
   const removeFromCart = (id: string) => {
@@ -82,14 +106,14 @@ const App: React.FC = () => {
         <Navbar user={user} cartCount={cart.length} lang={lang} setLang={setLang} />
         
         <Routes>
-          <Route path="/" element={<BuyerHome shops={shops} products={products} lang={lang} />} />
+          <Route path="/" element={<BuyerHome shops={shops} products={products} addToCart={addToCart} lang={lang} />} />
           <Route path="/explore" element={<ExploreView products={products} shops={shops} lang={lang} />} />
           <Route path="/shops" element={<ShopsListView shops={shops} lang={lang} />} />
           <Route path="/shop/:id" element={<ShopView shops={shops} products={products} lang={lang} />} />
           <Route path="/product/:id" element={<ProductView products={products} addToCart={addToCart} lang={lang} />} />
           <Route path="/cart" element={<CartView cart={cart} removeFromCart={removeFromCart} updateQuantity={updateCartQuantity} lang={lang} />} />
           <Route path="/checkout" element={<CheckoutView cart={cart} clearCart={clearCart} user={user} lang={lang} />} />
-          <Route path="/login" element={<LoginView setUser={setUser} lang={lang} />} />
+          <Route path="/login" element={<LoginView setUser={setUser} registerShop={registerShop} lang={lang} />} />
           <Route path="/profile" element={user ? <ProfileView user={user} onLogout={handleLogout} lang={lang} /> : <Navigate to="/login" />} />
           <Route path="/admin/*" element={user?.role === 'ADMIN' ? <AdminDashboard shops={shops} setShops={setShops} orders={orders} /> : <Navigate to="/login" />} />
           <Route path="/seller/*" element={user?.role === 'SELLER' ? <SellerDashboard products={products} setProducts={setProducts} orders={orders} /> : <Navigate to="/login" />} />

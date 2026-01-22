@@ -8,10 +8,11 @@ import { BAZAARS, CATEGORIES } from '../constants';
 interface BuyerHomeProps {
   shops: Shop[];
   products: Product[];
+  addToCart: (p: Product) => void;
   lang: 'EN' | 'UR';
 }
 
-const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, lang }) => {
+const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, addToCart, lang }) => {
   const navigate = useNavigate();
   const [selectedBazaar, setSelectedBazaar] = useState<string>('All');
   const [activeCategory, setActiveCategory] = useState<string>('All');
@@ -182,16 +183,22 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, lang }) => {
           {newArrivals.map(product => (
             <div 
               key={product.id}
-              onClick={() => navigate(`/product/${product.id}`)}
-              className="flex items-center gap-4 bg-white p-3 rounded-2xl border border-gray-100 shadow-sm cursor-pointer"
+              className="flex items-center gap-4 bg-white p-3 rounded-2xl border border-gray-100 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
             >
-              <img src={product.images[0]} className="w-20 h-20 object-cover rounded-xl" />
-              <div className="flex-1">
+              <img onClick={() => navigate(`/product/${product.id}`)} src={product.images[0]} className="w-20 h-20 object-cover rounded-xl" />
+              <div onClick={() => navigate(`/product/${product.id}`)} className="flex-1">
                 <h4 className="font-bold text-sm">{product.name}</h4>
                 <p className="text-xs text-gray-500 mb-1">{shops.find(s => s.id === product.shopId)?.name}</p>
                 <span className="text-pink-600 font-bold">PKR {product.price}</span>
               </div>
-              <button className="bg-pink-600 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md">
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  addToCart(product);
+                  navigate('/cart');
+                }}
+                className="bg-pink-600 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md active:scale-90 transition-transform"
+              >
                 Buy
               </button>
             </div>

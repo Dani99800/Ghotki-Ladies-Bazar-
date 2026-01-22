@@ -10,7 +10,8 @@ import {
   ArrowLeft, 
   Sparkles,
   Heart,
-  Share2
+  Share2,
+  Check
 } from 'lucide-react';
 import { Product } from '../types';
 import { geminiService } from '../services/gemini';
@@ -27,6 +28,7 @@ const ProductView: React.FC<ProductViewProps> = ({ products, addToCart, lang }) 
   const product = products.find(p => p.id === id);
   const [aiDesc, setAiDesc] = useState<string>('');
   const [loadingAi, setLoadingAi] = useState(false);
+  const [added, setAdded] = useState(false);
 
   useEffect(() => {
     if (product) {
@@ -44,10 +46,23 @@ const ProductView: React.FC<ProductViewProps> = ({ products, addToCart, lang }) 
     }
   }, [product, lang]);
 
+  const handleAddToCart = () => {
+    if (!product) return;
+    addToCart(product);
+    setAdded(true);
+    setTimeout(() => setAdded(false), 2000);
+  };
+
   if (!product) return <div className="p-8 text-center">Product not found</div>;
 
   return (
     <div className="bg-white min-h-screen pb-32 animate-in fade-in duration-500">
+      {added && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[100] bg-pink-600 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-2 animate-in slide-in-from-top-4">
+          <Check className="w-4 h-4" /> Added to Cart!
+        </div>
+      )}
+
       <div className="relative aspect-[3/4] md:max-h-[600px] w-full bg-gray-100 overflow-hidden">
         <button 
           onClick={() => navigate(-1)}
@@ -151,10 +166,7 @@ const ProductView: React.FC<ProductViewProps> = ({ products, addToCart, lang }) 
           <MessageCircle className="w-6 h-6" />
         </button>
         <button 
-          onClick={() => {
-            addToCart(product);
-            navigate('/cart');
-          }}
+          onClick={handleAddToCart}
           className="flex-1 bg-pink-600 text-white font-black py-4 rounded-2xl shadow-xl shadow-pink-200 flex items-center justify-center gap-3 active:scale-[0.98] transition-all hover:bg-pink-700"
         >
           <ShoppingCart className="w-5 h-5" />

@@ -19,15 +19,16 @@ import {
   Eye,
   EyeOff
 } from 'lucide-react';
-import { UserRole, User as UserType } from '../types';
+import { UserRole, User as UserType, Shop } from '../types';
 import { BAZAARS, CATEGORIES, REGISTRATION_FEE_PKR } from '../constants';
 
 interface LoginViewProps {
   setUser: (u: UserType) => void;
+  registerShop: (s: Partial<Shop>) => void;
   lang: 'EN' | 'UR';
 }
 
-const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
+const LoginView: React.FC<LoginViewProps> = ({ setUser, registerShop, lang }) => {
   const navigate = useNavigate();
   const [view, setView] = useState<'LOGIN' | 'REGISTER_SHOP' | 'PENDING_APPROVAL'>('LOGIN');
   const [role, setRole] = useState<UserRole>('BUYER');
@@ -70,6 +71,16 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
 
   const handleRegisterShop = (e: React.FormEvent) => {
     e.preventDefault();
+    // Submit shop for admin approval
+    registerShop({
+      name: formData.shopName,
+      ownerName: formData.name,
+      mobile: formData.mobile,
+      whatsapp: formData.whatsapp,
+      bazaar: formData.bazaar,
+      category: formData.category,
+      address: formData.address,
+    });
     setView('PENDING_APPROVAL');
   };
 
@@ -81,8 +92,8 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
              <ClipboardCheck className="w-10 h-10" />
           </div>
           <div className="space-y-1">
-            <h1 className="text-2xl font-black text-gray-900 tracking-tight uppercase">Registration Pending</h1>
-            <p className="text-gray-400 text-xs font-bold tracking-widest uppercase">Application ID: GLB-{Math.floor(Math.random()*90000 + 10000)}</p>
+            <h1 className="text-2xl font-black text-gray-900 tracking-tight uppercase">Registration Submitted</h1>
+            <p className="text-gray-400 text-xs font-bold tracking-widest uppercase">Waiting for Admin Approval</p>
           </div>
         </div>
 
@@ -102,16 +113,16 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
             </div>
             <div className="flex-1 space-y-8">
               <div>
-                <h4 className="font-black text-xs text-gray-900 uppercase">Application Submitted</h4>
-                <p className="text-[10px] text-gray-400 font-medium">Your shop details for <span className="text-gray-900 font-bold">{formData.shopName}</span> have been recorded.</p>
+                <h4 className="font-black text-xs text-gray-900 uppercase">Application Received</h4>
+                <p className="text-[10px] text-gray-400 font-medium">Admin panel notified for <span className="text-gray-900 font-bold">{formData.shopName}</span>.</p>
               </div>
               <div>
                 <h4 className="font-black text-xs text-pink-600 uppercase">Payment Verification</h4>
-                <p className="text-[10px] text-gray-400 font-medium">Waiting for PKR {REGISTRATION_FEE_PKR.toLocaleString()} via <span className="text-gray-900 font-bold">{formData.paymentMethod}</span>.</p>
+                <p className="text-[10px] text-gray-400 font-medium">Verify PKR {REGISTRATION_FEE_PKR.toLocaleString()} via <span className="text-gray-900 font-bold">{formData.paymentMethod}</span>.</p>
               </div>
               <div>
                 <h4 className="font-black text-xs text-gray-300 uppercase">Store Goes Live</h4>
-                <p className="text-[10px] text-gray-400 font-medium">Admin will review and approve within 24 hours.</p>
+                <p className="text-[10px] text-gray-400 font-medium">Store will be public once approved.</p>
               </div>
             </div>
           </div>
@@ -121,12 +132,12 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
         <div className="bg-pink-600 rounded-[2.5rem] p-8 text-white space-y-6 shadow-xl shadow-pink-200">
            <div className="flex items-center gap-3">
              <CreditCard className="w-6 h-6" />
-             <h3 className="font-black text-sm uppercase tracking-widest">How to Pay</h3>
+             <h3 className="font-black text-sm uppercase tracking-widest">Complete Registration</h3>
            </div>
            
            <div className="space-y-4">
               <div className="bg-white/10 p-4 rounded-2xl border border-white/20">
-                <p className="text-[10px] uppercase font-bold text-pink-100 mb-1">Transfer To</p>
+                <p className="text-[10px] uppercase font-bold text-pink-100 mb-1">Transfer Fee To</p>
                 <p className="text-lg font-black tracking-tight">0300 1234567</p>
                 <p className="text-xs font-bold opacity-80">Title: GLB Admin (Zubeda K.)</p>
               </div>
@@ -134,9 +145,8 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
               <div className="space-y-2">
                 <p className="text-[10px] leading-relaxed font-medium">
                   1. Open your <b>{formData.paymentMethod}</b> App.<br/>
-                  2. Transfer <b>PKR {REGISTRATION_FEE_PKR.toLocaleString()}</b> to the number above.<br/>
-                  3. Take a screenshot of the receipt.<br/>
-                  4. Send it to our WhatsApp for instant approval.
+                  2. Transfer <b>PKR {REGISTRATION_FEE_PKR.toLocaleString()}</b>.<br/>
+                  3. Take a screenshot and send it to WhatsApp for verification.
                 </p>
               </div>
            </div>
@@ -153,7 +163,7 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
           onClick={() => setView('LOGIN')}
           className="w-full text-gray-400 font-black text-[10px] uppercase tracking-widest hover:text-pink-600 transition-colors"
         >
-          Return to Login Screen
+          Return to Login
         </button>
       </div>
     );
@@ -172,7 +182,6 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
         </div>
 
         <form onSubmit={handleRegisterShop} className="space-y-8">
-          {/* Section 1: Shop Info */}
           <div className="space-y-4">
             <h3 className="text-[10px] font-black text-pink-600 uppercase tracking-widest ml-1 border-b border-pink-50 pb-2">Store Identity</h3>
             <div className="grid grid-cols-1 gap-4">
@@ -208,7 +217,6 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
             </div>
           </div>
 
-          {/* Section 2: Contact & Location */}
           <div className="space-y-4">
             <h3 className="text-[10px] font-black text-pink-600 uppercase tracking-widest ml-1 border-b border-pink-50 pb-2">Contact & Location</h3>
             <div className="grid grid-cols-2 gap-4">
@@ -274,7 +282,6 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
             </div>
           </div>
 
-          {/* Section 3: Account Security */}
           <div className="space-y-4">
             <h3 className="text-[10px] font-black text-pink-600 uppercase tracking-widest ml-1 border-b border-pink-50 pb-2">Account Security</h3>
             <div className="space-y-1">
@@ -300,7 +307,6 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
             </div>
           </div>
 
-          {/* Section 4: Fee Payment Selection */}
           <div className="space-y-4">
             <h3 className="text-[10px] font-black text-pink-600 uppercase tracking-widest ml-1 border-b border-pink-50 pb-2">Registration Fee (PKR {REGISTRATION_FEE_PKR})</h3>
             <div className="grid grid-cols-1 gap-3">
@@ -320,7 +326,6 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
                 </div>
               ))}
             </div>
-            <p className="text-[9px] text-gray-400 font-medium px-1">Note: Your shop will be visible to buyers only after payment is verified by our admin team.</p>
           </div>
 
           <button 
@@ -388,13 +393,6 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
                    placeholder="••••••••"
                  />
               </div>
-            </div>
-            
-            <div className="bg-pink-50 p-3 rounded-2xl border border-pink-100">
-               <p className="text-[9px] text-pink-700 font-bold leading-tight flex items-center gap-2">
-                 <ShieldCheck className="w-3 h-3" />
-                 ADMIN: Mobile 0000 | Pwd admin
-               </p>
             </div>
           </div>
 
