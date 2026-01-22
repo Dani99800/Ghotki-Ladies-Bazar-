@@ -8,7 +8,6 @@ import {
   Lock, 
   Phone, 
   UserPlus, 
-  Info, 
   ArrowLeft, 
   CheckCircle, 
   CreditCard, 
@@ -48,7 +47,7 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, registerShop, lang }) =>
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Admin Credentials: Mobile '0000'
+    // Login Logic
     let finalRole = role;
     if (formData.mobile === '0000') {
       finalRole = 'ADMIN';
@@ -71,7 +70,7 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, registerShop, lang }) =>
 
   const handleRegisterShop = (e: React.FormEvent) => {
     e.preventDefault();
-    // Submit shop for admin approval
+    // Pass shop data to App state for admin approval
     registerShop({
       name: formData.shopName,
       ownerName: formData.name,
@@ -97,7 +96,6 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, registerShop, lang }) =>
           </div>
         </div>
 
-        {/* Status Stepper */}
         <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100 space-y-6">
           <div className="flex items-start gap-4">
             <div className="flex flex-col items-center">
@@ -114,25 +112,24 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, registerShop, lang }) =>
             <div className="flex-1 space-y-8">
               <div>
                 <h4 className="font-black text-xs text-gray-900 uppercase">Application Received</h4>
-                <p className="text-[10px] text-gray-400 font-medium">Admin panel notified for <span className="text-gray-900 font-bold">{formData.shopName}</span>.</p>
+                <p className="text-[10px] text-gray-400 font-medium">Shop details for <span className="text-gray-900 font-bold">{formData.shopName}</span> sent to admin.</p>
               </div>
               <div>
                 <h4 className="font-black text-xs text-pink-600 uppercase">Payment Verification</h4>
-                <p className="text-[10px] text-gray-400 font-medium">Verify PKR {REGISTRATION_FEE_PKR.toLocaleString()} via <span className="text-gray-900 font-bold">{formData.paymentMethod}</span>.</p>
+                <p className="text-[10px] text-gray-400 font-medium">Admin will verify PKR {REGISTRATION_FEE_PKR.toLocaleString()} via <span className="text-gray-900 font-bold">{formData.paymentMethod}</span>.</p>
               </div>
               <div>
                 <h4 className="font-black text-xs text-gray-300 uppercase">Store Goes Live</h4>
-                <p className="text-[10px] text-gray-400 font-medium">Store will be public once approved.</p>
+                <p className="text-[10px] text-gray-400 font-medium">Your boutique will appear in the bazar once approved.</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Payment Instructions Box */}
         <div className="bg-pink-600 rounded-[2.5rem] p-8 text-white space-y-6 shadow-xl shadow-pink-200">
            <div className="flex items-center gap-3">
              <CreditCard className="w-6 h-6" />
-             <h3 className="font-black text-sm uppercase tracking-widest">Complete Registration</h3>
+             <h3 className="font-black text-sm uppercase tracking-widest">Complete Payment</h3>
            </div>
            
            <div className="space-y-4">
@@ -144,18 +141,18 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, registerShop, lang }) =>
 
               <div className="space-y-2">
                 <p className="text-[10px] leading-relaxed font-medium">
-                  1. Open your <b>{formData.paymentMethod}</b> App.<br/>
-                  2. Transfer <b>PKR {REGISTRATION_FEE_PKR.toLocaleString()}</b>.<br/>
-                  3. Take a screenshot and send it to WhatsApp for verification.
+                  1. Open your <b>{formData.paymentMethod}</b> app.<br/>
+                  2. Send <b>PKR {REGISTRATION_FEE_PKR.toLocaleString()}</b> to the number above.<br/>
+                  3. Send the screenshot on WhatsApp for instant approval.
                 </p>
               </div>
            </div>
 
            <button 
-             onClick={() => window.open(`https://wa.me/923001234567?text=Payment receipt for ${formData.shopName}`)}
+             onClick={() => window.open(`https://wa.me/923001234567?text=Hi! I just registered ${formData.shopName} and made the payment.`)}
              className="w-full bg-white text-pink-600 font-black py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-pink-800/20 active:scale-95 transition-all uppercase tracking-widest text-[10px]"
            >
-             Send Receipt on WhatsApp <ExternalLink className="w-3 h-3" />
+             Send Screenshot on WhatsApp <ExternalLink className="w-3 h-3" />
            </button>
         </div>
 
@@ -273,7 +270,7 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, registerShop, lang }) =>
                 <MapPin className="absolute left-4 top-3.5 w-4 h-4 text-gray-300" />
                 <textarea
                   required
-                  placeholder="e.g. Shop #42, First Floor, Resham Gali..."
+                  placeholder="e.g. Shop #42, Resham Gali..."
                   className="w-full pl-11 pr-4 py-3.5 bg-white border border-gray-200 rounded-2xl focus:ring-2 focus:ring-pink-500 outline-none text-sm h-24 resize-none shadow-sm transition-all"
                   value={formData.address}
                   onChange={e => setFormData({...formData, address: e.target.value})}
@@ -419,7 +416,7 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, registerShop, lang }) =>
         </button>
       </div>
 
-      <p className="text-[9px] text-gray-300 font-black uppercase tracking-widest">
+      <p className="text-center text-[9px] text-gray-300 uppercase font-black tracking-widest pt-4">
         Powered by Ghotki Ladies Bazar
       </p>
     </div>
