@@ -1,13 +1,12 @@
-
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { HashRouter as Router } from 'react-router-dom';
 import App from './App';
 
-const rootElement = document.getElementById('root');
+const container = document.getElementById('root');
 
-if (rootElement) {
-  const root = createRoot(rootElement);
+if (container) {
+  const root = createRoot(container);
   root.render(
     <React.StrictMode>
       <Router>
@@ -16,5 +15,5 @@ if (rootElement) {
     </React.StrictMode>
   );
 } else {
-  console.error("Mount point 'root' not found");
+  console.error("Critical Error: Root element #root not found in DOM.");
 }

@@ -1,36 +1,37 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
   define: {
-    // Safely inject the API key and provide a global process.env fallback
     'process.env.API_KEY': JSON.stringify(process.env.API_KEY || ''),
-    'process.env': {}
-  },
-  server: {
-    port: 3000
+    'process.env': {},
+    'global': 'window'
   },
   build: {
     outDir: 'dist',
-    sourcemap: false,
-    chunkSizeWarningLimit: 2000,
+    chunkSizeWarningLimit: 3000,
+    minify: 'terser',
     rollupOptions: {
       output: {
-        // Effective chunk splitting to separate vendor code from app logic
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('router')) {
-              return 'vendor-core';
+            if (id.includes('recharts')) {
+              return 'vendor-charts';
             }
-            if (id.includes('lucide') || id.includes('recharts')) {
-              return 'vendor-ui';
+            if (id.includes('lucide-react')) {
+              return 'vendor-icons';
             }
-            return 'vendor';
+            if (id.includes('@google/genai')) {
+              return 'vendor-ai';
+            }
+            if (id.includes('react')) {
+              return 'vendor-react';
+            }
+            return 'vendor-others';
           }
-        }
-      }
-    }
-  }
+        },
+      },
+    },
+  },
 });
