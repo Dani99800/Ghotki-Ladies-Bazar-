@@ -6,7 +6,7 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   define: {
-    // Ensure process.env.API_KEY is safely stringified even if undefined
+    // Standard way to handle process.env in Vite define
     'process.env.API_KEY': JSON.stringify(process.env.API_KEY || '')
   },
   server: {
@@ -14,17 +14,13 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
-    // Increase limit to suppress warning while manualChunks handles the actual optimization
-    chunkSizeWarningLimit: 1000,
+    sourcemap: false, // Disabling sourcemaps for production to reduce bundle size
+    chunkSizeWarningLimit: 2000,
     rollupOptions: {
       output: {
-        // Splitting large libraries into separate chunks for better caching and smaller main bundle
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            if (id.includes('recharts')) return 'vendor-recharts';
-            if (id.includes('lucide-react')) return 'vendor-icons';
-            if (id.includes('react')) return 'vendor-react-core';
+            // Group all libraries into one vendor chunk to ensure proper execution order
             return 'vendor';
           }
         }
