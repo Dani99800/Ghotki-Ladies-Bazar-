@@ -51,24 +51,33 @@ const App: React.FC = () => {
     notificationSound.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
     notificationSound.current.load();
     
-    const savedUser = localStorage.getItem('glb_user');
-    if (savedUser) setUser(JSON.parse(savedUser));
-    
-    const savedCart = localStorage.getItem('glb_cart');
-    if (savedCart) setCart(JSON.parse(savedCart));
+    // Robust parsing for localStorage to avoid white screen
+    const loadSafely = (key: string, setter: (val: any) => void) => {
+      try {
+        const saved = localStorage.getItem(key);
+        if (saved && saved !== "undefined" && saved !== "null") {
+          setter(JSON.parse(saved));
+        }
+      } catch (e) {
+        console.error(`Error loading ${key}:`, e);
+      }
+    };
+
+    loadSafely('glb_user', setUser);
+    loadSafely('glb_cart', setCart);
+    loadSafely('glb_orders', setOrders);
+    loadSafely('glb_notifications', setNotifications);
 
     const savedProducts = localStorage.getItem('glb_products');
-    if (savedProducts) {
-      setProducts(JSON.parse(savedProducts));
-    } else {
+    try {
+      if (savedProducts && savedProducts !== "undefined") {
+        setProducts(JSON.parse(savedProducts));
+      } else {
+        setProducts(MOCK_PRODUCTS);
+      }
+    } catch (e) {
       setProducts(MOCK_PRODUCTS);
     }
-
-    const savedOrders = localStorage.getItem('glb_orders');
-    if (savedOrders) setOrders(JSON.parse(savedOrders));
-
-    const savedNotifs = localStorage.getItem('glb_notifications');
-    if (savedNotifs) setNotifications(JSON.parse(savedNotifs));
 
     if ("Notification" in window && Notification.permission === "default") {
       Notification.requestPermission();
@@ -84,9 +93,11 @@ const App: React.FC = () => {
   }, [products]);
 
   useEffect(() => {
-    localStorage.setItem('glb_cart', JSON.stringify(cart));
-    localStorage.setItem('glb_orders', JSON.stringify(orders));
-    localStorage.setItem('glb_notifications', JSON.stringify(notifications));
+    try {
+      localStorage.setItem('glb_cart', JSON.stringify(cart));
+      localStorage.setItem('glb_orders', JSON.stringify(orders));
+      localStorage.setItem('glb_notifications', JSON.stringify(notifications));
+    } catch (e) { console.warn("Order/Cart save failed"); }
   }, [cart, orders, notifications]);
 
   const handleLogout = () => {
