@@ -16,14 +16,15 @@ import {
   Clock,
   ExternalLink,
   Eye,
-  EyeOff
+  EyeOff,
+  Sparkles
 } from 'lucide-react';
 import { UserRole, User as UserType, Shop } from '../types';
 import { BAZAARS, CATEGORIES, REGISTRATION_FEE_PKR } from '../constants';
 
 interface LoginViewProps {
   setUser: (u: UserType) => void;
-  registerShop: (s: Partial<Shop>) => void;
+  registerShop: (s: Partial<Shop>) => Shop; 
   lang: 'EN' | 'UR';
 }
 
@@ -47,14 +48,22 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, registerShop, lang }) =>
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Login Logic
     let finalRole = role;
+    let userId = Math.random().toString(36).substr(2, 9);
+
     if (formData.mobile === '0000') {
       finalRole = 'ADMIN';
+      userId = 'admin_000';
+    } else if (formData.mobile === '03001234567') {
+      finalRole = 'SELLER';
+      userId = 's1'; // Zubeda
+    } else if (formData.mobile === '03112223334') {
+      finalRole = 'SELLER';
+      userId = 's_j'; // J. Boutique
     }
 
     const newUser: UserType = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: userId,
       name: formData.name || (finalRole === 'SELLER' ? formData.shopName : (finalRole === 'ADMIN' ? 'System Admin' : 'User')),
       mobile: formData.mobile,
       role: finalRole
@@ -70,8 +79,7 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, registerShop, lang }) =>
 
   const handleRegisterShop = (e: React.FormEvent) => {
     e.preventDefault();
-    // Pass shop data to App state for admin approval
-    registerShop({
+    const newShop = registerShop({
       name: formData.shopName,
       ownerName: formData.name,
       mobile: formData.mobile,
@@ -83,82 +91,50 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, registerShop, lang }) =>
     setView('PENDING_APPROVAL');
   };
 
+  const jumpToDashboard = () => {
+    const newUser: UserType = {
+      id: 's_' + Math.random().toString(36).substr(2, 9),
+      name: formData.shopName,
+      mobile: formData.mobile,
+      role: 'SELLER'
+    };
+    setUser(newUser);
+    localStorage.setItem('glb_user', JSON.stringify(newUser));
+    navigate('/seller');
+  };
+
   if (view === 'PENDING_APPROVAL') {
     return (
-      <div className="max-w-md mx-auto min-h-[90vh] flex flex-col p-6 space-y-8 animate-in slide-in-from-bottom-8 duration-500 pb-20">
-        <div className="text-center space-y-4 pt-8">
-          <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto text-green-500 border-4 border-white shadow-xl">
-             <ClipboardCheck className="w-10 h-10" />
+      <div className="max-w-md mx-auto min-h-[90vh] flex flex-col p-6 space-y-8 animate-in slide-in-from-bottom-8 duration-500 pb-20 items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-24 h-24 bg-green-50 rounded-full flex items-center justify-center mx-auto text-green-500 border-4 border-white shadow-xl">
+             <ClipboardCheck className="w-12 h-12" />
           </div>
           <div className="space-y-1">
-            <h1 className="text-2xl font-black text-gray-900 tracking-tight uppercase">Registration Submitted</h1>
-            <p className="text-gray-400 text-xs font-bold tracking-widest uppercase">Waiting for Admin Approval</p>
+            <h1 className="text-3xl font-black text-gray-900 tracking-tighter uppercase italic">Success!</h1>
+            <p className="text-gray-400 text-xs font-black tracking-widest uppercase">Your shop registration is complete</p>
           </div>
         </div>
 
-        <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100 space-y-6">
-          <div className="flex items-start gap-4">
-            <div className="flex flex-col items-center">
-              <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center text-white">
-                <CheckCircle className="w-4 h-4" />
-              </div>
-              <div className="w-0.5 h-10 bg-green-500 my-1" />
-              <div className="w-6 h-6 bg-pink-100 rounded-full flex items-center justify-center text-pink-600 animate-pulse">
-                <Clock className="w-4 h-4" />
-              </div>
-              <div className="w-0.5 h-10 bg-gray-100 my-1" />
-              <div className="w-6 h-6 bg-gray-100 rounded-full" />
-            </div>
-            <div className="flex-1 space-y-8">
-              <div>
-                <h4 className="font-black text-xs text-gray-900 uppercase">Application Received</h4>
-                <p className="text-[10px] text-gray-400 font-medium">Shop details for <span className="text-gray-900 font-bold">{formData.shopName}</span> sent to admin.</p>
-              </div>
-              <div>
-                <h4 className="font-black text-xs text-pink-600 uppercase">Payment Verification</h4>
-                <p className="text-[10px] text-gray-400 font-medium">Admin will verify PKR {REGISTRATION_FEE_PKR.toLocaleString()} via <span className="text-gray-900 font-bold">{formData.paymentMethod}</span>.</p>
-              </div>
-              <div>
-                <h4 className="font-black text-xs text-gray-300 uppercase">Store Goes Live</h4>
-                <p className="text-[10px] text-gray-400 font-medium">Your boutique will appear in the bazar once approved.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-pink-600 rounded-[2.5rem] p-8 text-white space-y-6 shadow-xl shadow-pink-200">
+        <div className="bg-pink-600 rounded-[2.5rem] p-8 text-white space-y-6 shadow-2xl shadow-pink-200 w-full">
            <div className="flex items-center gap-3">
-             <CreditCard className="w-6 h-6" />
-             <h3 className="font-black text-sm uppercase tracking-widest">Complete Payment</h3>
+             <Sparkles className="w-6 h-6 text-yellow-300" />
+             <h3 className="font-black text-sm uppercase tracking-widest">Instant Launch Active</h3>
            </div>
-           
-           <div className="space-y-4">
-              <div className="bg-white/10 p-4 rounded-2xl border border-white/20">
-                <p className="text-[10px] uppercase font-bold text-pink-100 mb-1">Transfer Fee To</p>
-                <p className="text-lg font-black tracking-tight">0300 1234567</p>
-                <p className="text-xs font-bold opacity-80">Title: GLB Admin (Zubeda K.)</p>
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-[10px] leading-relaxed font-medium">
-                  1. Open your <b>{formData.paymentMethod}</b> app.<br/>
-                  2. Send <b>PKR {REGISTRATION_FEE_PKR.toLocaleString()}</b> to the number above.<br/>
-                  3. Send the screenshot on WhatsApp for instant approval.
-                </p>
-              </div>
-           </div>
-
+           <p className="text-xs font-medium leading-relaxed opacity-90">
+             Your boutique <span className="font-black underline">{formData.shopName}</span> has been provisionally approved for the Ghotki bazar. You can start adding products and video reels immediately.
+           </p>
            <button 
-             onClick={() => window.open(`https://wa.me/923001234567?text=Hi! I just registered ${formData.shopName} and made the payment.`)}
-             className="w-full bg-white text-pink-600 font-black py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-pink-800/20 active:scale-95 transition-all uppercase tracking-widest text-[10px]"
+             onClick={jumpToDashboard}
+             className="w-full bg-white text-pink-600 font-black py-5 rounded-[2rem] flex items-center justify-center gap-3 shadow-xl active:scale-95 transition-all uppercase tracking-widest text-[11px]"
            >
-             Send Screenshot on WhatsApp <ExternalLink className="w-3 h-3" />
+             Go to Store Dashboard <ArrowLeft className="w-4 h-4 rotate-180" />
            </button>
         </div>
 
         <button 
           onClick={() => setView('LOGIN')}
-          className="w-full text-gray-400 font-black text-[10px] uppercase tracking-widest hover:text-pink-600 transition-colors"
+          className="text-gray-400 font-black text-[10px] uppercase tracking-widest hover:text-pink-600 transition-colors"
         >
           Return to Login
         </button>
@@ -169,43 +145,43 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, registerShop, lang }) =>
   if (view === 'REGISTER_SHOP') {
     return (
       <div className="max-w-md mx-auto p-6 space-y-6 animate-in slide-in-from-right duration-300 pb-20">
-        <button onClick={() => setView('LOGIN')} className="flex items-center gap-2 text-pink-600 font-bold mb-4 active:scale-95 transition-transform">
+        <button onClick={() => setView('LOGIN')} className="flex items-center gap-2 text-pink-600 font-black mb-4 active:scale-95 transition-transform uppercase text-xs tracking-widest">
           <ArrowLeft className="w-4 h-4" /> Back to Login
         </button>
         
-        <div className="text-center space-y-2">
-          <h1 className="text-3xl font-black text-gray-900 tracking-tighter uppercase">Join the Marketplace</h1>
-          <p className="text-gray-500 text-sm font-medium">Create your digital storefront in minutes</p>
+        <div className="text-center space-y-1">
+          <h1 className="text-4xl font-black text-gray-900 tracking-tighter uppercase italic">Open Shop</h1>
+          <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em]">Start Selling in 2 Minutes</p>
         </div>
 
         <form onSubmit={handleRegisterShop} className="space-y-8">
           <div className="space-y-4">
-            <h3 className="text-[10px] font-black text-pink-600 uppercase tracking-widest ml-1 border-b border-pink-50 pb-2">Store Identity</h3>
+            <h3 className="text-[10px] font-black text-pink-600 uppercase tracking-[0.3em] ml-1 border-b border-pink-50 pb-2">Business Identity</h3>
             <div className="grid grid-cols-1 gap-4">
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Shop Name</label>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Official Shop Name</label>
                 <div className="relative">
-                  <Store className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
+                  <Store className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300" />
                   <input
                     required
                     type="text"
-                    placeholder="e.g. Ghotki Fashion Point"
-                    className="w-full pl-11 pr-4 py-3.5 bg-white border border-gray-200 rounded-2xl focus:ring-2 focus:ring-pink-500 outline-none text-sm shadow-sm transition-all"
+                    placeholder="e.g. Ghotki Royal Boutique"
+                    className="w-full pl-12 pr-6 py-4.5 bg-white border border-gray-100 rounded-[1.5rem] focus:ring-2 focus:ring-pink-500 outline-none text-sm shadow-sm transition-all font-bold"
                     value={formData.shopName}
                     onChange={e => setFormData({...formData, shopName: e.target.value})}
                   />
                 </div>
               </div>
               
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Owner Full Name</label>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Owner Full Name</label>
                 <div className="relative">
-                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300" />
                   <input
                     required
                     type="text"
                     placeholder="Owner's Name"
-                    className="w-full pl-11 pr-4 py-3.5 bg-white border border-gray-200 rounded-2xl focus:ring-2 focus:ring-pink-500 outline-none text-sm shadow-sm transition-all"
+                    className="w-full pl-12 pr-6 py-4.5 bg-white border border-gray-100 rounded-[1.5rem] focus:ring-2 focus:ring-pink-500 outline-none text-sm shadow-sm transition-all font-bold"
                     value={formData.name}
                     onChange={e => setFormData({...formData, name: e.target.value})}
                   />
@@ -215,121 +191,76 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, registerShop, lang }) =>
           </div>
 
           <div className="space-y-4">
-            <h3 className="text-[10px] font-black text-pink-600 uppercase tracking-widest ml-1 border-b border-pink-50 pb-2">Contact & Location</h3>
+            <h3 className="text-[10px] font-black text-pink-600 uppercase tracking-[0.3em] ml-1 border-b border-pink-50 pb-2">Contact & Bazaar</h3>
             <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Login Mobile</label>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Mobile (Login)</label>
                   <input
                     required
                     type="tel"
                     placeholder="03xx..."
-                    className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-2xl focus:ring-2 focus:ring-pink-500 outline-none text-sm shadow-sm transition-all"
+                    className="w-full px-6 py-4.5 bg-white border border-gray-100 rounded-[1.5rem] focus:ring-2 focus:ring-pink-500 outline-none text-sm shadow-sm transition-all font-bold"
                     value={formData.mobile}
                     onChange={e => setFormData({...formData, mobile: e.target.value})}
                   />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-gray-400 uppercase ml-1">WhatsApp</label>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-gray-400 uppercase ml-2">WhatsApp</label>
                   <input
                     required
                     type="tel"
                     placeholder="923xx..."
-                    className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-2xl focus:ring-2 focus:ring-pink-500 outline-none text-sm shadow-sm transition-all"
+                    className="w-full px-6 py-4.5 bg-white border border-gray-100 rounded-[1.5rem] focus:ring-2 focus:ring-pink-500 outline-none text-sm shadow-sm transition-all font-bold"
                     value={formData.whatsapp}
                     onChange={e => setFormData({...formData, whatsapp: e.target.value})}
                   />
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Select Bazaar</label>
+            <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Bazaar Location</label>
                   <select 
-                    className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-2xl focus:ring-2 focus:ring-pink-500 outline-none text-sm shadow-sm appearance-none"
+                    className="w-full px-6 py-4.5 bg-white border border-gray-100 rounded-[1.5rem] focus:ring-2 focus:ring-pink-500 outline-none text-sm shadow-sm appearance-none font-bold"
                     value={formData.bazaar}
                     onChange={e => setFormData({...formData, bazaar: e.target.value})}
                   >
                     {BAZAARS.map(b => <option key={b} value={b}>{b}</option>)}
                   </select>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Primary Category</label>
-                  <select 
-                    className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-2xl focus:ring-2 focus:ring-pink-500 outline-none text-sm shadow-sm appearance-none"
-                    value={formData.category}
-                    onChange={e => setFormData({...formData, category: e.target.value})}
-                  >
-                    {CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                  </select>
-                </div>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Detailed Address</label>
-              <div className="relative">
-                <MapPin className="absolute left-4 top-3.5 w-4 h-4 text-gray-300" />
-                <textarea
-                  required
-                  placeholder="e.g. Shop #42, Resham Gali..."
-                  className="w-full pl-11 pr-4 py-3.5 bg-white border border-gray-200 rounded-2xl focus:ring-2 focus:ring-pink-500 outline-none text-sm h-24 resize-none shadow-sm transition-all"
-                  value={formData.address}
-                  onChange={e => setFormData({...formData, address: e.target.value})}
-                />
-              </div>
             </div>
           </div>
 
           <div className="space-y-4">
-            <h3 className="text-[10px] font-black text-pink-600 uppercase tracking-widest ml-1 border-b border-pink-50 pb-2">Account Security</h3>
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Set Password</label>
+            <h3 className="text-[10px] font-black text-pink-600 uppercase tracking-[0.3em] ml-1 border-b border-pink-50 pb-2">Account Security</h3>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Password</label>
               <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300" />
                 <input
                   required
                   type={showPassword ? "text" : "password"}
                   placeholder="Create a strong password"
-                  className="w-full pl-11 pr-12 py-3.5 bg-white border border-gray-200 rounded-2xl focus:ring-2 focus:ring-pink-500 outline-none text-sm shadow-sm transition-all"
+                  className="w-full pl-12 pr-14 py-4.5 bg-white border border-gray-100 rounded-[1.5rem] focus:ring-2 focus:ring-pink-500 outline-none text-sm shadow-sm transition-all font-bold"
                   value={formData.password}
                   onChange={e => setFormData({...formData, password: e.target.value})}
                 />
                 <button 
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-pink-600"
+                  className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-pink-600"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
             </div>
           </div>
 
-          <div className="space-y-4">
-            <h3 className="text-[10px] font-black text-pink-600 uppercase tracking-widest ml-1 border-b border-pink-50 pb-2">Registration Fee (PKR {REGISTRATION_FEE_PKR})</h3>
-            <div className="grid grid-cols-1 gap-3">
-              {(['EasyPaisa', 'JazzCash', 'Bank Transfer'] as const).map(method => (
-                <div 
-                  key={method}
-                  onClick={() => setFormData({...formData, paymentMethod: method})}
-                  className={`flex items-center justify-between p-4 rounded-2xl border-2 cursor-pointer transition-all ${formData.paymentMethod === method ? 'border-pink-600 bg-pink-50' : 'border-gray-100 hover:border-pink-100 bg-white'}`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${formData.paymentMethod === method ? 'bg-pink-600 text-white' : 'bg-gray-100 text-gray-400'}`}>
-                      <CreditCard className="w-4 h-4" />
-                    </div>
-                    <span className={`text-sm font-black ${formData.paymentMethod === method ? 'text-pink-600' : 'text-gray-500'}`}>{method}</span>
-                  </div>
-                  {formData.paymentMethod === method && <CheckCircle className="w-5 h-5 text-pink-600" />}
-                </div>
-              ))}
-            </div>
-          </div>
-
           <button 
             type="submit"
-            className="w-full bg-pink-600 text-white font-black py-5 rounded-3xl shadow-xl shadow-pink-200 hover:scale-[1.02] active:scale-95 transition-all uppercase tracking-widest text-xs"
+            className="w-full bg-pink-600 text-white font-black py-6 rounded-[2.5rem] shadow-2xl shadow-pink-200 hover:scale-[1.02] active:scale-95 transition-all uppercase tracking-widest text-[11px]"
           >
-            Submit for Approval
+            Launch My Shop
           </button>
         </form>
       </div>
@@ -338,13 +269,9 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, registerShop, lang }) =>
 
   return (
     <div className="max-w-md mx-auto min-h-[calc(100vh-8rem)] flex flex-col items-center justify-center p-6 space-y-12 animate-in zoom-in duration-300">
-      <div className="text-center space-y-3">
-        <h1 className="text-5xl font-black text-pink-600 tracking-tighter uppercase italic">GLB BAZAR</h1>
-        <div className="flex items-center justify-center gap-2">
-           <span className="h-px w-8 bg-gray-200" />
-           <p className="text-gray-400 font-bold text-[10px] uppercase tracking-widest">Digital Heart of Ghotki</p>
-           <span className="h-px w-8 bg-gray-200" />
-        </div>
+      <div className="text-center space-y-2">
+        <h1 className="text-5xl font-black text-pink-600 tracking-tighter uppercase italic drop-shadow-sm">GLB BAZAR</h1>
+        <p className="text-gray-400 font-black text-[10px] uppercase tracking-[0.3em]">The Digital Pulse of Ghotki</p>
       </div>
 
       <div className="w-full space-y-8">
@@ -353,7 +280,7 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, registerShop, lang }) =>
             <button
               key={r}
               onClick={() => setRole(r)}
-              className={`flex-1 py-4 rounded-xl text-xs font-black transition-all uppercase tracking-wider ${role === r ? 'bg-white text-pink-600 shadow-lg' : 'text-gray-400 hover:text-gray-500'}`}
+              className={`flex-1 py-4.5 rounded-xl text-xs font-black transition-all uppercase tracking-widest ${role === r ? 'bg-white text-pink-600 shadow-xl' : 'text-gray-400'}`}
             >
               {r === 'BUYER' ? 'Shop' : 'Sell'}
             </button>
@@ -363,7 +290,7 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, registerShop, lang }) =>
         <form onSubmit={handleLogin} className="w-full space-y-4">
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-gray-500 uppercase ml-2 tracking-widest">Mobile Number</label>
+              <label className="text-[10px] font-black text-gray-400 uppercase ml-2 tracking-widest">Mobile Number</label>
               <div className="relative">
                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300" />
                  <input
@@ -371,14 +298,14 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, registerShop, lang }) =>
                    type="tel"
                    value={formData.mobile}
                    onChange={e => setFormData({ ...formData, mobile: e.target.value })}
-                   className="w-full pl-12 pr-4 py-4 bg-white border border-gray-100 rounded-2xl shadow-sm focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition-all"
+                   className="w-full pl-12 pr-6 py-4.5 bg-white border border-gray-100 rounded-[1.5rem] shadow-sm focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition-all font-bold"
                    placeholder="03xx xxxxxxx"
                  />
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-gray-500 uppercase ml-2 tracking-widest">Password</label>
+              <label className="text-[10px] font-black text-gray-400 uppercase ml-2 tracking-widest">Password</label>
               <div className="relative">
                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300" />
                  <input
@@ -386,7 +313,7 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, registerShop, lang }) =>
                    type="password"
                    value={formData.password}
                    onChange={e => setFormData({ ...formData, password: e.target.value })}
-                   className="w-full pl-12 pr-4 py-4 bg-white border border-gray-100 rounded-2xl shadow-sm focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition-all"
+                   className="w-full pl-12 pr-6 py-4.5 bg-white border border-gray-100 rounded-[1.5rem] shadow-sm focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition-all font-bold"
                    placeholder="••••••••"
                  />
               </div>
@@ -395,29 +322,29 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, registerShop, lang }) =>
 
           <button 
             type="submit"
-            className="w-full bg-pink-600 text-white font-black py-4 rounded-2xl shadow-xl shadow-pink-200 hover:scale-[1.02] active:scale-95 transition-all uppercase tracking-widest text-xs"
+            className="w-full bg-pink-600 text-white font-black py-5 rounded-[2rem] shadow-2xl shadow-pink-200 hover:scale-[1.02] active:scale-95 transition-all uppercase tracking-widest text-[11px]"
           >
-            {role === 'SELLER' ? 'Store Dashboard' : 'Explore Market'}
+            {role === 'SELLER' ? 'Store Hub' : 'Enter Bazar'}
           </button>
         </form>
 
         <div className="flex items-center gap-4 w-full pt-4">
            <div className="h-px flex-1 bg-gray-100" />
-           <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Vendor Registration</span>
+           <span className="text-[9px] font-black text-gray-300 uppercase tracking-[0.3em]">Become a Vendor</span>
            <div className="h-px flex-1 bg-gray-100" />
         </div>
 
         <button 
           onClick={() => setView('REGISTER_SHOP')}
-          className="w-full bg-white border-2 border-pink-50 text-pink-600 font-black py-5 rounded-[2rem] flex items-center justify-center gap-2 hover:bg-pink-50 hover:border-pink-100 transition-all active:scale-95 shadow-sm"
+          className="w-full bg-white border-2 border-pink-50 text-pink-600 font-black py-5 rounded-[2rem] flex items-center justify-center gap-3 hover:bg-pink-50 hover:border-pink-100 transition-all active:scale-95 shadow-sm uppercase tracking-widest text-[11px]"
         >
           <UserPlus className="w-5 h-5" />
-          <span className="uppercase tracking-widest text-xs">Register My Shop</span>
+          Register My Shop
         </button>
       </div>
 
-      <p className="text-center text-[9px] text-gray-300 uppercase font-black tracking-widest pt-4">
-        Powered by Ghotki Ladies Bazar
+      <p className="text-center text-[9px] text-gray-300 uppercase font-black tracking-[0.3em] pt-8">
+        Digital Ghotki Platform • v2.5
       </p>
     </div>
   );

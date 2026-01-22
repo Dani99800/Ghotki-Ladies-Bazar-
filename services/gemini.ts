@@ -1,29 +1,19 @@
 
 import { GoogleGenAI } from "@google/genai";
 
-// Safe retrieval of API key to prevent crashes if environment variable is not yet set
-const getApiKey = () => {
-  try {
-    return process.env.API_KEY || '';
-  } catch (e) {
-    return '';
-  }
-};
-
-const apiKey = getApiKey();
-// Initialize only if API key is present, otherwise handle gracefully in methods
-const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
+// Fix: Strictly follow initialization guidelines and assume process.env.API_KEY is available.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const geminiService = {
   async generateProductDescription(productName: string, category: string): Promise<string> {
-    if (!ai) return "An elegant addition to your wardrobe.";
-    
     try {
+      // Fix: Use the recommended model for basic text tasks and call generateContent directly.
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: `Write a compelling, short marketing description for a ${category} product named "${productName}" targeting shoppers in a local Pakistani bazaar. Keep it elegant and highlight local style.`,
       });
-      return response.text || "No description generated.";
+      // Fix: Extract text using the .text property directly.
+      return response.text || "An elegant addition to your wardrobe.";
     } catch (error) {
       console.error("Gemini Error:", error);
       return "An elegant addition to your wardrobe.";
@@ -31,15 +21,15 @@ export const geminiService = {
   },
 
   async translateToUrdu(text: string): Promise<string> {
-    if (!ai) return text;
-
     try {
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: `Translate the following marketing text to natural, spoken Urdu (using Urdu script): "${text}"`,
       });
+      // Fix: Extract text using the .text property directly.
       return response.text || text;
     } catch (error) {
+      console.error("Gemini Translation Error:", error);
       return text;
     }
   }

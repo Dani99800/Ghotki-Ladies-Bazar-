@@ -42,7 +42,7 @@ export interface Product {
   price: number;
   category: string;
   images: string[];
-  videoUrl?: string; // High engagement video link
+  videoUrl?: string; 
   tags: ('New' | 'Trending' | 'Best Seller' | 'Sale')[];
   stock: number;
   createdAt?: string;
@@ -57,10 +57,16 @@ export interface Order {
   buyerId: string;
   sellerId: string;
   items: CartItem[];
+  subtotal: number;
+  deliveryFee: number;
+  platformFee: number; // 50 PKR per sale
   total: number;
   deliveryType: 'PICKUP' | 'DELIVERY';
-  deliveryFee: number;
-  status: 'PENDING' | 'PAID' | 'SHIPPED' | 'COMPLETED' | 'CANCELLED';
-  paymentMethod: 'EasyPaisa' | 'JazzCash' | 'Bank Transfer';
+  status: 'PENDING' | 'PAYMENT_RECEIVED' | 'SHIPPED' | 'COMPLETED' | 'CANCELLED';
+  paymentMethod: 'EasyPaisa' | 'JazzCash' | 'Bank Transfer' | 'COD';
+  isDeliveryPaidAdvance: boolean;
+  buyerName?: string;
+  buyerMobile?: string;
+  buyerAddress?: string;
   createdAt: string;
 }
