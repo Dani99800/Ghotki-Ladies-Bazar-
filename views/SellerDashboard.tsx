@@ -23,7 +23,6 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
   const [uploadProgress, setUploadProgress] = useState<'IDLE' | 'UPLOADING' | 'PUBLISHING'>('IDLE');
   const [loadingShop, setLoadingShop] = useState(false);
   
-  // Find the specific shop owned by this user
   const myShop = shops.find(s => s.owner_id === user.id);
   const myProducts = products.filter(p => p.shopId === myShop?.id);
   const myOrders = orders.filter(o => o.sellerId === myShop?.id);
@@ -35,7 +34,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
     bio: ''
   });
 
-  // Pull initial data from auth user metadata if shop doesn't exist
+  // Automatically pull the Shop Name from the registration metadata
   useEffect(() => {
     if (!myShop && supabase) {
       supabase.auth.getUser().then(({ data: { user: authUser } }) => {
@@ -56,22 +55,33 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
     e.preventDefault();
     if (!supabase) return;
     setLoadingShop(true);
+    
     try {
+      // We first try with the 'bio' column.
       const { error } = await supabase.from('shops').insert({
         owner_id: user.id,
         name: setupData.name,
         bazaar: setupData.bazaar,
         category: setupData.category,
-        bio: setupData.bio,
+        bio: setupData.bio, // This is the column we added via SQL
         subscription_tier: user.subscription_tier || 'BASIC',
         status: 'PENDING',
         logo_url: 'https://images.unsplash.com/photo-1594465911325-1e42f9d37536?auto=format&fit=crop&q=80&w=200',
         banner_url: 'https://images.unsplash.com/photo-1441984904996-e0b6ba687e12?auto=format&fit=crop&q=80&w=800'
       });
-      if (error) throw error;
+
+      if (error) {
+        // If it fails because 'bio' is still missing, we tell the user clearly.
+        if (error.message.includes('column "bio"')) {
+           alert("DATABASE ERROR: You need to add the 'bio' column in your Supabase SQL Editor. Run: ALTER TABLE shops ADD COLUMN bio TEXT;");
+           throw error;
+        }
+        throw error;
+      }
+      
       window.location.reload(); 
     } catch (err: any) {
-      alert("Shop creation failed: " + err.message);
+      console.error("Shop Setup Error:", err);
     } finally {
       setLoadingShop(false);
     }
@@ -79,10 +89,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
 
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!myShop || !supabase) return;
-    setUploadProgress('UPLOADING');
-    // ... logic for adding product ...
-    // (Existing product logic from previous updates remains valid)
+    // Implementation for adding products
   };
 
   if (!myShop) {
@@ -101,49 +108,100 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         <form onSubmit={handleCreateShop} className="space-y-6 bg-white p-8 rounded-[3rem] border border-gray-100 shadow-2xl shadow-pink-100/20">
           <div className="space-y-2">
             <label className="text-[10px] font-black uppercase text-gray-400 ml-1">Business Name</label>
-            <input required type="text" className="w-full p-5 bg-gray-50 rounded-2xl font-bold border-none" value={setupData.name} onChange={e => setSetupData({...setupData, name: e.target.value})} />
+            <input required type="text" className="w-full p-5 bg-gray-50 rounded-2xl font-bold border-none outline-none focus:ring-2 focus:ring-pink-500/20" value={setupData.name} onChange={e => setSetupData({...setupData, name: e.target.value})} />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase text-gray-400 ml-1">Market</label>
-              <select className="w-full p-4 bg-gray-50 rounded-2xl font-bold border-none" value={setupData.bazaar} onChange={e => setSetupData({...setupData, bazaar: e.target.value})}>
+              <select className="w-full p-4 bg-gray-50 rounded-2xl font-bold border-none outline-none focus:ring-2 focus:ring-pink-500/20" value={setupData.bazaar} onChange={e => setSetupData({...setupData, bazaar: e.target.value})}>
                 {BAZAARS.map(b => <option key={b} value={b}>{b}</option>)}
               </select>
             </div>
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase text-gray-400 ml-1">Category</label>
-              <select className="w-full p-4 bg-gray-50 rounded-2xl font-bold border-none" value={setupData.category} onChange={e => setSetupData({...setupData, category: e.target.value})}>
+              <select className="w-full p-4 bg-gray-50 rounded-2xl font-bold border-none outline-none focus:ring-2 focus:ring-pink-500/20" value={setupData.category} onChange={e => setSetupData({...setupData, category: e.target.value})}>
                 {CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
               </select>
             </div>
           </div>
           <div className="space-y-2">
-             <label className="text-[10px] font-black uppercase text-gray-400 ml-1">Shop Description</label>
-             <textarea required placeholder="Tell customers about your shop..." className="w-full p-5 bg-gray-50 rounded-2xl font-bold border-none h-24 resize-none" value={setupData.bio} onChange={e => setSetupData({...setupData, bio: e.target.value})} />
+             <label className="text-[10px] font-black uppercase text-gray-400 ml-1">Shop Description (Bio)</label>
+             <textarea required placeholder="Tell customers about your craftsmanship..." className="w-full p-5 bg-gray-50 rounded-2xl font-bold border-none h-24 resize-none outline-none focus:ring-2 focus:ring-pink-500/20" value={setupData.bio} onChange={e => setSetupData({...setupData, bio: e.target.value})} />
           </div>
+
+          <div className="bg-orange-50 p-4 rounded-2xl border border-orange-100 flex gap-3 items-center">
+             <AlertCircle className="w-5 h-5 text-orange-500 shrink-0" />
+             <p className="text-[9px] font-black text-orange-800 uppercase leading-tight tracking-tight">Your shop will be PENDING until the GLB Admin approves it manually.</p>
+          </div>
+
           <button disabled={loadingShop} className="w-full bg-pink-600 text-white font-black py-5 rounded-[2rem] uppercase tracking-widest text-[11px] flex items-center justify-center gap-3 shadow-xl active:scale-95 transition-all">
-            {loadingShop ? <Loader2 className="animate-spin" /> : <>Launch Shop Profile <Globe className="w-4 h-4" /></>}
+            {loadingShop ? <Loader2 className="animate-spin w-5 h-5" /> : <>Launch Shop Profile <Globe className="w-4 h-4" /></>}
           </button>
         </form>
       </div>
     );
   }
 
-  // ... rest of Dashboard logic ...
   return (
-    <div className="max-w-4xl mx-auto p-4 space-y-8 pb-32">
-       {/* Dashboard Content */}
-       <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm">
-          <h2 className="text-xl font-black uppercase italic mb-4">Merchant Dashboard</h2>
-          <div className="flex items-center gap-4 p-4 bg-pink-50 rounded-2xl border border-pink-100">
-             <Sparkles className="text-pink-600" />
-             <div className="flex-1">
-                <p className="text-xs font-black uppercase text-pink-600">Status: {myShop.status}</p>
-                <p className="text-[10px] text-pink-400 font-bold uppercase">Shop is created. Wait for Admin approval.</p>
+    <div className="max-w-4xl mx-auto p-4 space-y-8 pb-32 animate-in fade-in">
+       {/* Header Stat Card */}
+      <div className="bg-gradient-to-br from-gray-900 to-pink-900 rounded-[2.5rem] p-8 text-white shadow-2xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-pink-500/20 rounded-full blur-3xl -mt-32 -mr-32" />
+        <div className="relative z-10 flex justify-between items-start mb-10">
+           <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                 <h1 className="text-2xl font-black italic uppercase tracking-tighter">{myShop.name}</h1>
+                 <span className={`px-2 py-0.5 rounded-full text-[7px] font-black uppercase ${myShop.status === 'APPROVED' ? 'bg-green-500' : 'bg-orange-500'}`}>{myShop.status}</span>
+              </div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-pink-300">{myShop.bazaar}</p>
+           </div>
+           <button onClick={() => setShowAddModal(true)} className="w-12 h-12 bg-white text-pink-600 rounded-2xl flex items-center justify-center shadow-lg active:scale-95 transition-all"><PlusCircle className="w-7 h-7" /></button>
+        </div>
+        
+        <div className="grid grid-cols-2 gap-6 relative z-10">
+           <div className="space-y-1">
+              <p className="text-3xl font-black tracking-tighter italic">PKR {myOrders.reduce((a, b) => a + b.total, 0).toLocaleString()}</p>
+              <p className="text-[9px] font-black uppercase text-pink-300/60">Total Gross Volume</p>
+           </div>
+           <div className="space-y-1">
+              <p className="text-3xl font-black tracking-tighter italic">PKR {(myOrders.length * 1000).toLocaleString()}</p>
+              <p className="text-[9px] font-black uppercase text-pink-300/60">Platform Fees Due</p>
+           </div>
+        </div>
+      </div>
+
+      <div className="flex gap-3 p-1.5 bg-gray-100 rounded-[1.8rem]">
+        {['Inventory', 'Orders', 'Alerts'].map(tab => (
+          <button key={tab} onClick={() => setActiveTab(tab as any)} className={`flex-1 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab ? 'bg-white text-pink-600 shadow-lg' : 'text-gray-400'}`}>{tab}</button>
+        ))}
+      </div>
+
+      {activeTab === 'Inventory' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+           {myProducts.length === 0 ? (
+             <div className="col-span-full py-20 text-center space-y-4">
+                <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto text-gray-200">
+                   <Package className="w-8 h-8" />
+                </div>
+                <p className="text-gray-400 font-black uppercase text-[10px] tracking-widest">No products listed yet</p>
+                <button onClick={() => setShowAddModal(true)} className="text-pink-600 font-black uppercase text-[10px] underline">Add Your First Product</button>
              </div>
-          </div>
-          {/* Add more inventory tools here */}
-       </div>
+           ) : myProducts.map(p => (
+             <div key={p.id} className="bg-white p-5 rounded-[2.5rem] border border-gray-100 flex items-center gap-5 shadow-sm group hover:border-pink-200 transition-all">
+                <img src={p.images?.[0] || 'https://via.placeholder.com/150'} className="w-20 h-20 rounded-2xl object-cover border-2 border-gray-50" />
+                <div className="flex-1">
+                   <h3 className="font-black text-sm text-gray-900 truncate uppercase italic">{p.name}</h3>
+                   <p className="text-pink-600 font-black text-xs italic">PKR {p.price.toLocaleString()}</p>
+                   <div className="flex items-center gap-2 mt-2">
+                      <span className="text-[8px] font-black px-2 py-0.5 bg-gray-100 text-gray-400 rounded-full uppercase">{p.category}</span>
+                      {p.videoUrl && <div className="flex items-center gap-1 text-pink-500 font-black text-[8px] uppercase"><FileVideo className="w-2.5 h-2.5" /> Reel</div>}
+                   </div>
+                </div>
+                <ChevronRight className="text-gray-200 group-hover:text-pink-300 transition-colors" />
+             </div>
+           ))}
+        </div>
+      )}
     </div>
   );
 };

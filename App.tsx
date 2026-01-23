@@ -29,12 +29,10 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!supabase) return;
     
-    // Check initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) fetchProfile(session.user.id);
     });
 
-    // Listen for changes
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (session) fetchProfile(session.user.id);
       else setUser(null);
@@ -51,25 +49,26 @@ const App: React.FC = () => {
   const fetchProfile = async (id: string) => {
     if (!supabase) return;
     try {
-      const { data: profile, error } = await supabase.from('profiles').select('*').eq('id', id).maybeSingle();
+      const { data: profile } = await supabase.from('profiles').select('*').eq('id', id).maybeSingle();
       
-      // If profile doesn't exist but we have a session, create it from metadata
-      if (!profile) {
-        const { data: { user: authUser } } = await supabase.auth.getUser();
-        if (authUser) {
-          const meta = authUser.user_metadata || {};
-          const newProfile = {
-            id,
-            name: meta.full_name || 'Bazar User',
-            role: meta.role || 'BUYER',
-            subscription_tier: meta.tier || 'NONE',
-            mobile: meta.mobile || ''
-          };
-          await supabase.from('profiles').upsert(newProfile);
-          setUser(newProfile as UserType);
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (authUser) {
+        const meta = authUser.user_metadata || {};
+        const finalRole = profile?.role || meta.role || 'BUYER';
+        
+        const userData = {
+          id,
+          name: profile?.name || meta.full_name || 'Bazar User',
+          role: finalRole,
+          subscription_tier: profile?.subscription_tier || meta.tier || 'NONE',
+          mobile: profile?.mobile || meta.mobile || ''
+        };
+
+        if (!profile) {
+          await supabase.from('profiles').upsert(userData);
         }
-      } else {
-        setUser(profile as UserType);
+        
+        setUser(userData as UserType);
       }
     } catch (e) {
       console.error("Profile Error:", e);
@@ -132,6 +131,7 @@ const App: React.FC = () => {
         <Route path="/explore" element={<ExploreView products={products} addToCart={() => {}} onPlaceOrder={handlePlaceOrder} user={user} />} />
         <Route path="/shops" element={<ShopsListView shops={shops} lang={lang} />} />
         <Route path="/shop/:id" element={<ShopView shops={shops} products={products} addToCart={() => {}} lang={lang} />} />
+        <Route path="/product/:id" element={<ProductView products={products} addToCart={() => {}} lang={lang} />} />
         <Route path="/login" element={<LoginView setUser={setUser} lang={lang} />} />
         <Route path="/profile" element={user ? <ProfileView user={user} onLogout={() => { supabase.auth.signOut(); setUser(null); navigate('/login'); }} lang={lang} /> : <Navigate to="/login" />} />
         <Route path="/admin" element={user?.role === 'ADMIN' ? <AdminDashboard shops={shops} setShops={setShops} orders={orders} /> : <Navigate to="/" />} />
