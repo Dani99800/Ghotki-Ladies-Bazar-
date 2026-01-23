@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { 
   Routes, 
@@ -37,10 +38,12 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!supabase) return;
 
+    // Initial session check
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) fetchProfile(session.user.id);
     });
 
+    // Listen for Auth changes
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) fetchProfile(session.user.id);
       else setUser(null);
@@ -62,21 +65,44 @@ const App: React.FC = () => {
   const fetchProfile = async (id: string) => {
     if (!supabase) return;
     try {
-      const { data, error } = await supabase.from('profiles').select('*').eq('id', id).single();
-      if (error || !data) {
-        console.warn("Profile fetch returned no data or error. Defaulting to GUEST/BUYER.");
-        // If profile doesn't exist, we still want to allow the user to see the buyer side
-        // We can check auth metadata if available
-        const { data: { user: authUser } } = await supabase.auth.getUser();
-        setUser({ 
-          id, 
-          name: authUser?.user_metadata?.full_name || 'Buyer', 
-          role: 'BUYER', 
-          mobile: authUser?.user_metadata?.mobile || '' 
-        });
-        return;
+      // 1. Get auth user metadata as backup
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+      if (authError || !authUser) return;
+
+      // 2. Try to fetch DB record
+      const { data: profile, error } = await supabase.from('profiles').select('*').eq('id', id).maybeSingle();
+      
+      const meta = authUser.user_metadata || {};
+      const fallbackRole = meta?.role || 'BUYER';
+      const fallbackName = meta?.full_name || 'User';
+
+      if (!profile) {
+        console.warn("Profile missing in DB. Attempting auto-heal.");
+        
+        const newProfile = {
+          id: id,
+          name: fallbackName,
+          mobile: meta?.mobile || '',
+          role: fallbackRole,
+          address: ''
+        };
+
+        // Re-syncing database row
+        await supabase.from('profiles').upsert(newProfile);
+        
+        if (fallbackRole === 'SELLER' && meta?.shop_name) {
+          await supabase.from('shops').upsert({
+            owner_id: id,
+            name: meta.shop_name,
+            bazaar: meta.bazaar || 'General',
+            category: meta.category || 'Women',
+            status: 'PENDING'
+          });
+        }
+        setUser(newProfile as UserType);
+      } else {
+        setUser({ ...profile } as UserType);
       }
-      setUser({ ...data });
     } catch (e) {
       console.error("Profile Fetch Exception:", e);
     }

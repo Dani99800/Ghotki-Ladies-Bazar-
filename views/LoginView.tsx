@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -47,25 +48,25 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
         .from('profiles')
         .select('*')
         .eq('id', data.user.id)
-        .single();
+        .maybeSingle();
         
-      // If profile missing or error, handle gracefully
-      if (profileError || !profile) {
-        console.warn("Profile not found for user, defaulting to BUYER role.");
-        const fallbackUser = { ...data.user, role: 'BUYER', name: data.user.user_metadata?.full_name || 'User' };
-        setUser(fallbackUser);
-        navigate('/');
-        return;
-      }
+      // Use metadata if profile is missing in table (Self-Healing)
+      const metadata = data.user.user_metadata || {};
+      const finalRole = profile?.role || metadata?.role || 'BUYER';
+      const finalName = profile?.name || metadata?.full_name || 'User';
 
-      setUser({ ...data.user, ...profile });
-      
-      // Safe check for role before navigating
-      const role = profile?.role || 'BUYER';
-      navigate(role === 'SELLER' ? '/seller' : '/');
+      const userData = { 
+        ...data.user, 
+        role: finalRole, 
+        name: finalName,
+        ...profile 
+      };
+
+      setUser(userData);
+      navigate(finalRole === 'SELLER' ? '/seller' : '/');
     } catch (err: any) {
       console.error("Auth Error:", err);
-      alert(err.message === "Email not confirmed" ? "Check your inbox! You must click the link in your email to log in." : err.message);
+      alert(err.message === "Email not confirmed" ? "Check your inbox to verify your email." : err.message);
     } finally {
       setLoading(false);
     }
@@ -81,50 +82,52 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
     try {
       if (!supabase) throw new Error("Database connection not initialized.");
       
-      const redirectTo = window.location.origin;
-
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
-          emailRedirectTo: redirectTo,
+          emailRedirectTo: window.location.origin,
           data: {
             full_name: formData.name,
+            mobile: formData.mobile,
+            role: role,
+            shop_name: role === 'SELLER' ? formData.shopName : null,
+            bazaar: role === 'SELLER' ? formData.bazaar : null,
+            category: role === 'SELLER' ? formData.category : null,
           }
         }
       });
 
       if (authError) throw authError;
-      if (!authData.user) throw new Error("Signup failed. Please check your details.");
+      if (!authData.user) throw new Error("Signup failed.");
 
-      // Create Profile record manually
-      const { error: profileError } = await supabase.from('profiles').upsert({
-        id: authData.user.id,
-        name: formData.name,
-        mobile: formData.mobile,
-        role: role,
-        address: formData.address
-      });
-      
-      if (profileError) {
-        console.error("Profile creation error:", profileError);
-        // We don't throw here so the user sees the "Check Email" screen 
-        // since the Auth account was actually created.
-      }
-
-      if (role === 'SELLER') {
-        const { error: shopError } = await supabase.from('shops').upsert({
-          owner_id: authData.user.id,
-          name: formData.shopName,
-          bazaar: formData.bazaar,
-          category: formData.category,
-          status: 'PENDING'
+      // Try creating database records immediately (might wait for email confirmation in some setups)
+      // We use upsert to prevent errors on double clicks
+      try {
+        await supabase.from('profiles').upsert({
+          id: authData.user.id,
+          name: formData.name,
+          mobile: formData.mobile,
+          role: role,
+          address: formData.address
         });
-        if (shopError) console.error("Shop creation error:", shopError);
-        setView('PENDING');
-      } else {
-        setView('CHECK_EMAIL');
+
+        if (role === 'SELLER') {
+          await supabase.from('shops').upsert({
+            owner_id: authData.user.id,
+            name: formData.shopName,
+            bazaar: formData.bazaar,
+            category: formData.category,
+            status: 'PENDING'
+          });
+        }
+      } catch (dbErr) {
+        console.warn("DB Background Sync Pending Email Verification");
       }
+
+      if (role === 'SELLER') setView('PENDING');
+      else setView('CHECK_EMAIL');
+      
     } catch (err: any) {
       console.error("Signup Error:", err);
       alert(err.message);
@@ -141,8 +144,7 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
         </div>
         <div className="space-y-2">
           <h1 className="text-3xl font-black italic uppercase tracking-tighter">Check Your Email</h1>
-          <p className="text-gray-500 text-sm">We've sent a link to <span className="font-bold text-gray-800">{formData.email}</span>. Click the link in that email to activate your account.</p>
-          <p className="text-[10px] text-gray-400 font-bold uppercase mt-4">Note: If you are redirected to localhost, simply return to this app and Login.</p>
+          <p className="text-gray-500 text-sm">Confirmation link sent to <span className="font-bold text-gray-800">{formData.email}</span>.</p>
         </div>
         <button onClick={() => setView('LOGIN')} className="bg-gray-900 text-white font-black py-4 px-10 rounded-2xl text-[10px] uppercase tracking-widest">Back to Login</button>
       </div>
@@ -156,8 +158,8 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
           <Sparkles className="w-12 h-12" />
         </div>
         <div className="space-y-2">
-          <h1 className="text-3xl font-black italic uppercase tracking-tighter">Success!</h1>
-          <p className="text-gray-500 text-sm">Shop registered. First, check your email to verify account. Then, wait for admin approval.</p>
+          <h1 className="text-3xl font-black italic uppercase tracking-tighter">Shop Registered</h1>
+          <p className="text-gray-500 text-sm font-medium">1. Verify your email link.<br/>2. Log in.<br/>3. Your shop will be active shortly!</p>
         </div>
         <button onClick={() => setView('LOGIN')} className="bg-pink-600 text-white font-black py-4 px-10 rounded-2xl text-[10px] uppercase tracking-widest shadow-xl">Back to Login</button>
       </div>
@@ -167,24 +169,18 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
   if (view === 'SIGNUP_CHOICE') {
     return (
       <div className="max-w-md mx-auto min-h-screen flex flex-col items-center justify-center p-6 space-y-8">
-        <h1 className="text-4xl font-black text-gray-900 tracking-tighter uppercase italic">Join Bazar</h1>
+        <h1 className="text-4xl font-black text-gray-900 tracking-tighter uppercase italic text-center">Join Ghotki Bazar</h1>
         <div className="grid grid-cols-1 gap-4 w-full">
-          <button onClick={() => setView('SIGNUP_BUYER')} className="p-8 bg-white border-2 border-gray-100 rounded-[2.5rem] flex flex-col items-center gap-4 hover:border-pink-500 hover:shadow-2xl transition-all group">
+          <button onClick={() => setView('SIGNUP_BUYER')} className="p-8 bg-white border-2 border-gray-100 rounded-[2.5rem] flex flex-col items-center gap-4 hover:border-pink-500 transition-all group">
             <div className="w-16 h-16 bg-pink-50 rounded-2xl flex items-center justify-center text-pink-600 group-hover:scale-110 transition-transform"><User className="w-8 h-8" /></div>
-            <div className="text-center">
-              <p className="font-black text-lg uppercase italic tracking-tighter">I am a Shopper</p>
-              <p className="text-xs text-gray-400">Shop from Ghotki's best</p>
-            </div>
+            <p className="font-black text-lg uppercase italic tracking-tighter">I am a Shopper</p>
           </button>
           <button onClick={() => setView('SIGNUP_SHOP')} className="p-8 bg-gray-900 border-2 border-gray-900 rounded-[2.5rem] flex flex-col items-center gap-4 hover:shadow-2xl transition-all group text-white">
             <div className="w-16 h-16 bg-pink-600 rounded-2xl flex items-center justify-center text-white group-hover:scale-110 transition-transform"><Store className="w-8 h-8" /></div>
-            <div className="text-center">
-              <p className="font-black text-lg uppercase italic tracking-tighter">I am a Seller</p>
-              <p className="text-xs text-white/50">Start selling online</p>
-            </div>
+            <p className="font-black text-lg uppercase italic tracking-tighter">I am a Seller</p>
           </button>
         </div>
-        <button onClick={() => setView('LOGIN')} className="text-gray-400 font-bold uppercase text-[10px] tracking-widest">Login Instead</button>
+        <button onClick={() => setView('LOGIN')} className="text-gray-400 font-bold uppercase text-[10px] tracking-widest">Back to Login</button>
       </div>
     );
   }
@@ -214,7 +210,7 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
         )}
 
         {view === 'SIGNUP_SHOP' && (
-          <div className="space-y-4 animate-in slide-in-from-right">
+          <div className="space-y-4">
              <div className="relative">
                <Store className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300" />
                <input required type="text" placeholder="Shop Name" className="w-full pl-12 pr-6 py-4.5 bg-white border border-gray-100 rounded-2xl shadow-sm outline-none focus:ring-2 focus:ring-pink-500 font-bold" value={formData.shopName} onChange={e => setFormData({...formData, shopName: e.target.value})} />
@@ -239,16 +235,16 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
           </div>
         </div>
 
-        <button disabled={loading} type="submit" className="w-full bg-pink-600 text-white font-black py-5 rounded-3xl shadow-2xl shadow-pink-200 flex items-center justify-center gap-3 active:scale-95 transition-all uppercase tracking-widest text-xs">
+        <button disabled={loading} type="submit" className="w-full bg-pink-600 text-white font-black py-5 rounded-3xl shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all uppercase tracking-widest text-xs">
           {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (view === 'LOGIN' ? 'Login to Bazar' : 'Register Now')}
         </button>
       </form>
 
       <div className="text-center space-y-4">
         {view === 'LOGIN' ? (
-          <button onClick={() => setView('SIGNUP_CHOICE')} className="text-gray-400 font-black text-[10px] uppercase tracking-[0.2em]">New here? <span className="text-pink-600">Create Account</span></button>
+          <button onClick={() => setView('SIGNUP_CHOICE')} className="text-gray-400 font-black text-[10px] uppercase tracking-[0.2em]">New here? <span className="text-pink-600 font-black">Create Account</span></button>
         ) : (
-          <button onClick={() => setView('LOGIN')} className="text-gray-400 font-black text-[10px] uppercase tracking-[0.2em]"><ArrowLeft className="w-3 h-3 inline mr-2" /> Back to <span className="text-pink-600">Login</span></button>
+          <button onClick={() => setView('LOGIN')} className="text-gray-400 font-black text-[10px] uppercase tracking-[0.2em]"><ArrowLeft className="w-3 h-3 inline mr-2" /> Back to <span className="text-pink-600 font-black">Login</span></button>
         )}
       </div>
     </div>
