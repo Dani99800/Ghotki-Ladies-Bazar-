@@ -2,26 +2,25 @@ import { createClient } from '@supabase/supabase-js';
 
 /**
  * Supabase Configuration
- * 
- * STORAGE INSTRUCTIONS:
- * You must create a bucket named exactly: assets
- * Do NOT use a period at the end. Just "assets".
- * Ensure the bucket is set to "Public" in your Supabase dashboard.
+ * Checks both import.meta.env (Vite) and process.env (Shimmed/Build-time)
  */
-const supabaseUrl = 
-  (import.meta as any).env?.VITE_SUPABASE_URL || 
-  (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_URL : '') || 
-  'https://fiubihnroqvwaaeglcnd.supabase.co';
 
-const supabaseAnonKey = 
-  (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 
-  (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_ANON_KEY : '') || 
-  'sb_publishable_P7Yj4EYFqtFuyXjyyU_RUg_gzCWbkhA';
+const getEnv = (key: string): string => {
+  // @ts-ignore
+  return (import.meta.env?.[key] || (typeof process !== 'undefined' ? process.env?.[key] : '') || '');
+};
+
+const supabaseUrl = getEnv('VITE_SUPABASE_URL') || 'https://fiubihnroqvwaaeglcnd.supabase.co';
+const supabaseAnonKey = getEnv('VITE_SUPABASE_ANON_KEY') || 'sb_publishable_P7Yj4EYFqtFuyXjyyU_RUg_gzCWbkhA';
 
 // Initialize the Supabase client
-export const supabase = (supabaseUrl && supabaseUrl !== 'YOUR_PROJECT_URL_HERE' && supabaseAnonKey) 
-  ? createClient(supabaseUrl, supabaseAnonKey) 
-  : null;
+// We check for placeholder strings as well as empty values
+export const supabase = (
+  supabaseUrl && 
+  supabaseUrl !== 'YOUR_PROJECT_URL_HERE' && 
+  supabaseAnonKey && 
+  supabaseAnonKey !== 'YOUR_ANON_KEY_HERE'
+) ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
 /**
  * Utility function to upload files to Supabase Storage

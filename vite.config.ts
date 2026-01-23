@@ -8,23 +8,19 @@ export default defineConfig({
     'process.env.API_KEY': JSON.stringify(process.env.API_KEY || ''),
     'process.env.VITE_SUPABASE_URL': JSON.stringify(process.env.VITE_SUPABASE_URL || ''),
     'process.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(process.env.VITE_SUPABASE_ANON_KEY || ''),
+    // Provide a global process object to prevent ReferenceErrors
+    'process.env': '{}',
     'global': 'window'
   },
   build: {
     outDir: 'dist',
     chunkSizeWarningLimit: 3000,
-    minify: 'terser',
+    minify: 'esbuild',
     rollupOptions: {
       output: {
-        manualChunks(id) {
-          if (id.includes('node_modules')) {
-            if (id.includes('recharts')) return 'vendor-charts';
-            if (id.includes('lucide-react')) return 'vendor-icons';
-            if (id.includes('@google/genai')) return 'vendor-ai';
-            if (id.includes('react')) return 'vendor-react';
-            return 'vendor-others';
-          }
-        },
+        entryFileNames: 'assets/[name]-[hash].js',
+        chunkFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]'
       },
     },
   },
