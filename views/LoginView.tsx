@@ -1,9 +1,7 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  User, Store, ShieldCheck, Lock, Phone, UserPlus, 
-  ArrowLeft, CheckCircle, Mail, Eye, EyeOff, Sparkles, Loader2, Inbox
+  User, Store, Lock, Phone, ArrowLeft, Mail, Eye, EyeOff, Sparkles, Loader2, Inbox
 } from 'lucide-react';
 import { supabase } from '../services/supabase';
 import { BAZAARS, CATEGORIES } from '../constants';
@@ -34,10 +32,13 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
     e.preventDefault();
     setLoading(true);
     try {
+      if (!supabase) throw new Error("Database connection not initialized.");
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password,
       });
+      
       if (error) throw error;
       
       // Fetch profile
@@ -47,12 +48,18 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
         .eq('id', data.user.id)
         .single();
         
-      if (profileError) throw new Error("Profile not found. Please contact support.");
+      if (profileError) {
+        console.error("Profile Fetch Error:", profileError);
+        // If profile missing, they might be a guest or partially registered
+        setUser({ ...data.user, role: 'BUYER' });
+        navigate('/');
+        return;
+      }
 
       setUser({ ...data.user, ...profile });
       navigate(profile.role === 'SELLER' ? '/seller' : '/');
     } catch (err: any) {
-      alert(err.message === "Email not confirmed" ? "Please confirm your email address first!" : err.message);
+      alert(err.message === "Email not confirmed" ? "Check your inbox! You must click the link in your email to log in." : err.message);
     } finally {
       setLoading(false);
     }
@@ -66,7 +73,9 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
 
     setLoading(true);
     try {
-      // Use the current origin as the redirect URL for email confirmation
+      if (!supabase) throw new Error("Database connection not initialized.");
+      
+      // Use current domain for redirect (crucial for production)
       const redirectTo = window.location.origin;
 
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -81,9 +90,9 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
       });
 
       if (authError) throw authError;
-      if (!authData.user) throw new Error("Signup failed. Please try again.");
+      if (!authData.user) throw new Error("Signup failed. Please check your details.");
 
-      // Create Profile in public.profiles table
+      // Create Profile
       const { error: profileError } = await supabase.from('profiles').insert({
         id: authData.user.id,
         name: formData.name,
@@ -94,7 +103,6 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
       
       if (profileError) throw profileError;
 
-      // Create Shop if Seller
       if (role === 'SELLER') {
         const { error: shopError } = await supabase.from('shops').insert({
           owner_id: authData.user.id,
@@ -124,7 +132,7 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
         </div>
         <div className="space-y-2">
           <h1 className="text-3xl font-black italic uppercase tracking-tighter">Check Your Email</h1>
-          <p className="text-gray-500 text-sm">We've sent a confirmation link to <span className="font-bold text-gray-800">{formData.email}</span>. Please click the link to verify your account.</p>
+          <p className="text-gray-500 text-sm">We've sent a link to <span className="font-bold text-gray-800">{formData.email}</span>. Please click it to verify your account.</p>
         </div>
         <button onClick={() => setView('LOGIN')} className="bg-gray-900 text-white font-black py-4 px-10 rounded-2xl text-[10px] uppercase tracking-widest">Back to Login</button>
       </div>
@@ -138,8 +146,8 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
           <Sparkles className="w-12 h-12" />
         </div>
         <div className="space-y-2">
-          <h1 className="text-3xl font-black italic uppercase tracking-tighter">Registration Sent</h1>
-          <p className="text-gray-500 text-sm">Your shop <span className="font-bold text-pink-600">{formData.shopName}</span> is being reviewed. Please check your email for a confirmation link to activate your login.</p>
+          <h1 className="text-3xl font-black italic uppercase tracking-tighter">Success!</h1>
+          <p className="text-gray-500 text-sm">Your shop <span className="font-bold text-pink-600">{formData.shopName}</span> is registered. Please verify your email first, then wait for admin approval.</p>
         </div>
         <button onClick={() => setView('LOGIN')} className="bg-pink-600 text-white font-black py-4 px-10 rounded-2xl text-[10px] uppercase tracking-widest shadow-xl">Back to Login</button>
       </div>
@@ -149,24 +157,24 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
   if (view === 'SIGNUP_CHOICE') {
     return (
       <div className="max-w-md mx-auto min-h-screen flex flex-col items-center justify-center p-6 space-y-8">
-        <h1 className="text-4xl font-black text-gray-900 tracking-tighter uppercase italic">Join GLB Bazar</h1>
+        <h1 className="text-4xl font-black text-gray-900 tracking-tighter uppercase italic">Join Bazar</h1>
         <div className="grid grid-cols-1 gap-4 w-full">
           <button onClick={() => setView('SIGNUP_BUYER')} className="p-8 bg-white border-2 border-gray-100 rounded-[2.5rem] flex flex-col items-center gap-4 hover:border-pink-500 hover:shadow-2xl transition-all group">
             <div className="w-16 h-16 bg-pink-50 rounded-2xl flex items-center justify-center text-pink-600 group-hover:scale-110 transition-transform"><User className="w-8 h-8" /></div>
             <div className="text-center">
               <p className="font-black text-lg uppercase italic tracking-tighter">I am a Shopper</p>
-              <p className="text-xs text-gray-400">Browse and buy from local shops</p>
+              <p className="text-xs text-gray-400">Shop from Ghotki's best</p>
             </div>
           </button>
           <button onClick={() => setView('SIGNUP_SHOP')} className="p-8 bg-gray-900 border-2 border-gray-900 rounded-[2.5rem] flex flex-col items-center gap-4 hover:shadow-2xl transition-all group text-white">
             <div className="w-16 h-16 bg-pink-600 rounded-2xl flex items-center justify-center text-white group-hover:scale-110 transition-transform"><Store className="w-8 h-8" /></div>
             <div className="text-center">
               <p className="font-black text-lg uppercase italic tracking-tighter">I am a Seller</p>
-              <p className="text-xs text-white/50">Open your digital shop in Ghotki</p>
+              <p className="text-xs text-white/50">Start selling online</p>
             </div>
           </button>
         </div>
-        <button onClick={() => setView('LOGIN')} className="text-gray-400 font-bold uppercase text-[10px] tracking-widest">Already have an account? Login</button>
+        <button onClick={() => setView('LOGIN')} className="text-gray-400 font-bold uppercase text-[10px] tracking-widest">Login Instead</button>
       </div>
     );
   }
@@ -179,9 +187,8 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
       </div>
 
       <form onSubmit={(e) => {
-        e.preventDefault();
         if (view === 'LOGIN') handleAuth(e);
-        else handleSignup(view === 'SIGNUP_BUYER' ? 'BUYER' : 'SELLER');
+        else { e.preventDefault(); handleSignup(view === 'SIGNUP_BUYER' ? 'BUYER' : 'SELLER'); }
       }} className="w-full space-y-5">
         {(view === 'SIGNUP_BUYER' || view === 'SIGNUP_SHOP') && (
           <div className="space-y-4">
@@ -223,15 +230,15 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
         </div>
 
         <button disabled={loading} type="submit" className="w-full bg-pink-600 text-white font-black py-5 rounded-3xl shadow-2xl shadow-pink-200 flex items-center justify-center gap-3 active:scale-95 transition-all uppercase tracking-widest text-xs">
-          {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (view === 'LOGIN' ? 'Login to Bazar' : 'Complete Registration')}
+          {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (view === 'LOGIN' ? 'Login to Bazar' : 'Register Now')}
         </button>
       </form>
 
       <div className="text-center space-y-4">
         {view === 'LOGIN' ? (
-          <button onClick={() => setView('SIGNUP_CHOICE')} className="text-gray-400 font-black text-[10px] uppercase tracking-[0.2em]">New to Ghotki Bazar? <span className="text-pink-600">Create Account</span></button>
+          <button onClick={() => setView('SIGNUP_CHOICE')} className="text-gray-400 font-black text-[10px] uppercase tracking-[0.2em]">New here? <span className="text-pink-600">Create Account</span></button>
         ) : (
-          <button onClick={() => setView('LOGIN')} className="text-gray-400 font-black text-[10px] uppercase tracking-[0.2em]"><ArrowLeft className="w-3 h-3 inline mr-2" /> Already have an account? <span className="text-pink-600">Login</span></button>
+          <button onClick={() => setView('LOGIN')} className="text-gray-400 font-black text-[10px] uppercase tracking-[0.2em]"><ArrowLeft className="w-3 h-3 inline mr-2" /> Back to <span className="text-pink-600">Login</span></button>
         )}
       </div>
     </div>
