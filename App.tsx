@@ -99,7 +99,13 @@ const App: React.FC = () => {
         shopId: p.shop_id
       })));
       
-      if (sRes.data) setShops(sRes.data);
+      if (sRes.data) setShops(sRes.data.map((s: any) => ({
+        ...s,
+        ownerName: s.owner_name || 'Owner',
+        logo: s.logo_url || s.logo || 'https://via.placeholder.com/150',
+        banner: s.banner_url || s.banner || 'https://via.placeholder.com/800x400',
+        owner_id: s.owner_id
+      })));
     } catch (e) {
       console.error("Supabase Load Error", e);
     }

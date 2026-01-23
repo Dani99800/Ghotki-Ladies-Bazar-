@@ -14,6 +14,7 @@ export interface Shop {
   id: string;
   name: string;
   ownerName: string;
+  owner_id?: string; // Link to user profile ID
   cnic?: string;
   mobile: string;
   whatsapp: string;
