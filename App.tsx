@@ -70,16 +70,25 @@ const App: React.FC = () => {
 
   const loadMarketplace = async () => {
     if (!supabase) return;
-    const [pRes, sRes] = await Promise.all([
-      supabase.from('products').select('*').order('created_at', { ascending: false }),
-      supabase.from('shops').select('*')
-    ]);
-    if (pRes.data) setProducts(pRes.data.map((p: any) => ({ ...p, images: p.image_urls || [], shopId: p.shop_id })));
-    if (sRes.data) setShops(sRes.data.map((s: any) => ({ 
-      ...s, 
-      logo: s.logo_url || 'https://via.placeholder.com/150', 
-      banner: s.banner_url || 'https://via.placeholder.com/800x400' 
-    })));
+    try {
+      const [pRes, sRes] = await Promise.all([
+        supabase.from('products').select('*').order('created_at', { ascending: false }),
+        supabase.from('shops').select('*')
+      ]);
+      if (pRes.data) setProducts(pRes.data.map((p: any) => ({ 
+        ...p, 
+        images: p.image_urls || [], 
+        shopId: p.shop_id,
+        videoUrl: p.video_url
+      })));
+      if (sRes.data) setShops(sRes.data.map((s: any) => ({ 
+        ...s, 
+        logo: s.logo_url || 'https://via.placeholder.com/150', 
+        banner: s.banner_url || 'https://via.placeholder.com/800x400' 
+      })));
+    } catch (err) {
+      console.error("Marketplace Load Error:", err);
+    }
   };
 
   const fetchOrders = async () => {
@@ -113,7 +122,7 @@ const App: React.FC = () => {
     if (!error) fetchOrders();
   };
 
-  if (!supabase) return <div>Connect Supabase Environment Variables First.</div>;
+  if (!supabase) return <div className="p-20 text-center font-black uppercase text-pink-600">Database Connection Missing</div>;
 
   return (
     <div className="min-h-screen pb-20 md:pb-0 md:pt-16 bg-gray-50 text-gray-900">
