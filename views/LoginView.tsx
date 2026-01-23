@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   User, Store, ShieldCheck, Lock, Phone, UserPlus, 
-  ArrowLeft, CheckCircle, Mail, Eye, EyeOff, Sparkles, Loader2
+  ArrowLeft, CheckCircle, Mail, Eye, EyeOff, Sparkles, Loader2, Inbox
 } from 'lucide-react';
 import { supabase } from '../services/supabase';
 import { BAZAARS, CATEGORIES } from '../constants';
@@ -15,7 +15,7 @@ interface LoginViewProps {
 
 const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
   const navigate = useNavigate();
-  const [view, setView] = useState<'LOGIN' | 'SIGNUP_CHOICE' | 'SIGNUP_BUYER' | 'SIGNUP_SHOP' | 'PENDING'>('LOGIN');
+  const [view, setView] = useState<'LOGIN' | 'SIGNUP_CHOICE' | 'SIGNUP_BUYER' | 'SIGNUP_SHOP' | 'PENDING' | 'CHECK_EMAIL'>('LOGIN');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   
@@ -41,27 +41,49 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
       if (error) throw error;
       
       // Fetch profile
-      const { data: profile } = await supabase.from('profiles').select('*').eq('id', data.user.id).single();
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', data.user.id)
+        .single();
+        
+      if (profileError) throw new Error("Profile not found. Please contact support.");
+
       setUser({ ...data.user, ...profile });
       navigate(profile.role === 'SELLER' ? '/seller' : '/');
     } catch (err: any) {
-      alert(err.message);
+      alert(err.message === "Email not confirmed" ? "Please confirm your email address first!" : err.message);
     } finally {
       setLoading(false);
     }
   };
 
   const handleSignup = async (role: 'BUYER' | 'SELLER') => {
+    if (!formData.email || !formData.password || !formData.name) {
+      alert("Please fill in all required fields.");
+      return;
+    }
+
     setLoading(true);
     try {
+      // Use the current origin as the redirect URL for email confirmation
+      const redirectTo = window.location.origin;
+
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
+        options: {
+          emailRedirectTo: redirectTo,
+          data: {
+            full_name: formData.name,
+          }
+        }
       });
-      if (authError) throw authError;
-      if (!authData.user) return;
 
-      // 1. Create Profile
+      if (authError) throw authError;
+      if (!authData.user) throw new Error("Signup failed. Please try again.");
+
+      // Create Profile in public.profiles table
       const { error: profileError } = await supabase.from('profiles').insert({
         id: authData.user.id,
         name: formData.name,
@@ -69,9 +91,10 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
         role: role,
         address: formData.address
       });
+      
       if (profileError) throw profileError;
 
-      // 2. Create Shop if Seller
+      // Create Shop if Seller
       if (role === 'SELLER') {
         const { error: shopError } = await supabase.from('shops').insert({
           owner_id: authData.user.id,
@@ -83,15 +106,30 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
         if (shopError) throw shopError;
         setView('PENDING');
       } else {
-        setUser({ id: authData.user.id, name: formData.name, role: 'BUYER' });
-        navigate('/');
+        setView('CHECK_EMAIL');
       }
     } catch (err: any) {
+      console.error("Signup Error:", err);
       alert(err.message);
     } finally {
       setLoading(false);
     }
   };
+
+  if (view === 'CHECK_EMAIL') {
+    return (
+      <div className="max-w-md mx-auto min-h-screen flex flex-col items-center justify-center p-6 text-center space-y-8 animate-in zoom-in">
+        <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 shadow-xl border-4 border-white">
+          <Inbox className="w-12 h-12" />
+        </div>
+        <div className="space-y-2">
+          <h1 className="text-3xl font-black italic uppercase tracking-tighter">Check Your Email</h1>
+          <p className="text-gray-500 text-sm">We've sent a confirmation link to <span className="font-bold text-gray-800">{formData.email}</span>. Please click the link to verify your account.</p>
+        </div>
+        <button onClick={() => setView('LOGIN')} className="bg-gray-900 text-white font-black py-4 px-10 rounded-2xl text-[10px] uppercase tracking-widest">Back to Login</button>
+      </div>
+    );
+  }
 
   if (view === 'PENDING') {
     return (
@@ -100,10 +138,10 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
           <Sparkles className="w-12 h-12" />
         </div>
         <div className="space-y-2">
-          <h1 className="text-3xl font-black italic uppercase italic tracking-tighter">Reviewing Shop</h1>
-          <p className="text-gray-500 text-sm">Your registration for <span className="font-bold text-pink-600">{formData.shopName}</span> has been sent to the Ghotki administration team. We'll contact you shortly.</p>
+          <h1 className="text-3xl font-black italic uppercase tracking-tighter">Registration Sent</h1>
+          <p className="text-gray-500 text-sm">Your shop <span className="font-bold text-pink-600">{formData.shopName}</span> is being reviewed. Please check your email for a confirmation link to activate your login.</p>
         </div>
-        <button onClick={() => setView('LOGIN')} className="text-pink-600 font-black uppercase text-xs tracking-widest">Back to Login</button>
+        <button onClick={() => setView('LOGIN')} className="bg-pink-600 text-white font-black py-4 px-10 rounded-2xl text-[10px] uppercase tracking-widest shadow-xl">Back to Login</button>
       </div>
     );
   }
@@ -140,7 +178,11 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
         <p className="text-gray-400 font-bold text-[10px] uppercase tracking-[0.3em]">Digitizing Ghotki Legacy</p>
       </div>
 
-      <form onSubmit={view === 'LOGIN' ? handleAuth : (e) => { e.preventDefault(); handleSignup(view === 'SIGNUP_BUYER' ? 'BUYER' : 'SELLER'); }} className="w-full space-y-5">
+      <form onSubmit={(e) => {
+        e.preventDefault();
+        if (view === 'LOGIN') handleAuth(e);
+        else handleSignup(view === 'SIGNUP_BUYER' ? 'BUYER' : 'SELLER');
+      }} className="w-full space-y-5">
         {(view === 'SIGNUP_BUYER' || view === 'SIGNUP_SHOP') && (
           <div className="space-y-4">
              <div className="relative">
