@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Home, ShoppingBag, User as UserIcon, Search, ShoppingCart, LayoutDashboard, ShieldAlert, PlayCircle } from 'lucide-react';
 import { supabase } from './services/supabase';
 import { User as UserType, Shop, Product, CartItem, Order } from './types';
@@ -19,26 +19,30 @@ import CheckoutView from './views/CheckoutView';
 
 const App: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [user, setUser] = useState<UserType | null>(null);
   const [shops, setShops] = useState<Shop[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [lang, setLang] = useState<'EN' | 'UR'>('EN');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!supabase) return;
     
+    // Check session on load
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) fetchProfile(session.user.id);
+      else setLoading(false);
     });
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
         fetchProfile(session.user.id);
-        loadMarketplace(); 
       } else {
         setUser(null);
+        setLoading(false);
       }
     });
 
@@ -62,18 +66,36 @@ const App: React.FC = () => {
         };
         setUser(userData as UserType);
       }
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+      console.error("Profile Fetch Error:", e); 
+    } finally {
+      setLoading(false);
+    }
   };
 
   const loadMarketplace = async () => {
     if (!supabase) return;
     try {
+      console.log("Fetching Marketplace Data...");
       const [pRes, sRes] = await Promise.all([
         supabase.from('products').select('*').order('created_at', { ascending: false }),
         supabase.from('shops').select('*')
       ]);
       
+      if (sRes.error) console.error("Shops Fetch Error:", sRes.error);
+      if (pRes.error) console.error("Products Fetch Error:", pRes.error);
+
+      if (sRes.data) {
+        console.log(`Found ${sRes.data.length} shops in database.`);
+        setShops(sRes.data.map((s: any) => ({ 
+          ...s, 
+          logo: s.logo_url || 'https://via.placeholder.com/150', 
+          banner: s.banner_url || 'https://via.placeholder.com/800x400' 
+        })));
+      }
+      
       if (pRes.data) {
+        console.log(`Found ${pRes.data.length} products in database.`);
         setProducts(pRes.data.map((p: any) => ({ 
           ...p, 
           images: p.image_urls || [], 
@@ -81,15 +103,9 @@ const App: React.FC = () => {
           videoUrl: p.video_url 
         })));
       }
-      
-      if (sRes.data) {
-        setShops(sRes.data.map((s: any) => ({ 
-          ...s, 
-          logo: s.logo_url || 'https://via.placeholder.com/150', 
-          banner: s.banner_url || 'https://via.placeholder.com/800x400' 
-        })));
-      }
-    } catch (err) { console.error(err); }
+    } catch (err) { 
+      console.error("Critical Marketplace Load Error:", err); 
+    }
   };
 
   const fetchOrders = async () => {
@@ -132,17 +148,28 @@ const App: React.FC = () => {
     { icon: user?.role === 'SELLER' ? LayoutDashboard : ShoppingCart, label: user?.role === 'SELLER' ? 'Dashboard' : 'Cart', path: user?.role === 'SELLER' ? '/seller' : '/cart' },
   ];
 
+  if (loading) {
+    return (
+      <div className="h-screen w-full flex flex-col items-center justify-center bg-white space-y-4">
+        <div className="w-12 h-12 border-4 border-pink-100 border-t-pink-600 rounded-full animate-spin"></div>
+        <p className="font-black uppercase tracking-widest text-[10px] text-gray-400">Ghotki Bazar Loading...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <nav className="fixed top-0 left-0 right-0 h-16 bg-white border-b flex items-center justify-between px-6 z-50">
         <h1 onClick={() => navigate('/')} className="text-pink-600 font-black text-xl italic uppercase cursor-pointer tracking-tighter">GLB BAZAR</h1>
         <div className="hidden md:flex items-center gap-8">
           {navItems.map(item => (
-            <button key={item.path} onClick={() => navigate(item.path)} className="text-xs font-black uppercase tracking-widest text-gray-500 hover:text-pink-600 transition-colors">{item.label}</button>
+            <button key={item.path} onClick={() => navigate(item.path)} className={`text-xs font-black uppercase tracking-widest transition-colors ${location.pathname === item.path ? 'text-pink-600' : 'text-gray-500 hover:text-pink-600'}`}>
+              {item.label}
+            </button>
           ))}
         </div>
         <div className="flex items-center gap-4">
-          {user?.role === 'ADMIN' && <ShieldAlert onClick={() => navigate('/admin')} className="w-5 h-5 text-orange-500 cursor-pointer" />}
+          {user?.role === 'ADMIN' && <ShieldAlert onClick={() => navigate('/admin')} className="w-5 h-5 text-orange-500 cursor-pointer animate-pulse" />}
           <UserIcon onClick={() => navigate('/profile')} className="w-6 h-6 text-gray-400 cursor-pointer hover:text-pink-600 transition-colors" />
         </div>
       </nav>
@@ -162,7 +189,7 @@ const App: React.FC = () => {
         </Routes>
       </main>
 
-      <div className="fixed bottom-0 left-0 right-0 h-20 bg-white/80 backdrop-blur-xl border-t flex items-center justify-around z-50 px-2 shadow-2xl">
+      <div className="fixed bottom-0 left-0 right-0 h-20 bg-white/80 backdrop-blur-xl border-t flex items-center justify-around z-50 px-2 shadow-2xl md:hidden">
         {navItems.map(item => (
           <button key={item.path} onClick={() => navigate(item.path)} className="flex flex-col items-center gap-1 group">
             <div className={`p-2 rounded-2xl transition-all ${location.pathname === item.path ? 'bg-pink-600 text-white shadow-lg' : 'text-gray-400 group-hover:text-pink-600'}`}>
