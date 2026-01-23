@@ -61,8 +61,25 @@ const App: React.FC = () => {
 
   const fetchProfile = async (id: string) => {
     if (!supabase) return;
-    const { data } = await supabase.from('profiles').select('*').eq('id', id).single();
-    if (data) setUser({ ...data });
+    try {
+      const { data, error } = await supabase.from('profiles').select('*').eq('id', id).single();
+      if (error || !data) {
+        console.warn("Profile fetch returned no data or error. Defaulting to GUEST/BUYER.");
+        // If profile doesn't exist, we still want to allow the user to see the buyer side
+        // We can check auth metadata if available
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        setUser({ 
+          id, 
+          name: authUser?.user_metadata?.full_name || 'Buyer', 
+          role: 'BUYER', 
+          mobile: authUser?.user_metadata?.mobile || '' 
+        });
+        return;
+      }
+      setUser({ ...data });
+    } catch (e) {
+      console.error("Profile Fetch Exception:", e);
+    }
   };
 
   const fetchOrders = async () => {

@@ -40,6 +40,7 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
       });
       
       if (error) throw error;
+      if (!data.user) throw new Error("Login failed: User not found.");
       
       // Fetch profile
       const { data: profile, error: profileError } = await supabase
@@ -48,17 +49,22 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
         .eq('id', data.user.id)
         .single();
         
-      if (profileError) {
-        console.error("Profile Fetch Error:", profileError);
-        // If profile missing, they might be a guest or partially registered
-        setUser({ ...data.user, role: 'BUYER' });
+      // If profile missing or error, handle gracefully
+      if (profileError || !profile) {
+        console.warn("Profile not found for user, defaulting to BUYER role.");
+        const fallbackUser = { ...data.user, role: 'BUYER', name: data.user.user_metadata?.full_name || 'User' };
+        setUser(fallbackUser);
         navigate('/');
         return;
       }
 
       setUser({ ...data.user, ...profile });
-      navigate(profile.role === 'SELLER' ? '/seller' : '/');
+      
+      // Safe check for role before navigating
+      const role = profile?.role || 'BUYER';
+      navigate(role === 'SELLER' ? '/seller' : '/');
     } catch (err: any) {
+      console.error("Auth Error:", err);
       alert(err.message === "Email not confirmed" ? "Check your inbox! You must click the link in your email to log in." : err.message);
     } finally {
       setLoading(false);
@@ -75,7 +81,6 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
     try {
       if (!supabase) throw new Error("Database connection not initialized.");
       
-      // Use current domain for redirect (crucial for production)
       const redirectTo = window.location.origin;
 
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -92,8 +97,8 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
       if (authError) throw authError;
       if (!authData.user) throw new Error("Signup failed. Please check your details.");
 
-      // Create Profile
-      const { error: profileError } = await supabase.from('profiles').insert({
+      // Create Profile record manually
+      const { error: profileError } = await supabase.from('profiles').upsert({
         id: authData.user.id,
         name: formData.name,
         mobile: formData.mobile,
@@ -101,17 +106,21 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
         address: formData.address
       });
       
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error("Profile creation error:", profileError);
+        // We don't throw here so the user sees the "Check Email" screen 
+        // since the Auth account was actually created.
+      }
 
       if (role === 'SELLER') {
-        const { error: shopError } = await supabase.from('shops').insert({
+        const { error: shopError } = await supabase.from('shops').upsert({
           owner_id: authData.user.id,
           name: formData.shopName,
           bazaar: formData.bazaar,
           category: formData.category,
           status: 'PENDING'
         });
-        if (shopError) throw shopError;
+        if (shopError) console.error("Shop creation error:", shopError);
         setView('PENDING');
       } else {
         setView('CHECK_EMAIL');
@@ -132,7 +141,8 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
         </div>
         <div className="space-y-2">
           <h1 className="text-3xl font-black italic uppercase tracking-tighter">Check Your Email</h1>
-          <p className="text-gray-500 text-sm">We've sent a link to <span className="font-bold text-gray-800">{formData.email}</span>. Please click it to verify your account.</p>
+          <p className="text-gray-500 text-sm">We've sent a link to <span className="font-bold text-gray-800">{formData.email}</span>. Click the link in that email to activate your account.</p>
+          <p className="text-[10px] text-gray-400 font-bold uppercase mt-4">Note: If you are redirected to localhost, simply return to this app and Login.</p>
         </div>
         <button onClick={() => setView('LOGIN')} className="bg-gray-900 text-white font-black py-4 px-10 rounded-2xl text-[10px] uppercase tracking-widest">Back to Login</button>
       </div>
@@ -147,7 +157,7 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
         </div>
         <div className="space-y-2">
           <h1 className="text-3xl font-black italic uppercase tracking-tighter">Success!</h1>
-          <p className="text-gray-500 text-sm">Your shop <span className="font-bold text-pink-600">{formData.shopName}</span> is registered. Please verify your email first, then wait for admin approval.</p>
+          <p className="text-gray-500 text-sm">Shop registered. First, check your email to verify account. Then, wait for admin approval.</p>
         </div>
         <button onClick={() => setView('LOGIN')} className="bg-pink-600 text-white font-black py-4 px-10 rounded-2xl text-[10px] uppercase tracking-widest shadow-xl">Back to Login</button>
       </div>
