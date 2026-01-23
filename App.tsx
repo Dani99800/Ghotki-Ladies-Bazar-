@@ -28,13 +28,18 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (!supabase) return;
+    
+    // Check initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) fetchProfile(session.user.id);
     });
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+
+    // Listen for changes
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (session) fetchProfile(session.user.id);
       else setUser(null);
     });
+
     loadMarketplace();
     return () => authListener.subscription.unsubscribe();
   }, []);
@@ -46,16 +51,19 @@ const App: React.FC = () => {
   const fetchProfile = async (id: string) => {
     if (!supabase) return;
     try {
-      const { data: profile } = await supabase.from('profiles').select('*').eq('id', id).maybeSingle();
+      const { data: profile, error } = await supabase.from('profiles').select('*').eq('id', id).maybeSingle();
+      
+      // If profile doesn't exist but we have a session, create it from metadata
       if (!profile) {
         const { data: { user: authUser } } = await supabase.auth.getUser();
         if (authUser) {
+          const meta = authUser.user_metadata || {};
           const newProfile = {
             id,
-            name: authUser.user_metadata.full_name || 'User',
-            role: authUser.user_metadata.role || 'BUYER',
-            subscription_tier: authUser.user_metadata.tier || 'NONE',
-            mobile: authUser.user_metadata.mobile || ''
+            name: meta.full_name || 'Bazar User',
+            role: meta.role || 'BUYER',
+            subscription_tier: meta.tier || 'NONE',
+            mobile: meta.mobile || ''
           };
           await supabase.from('profiles').upsert(newProfile);
           setUser(newProfile as UserType);
@@ -64,7 +72,7 @@ const App: React.FC = () => {
         setUser(profile as UserType);
       }
     } catch (e) {
-      console.error("Profile Error", e);
+      console.error("Profile Error:", e);
     }
   };
 
@@ -75,32 +83,17 @@ const App: React.FC = () => {
         supabase.from('products').select('*').order('created_at', { ascending: false }),
         supabase.from('shops').select('*')
       ]);
-      if (pRes.data) setProducts(pRes.data.map((p: any) => ({ 
-        ...p, 
-        images: p.image_urls || [], 
-        shopId: p.shop_id,
-        videoUrl: p.video_url
-      })));
-      if (sRes.data) setShops(sRes.data.map((s: any) => ({ 
-        ...s, 
-        logo: s.logo_url || 'https://via.placeholder.com/150', 
-        banner: s.banner_url || 'https://via.placeholder.com/800x400' 
-      })));
+      if (pRes.data) setProducts(pRes.data.map((p: any) => ({ ...p, images: p.image_urls || [], shopId: p.shop_id, videoUrl: p.video_url })));
+      if (sRes.data) setShops(sRes.data.map((s: any) => ({ ...s, logo: s.logo_url || 'https://via.placeholder.com/150', banner: s.banner_url || 'https://via.placeholder.com/800x400' })));
     } catch (err) {
-      console.error("Marketplace Load Error:", err);
+      console.error("Data Load Error:", err);
     }
   };
 
   const fetchOrders = async () => {
     if (!supabase || !user) return;
     const { data } = await supabase.from('orders').select('*').or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`);
-    if (data) setOrders(data.map(o => ({ 
-      ...o, 
-      buyerId: o.buyer_id, 
-      sellerId: o.seller_id, 
-      createdAt: o.created_at,
-      platformFee: o.platform_fee || 1000 
-    })));
+    if (data) setOrders(data.map(o => ({ ...o, buyerId: o.buyer_id, sellerId: o.seller_id, createdAt: o.created_at })));
   };
 
   const handlePlaceOrder = async (order: Order) => {
@@ -122,30 +115,25 @@ const App: React.FC = () => {
     if (!error) fetchOrders();
   };
 
-  if (!supabase) return <div className="p-20 text-center font-black uppercase text-pink-600">Database Connection Missing</div>;
+  if (!supabase) return <div className="p-20 text-center uppercase font-black">Database Connection Missing</div>;
 
   return (
-    <div className="min-h-screen pb-20 md:pb-0 md:pt-16 bg-gray-50 text-gray-900">
+    <div className="min-h-screen pb-20 md:pb-0 md:pt-16 bg-gray-50">
       <nav className="fixed top-0 left-0 right-0 h-16 bg-white border-b flex items-center justify-between px-4 z-50">
         <h1 onClick={() => navigate('/')} className="text-pink-600 font-black text-xl italic uppercase cursor-pointer">GLB BAZAR</h1>
         <div className="flex items-center gap-3">
-          <button onClick={() => setLang(lang === 'EN' ? 'UR' : 'EN')} className="text-[10px] font-black border px-2 py-1 rounded-lg">{lang === 'EN' ? 'اردو' : 'EN'}</button>
           {user?.role === 'ADMIN' && <ShieldAlert onClick={() => navigate('/admin')} className="w-5 h-5 text-orange-500 cursor-pointer" />}
           <UserIcon onClick={() => navigate('/profile')} className="w-6 h-6 text-gray-400 cursor-pointer" />
         </div>
       </nav>
 
       <Routes>
-        <Route path="/" element={<BuyerHome shops={shops} products={products} addToCart={p => setCart([...cart, {...p, quantity: 1}])} lang={lang} user={user} onPlaceOrder={handlePlaceOrder} />} />
+        <Route path="/" element={<BuyerHome shops={shops} products={products} addToCart={() => {}} lang={lang} user={user} onPlaceOrder={handlePlaceOrder} />} />
         <Route path="/explore" element={<ExploreView products={products} addToCart={() => {}} onPlaceOrder={handlePlaceOrder} user={user} />} />
         <Route path="/shops" element={<ShopsListView shops={shops} lang={lang} />} />
         <Route path="/shop/:id" element={<ShopView shops={shops} products={products} addToCart={() => {}} lang={lang} />} />
-        <Route path="/product/:id" element={<ProductView products={products} addToCart={() => {}} lang={lang} />} />
         <Route path="/login" element={<LoginView setUser={setUser} lang={lang} />} />
         <Route path="/profile" element={user ? <ProfileView user={user} onLogout={() => { supabase.auth.signOut(); setUser(null); navigate('/login'); }} lang={lang} /> : <Navigate to="/login" />} />
-        <Route path="/orders" element={user ? <OrdersView orders={orders} user={user} shops={shops} /> : <Navigate to="/login" />} />
-        <Route path="/cart" element={<CartView cart={cart} removeFromCart={id => setCart(cart.filter(i => i.id !== id))} updateQuantity={(id, d) => setCart(cart.map(i => i.id === id ? {...i, quantity: Math.max(1, i.quantity + d)} : i))} lang={lang} />} />
-        <Route path="/checkout" element={<CheckoutView cart={cart} clearCart={() => setCart([])} user={user} lang={lang} onPlaceOrder={handlePlaceOrder} />} />
         <Route path="/admin" element={user?.role === 'ADMIN' ? <AdminDashboard shops={shops} setShops={setShops} orders={orders} /> : <Navigate to="/" />} />
         <Route path="/seller/*" element={user?.role === 'SELLER' ? <SellerDashboard products={products} user={user} addProduct={p => setProducts([p, ...products])} orders={orders} shops={shops} /> : <Navigate to="/login" />} />
       </Routes>
