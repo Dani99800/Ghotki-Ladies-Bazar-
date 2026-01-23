@@ -2,7 +2,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  ArrowLeft, ShoppingCart, Heart, Share2, Play, Volume2, VolumeX, Store, Sparkles, PlayCircle
+  ArrowLeft, Heart, Share2, Volume2, VolumeX, Store, Sparkles, PlayCircle
 } from 'lucide-react';
 import { Product, Order, User as UserType } from '../types';
 import InstantCheckout from '../components/InstantCheckout';
@@ -19,11 +19,15 @@ const ExploreView: React.FC<ExploreViewProps> = ({ products, addToCart, onPlaceO
   const [muted, setMuted] = useState(true);
   const [checkoutProduct, setCheckoutProduct] = useState<Product | null>(null);
 
-  const allReels = products.filter(p => p.videoUrl && p.videoUrl.length > 5);
+  // Filter products that have a valid video URL
+  const allReels = products.filter(p => {
+    const url = p.videoUrl || (p as any).video_url;
+    return url && url.length > 5;
+  });
 
   return (
     <div className="fixed inset-0 bg-black z-[100] overflow-y-scroll snap-y snap-mandatory h-screen no-scrollbar">
-      {/* Header */}
+      {/* Header Overlay */}
       <div className="fixed top-0 left-0 right-0 p-6 flex items-center justify-between z-[110] bg-gradient-to-b from-black/80 to-transparent">
         <button onClick={() => navigate('/')} className="p-3 bg-white/10 backdrop-blur-xl rounded-full text-white active:scale-90 transition-all">
           <ArrowLeft className="w-6 h-6" />
@@ -38,13 +42,13 @@ const ExploreView: React.FC<ExploreViewProps> = ({ products, addToCart, onPlaceO
       </div>
 
       {allReels.length === 0 ? (
-        <div className="h-screen w-full flex flex-col items-center justify-center text-white p-10 text-center space-y-6">
-          <PlayCircle className="w-20 h-20 text-pink-600/30" />
+        <div className="h-screen w-full flex flex-col items-center justify-center text-white p-10 text-center space-y-6 bg-gray-900">
+          <PlayCircle className="w-20 h-20 text-pink-600/10" />
           <div className="space-y-1">
              <p className="font-black uppercase tracking-widest text-xs italic">Live Feed is Empty</p>
-             <p className="text-white/40 text-[10px] font-bold uppercase">Sellers haven't uploaded videos yet</p>
+             <p className="text-white/30 text-[10px] font-bold uppercase">Sellers are preparing their live collection</p>
           </div>
-          <button onClick={() => navigate('/')} className="bg-pink-600 text-white px-8 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-pink-600/20">Return Home</button>
+          <button onClick={() => navigate('/')} className="bg-pink-600 text-white px-8 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl">Return Home</button>
         </div>
       ) : allReels.map((product) => (
         <ReelItem 
@@ -72,6 +76,8 @@ const ReelItem: React.FC<{ product: Product, muted: boolean, onBuy: () => void, 
   const videoRef = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
   const [liked, setLiked] = useState(false);
+  
+  const videoUrl = product.videoUrl || (product as any).video_url;
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -84,7 +90,7 @@ const ReelItem: React.FC<{ product: Product, muted: boolean, onBuy: () => void, 
           setPlaying(false);
         }
       },
-      { threshold: 0.6 }
+      { threshold: 0.7 }
     );
     if (videoRef.current) observer.observe(videoRef.current);
     return () => observer.disconnect();
@@ -94,7 +100,7 @@ const ReelItem: React.FC<{ product: Product, muted: boolean, onBuy: () => void, 
     <div className="relative h-screen w-full snap-start bg-black flex items-center justify-center overflow-hidden">
       <video
         ref={videoRef}
-        src={product.videoUrl}
+        src={videoUrl}
         className="h-full w-full object-contain"
         loop
         muted={muted}
@@ -128,7 +134,7 @@ const ReelItem: React.FC<{ product: Product, muted: boolean, onBuy: () => void, 
       </div>
 
       <div className="absolute bottom-32 right-4 flex flex-col gap-6 items-center z-30">
-        <button onClick={(e) => { e.stopPropagation(); setLiked(!liked); }} className={`p-4 backdrop-blur-xl rounded-full border transition-all ${liked ? 'bg-pink-600 text-white border-pink-500' : 'bg-white/10 text-white border-white/20'}`}>
+        <button onClick={(e) => { e.stopPropagation(); setLiked(!liked); }} className={`p-4 backdrop-blur-xl rounded-full border transition-all ${liked ? 'bg-pink-600 text-white border-pink-500 shadow-pink-500/50 shadow-lg' : 'bg-white/10 text-white border-white/20'}`}>
           <Heart className={`w-5 h-5 ${liked ? 'fill-white' : ''}`} />
         </button>
         
