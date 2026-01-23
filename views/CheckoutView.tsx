@@ -44,6 +44,8 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, clearCart, user, lang
         isDeliveryPaidAdvance: payment === 'COD',
         buyerName: user?.name || 'Guest Buyer',
         buyerMobile: user?.mobile || '0000000000',
+        // Fixed: added missing required buyerAddress property
+        buyerAddress: user?.address || 'N/A',
         createdAt: new Date().toISOString()
       };
       onPlaceOrder(order);

@@ -2,10 +2,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  User, Store, Lock, Phone, ArrowLeft, Mail, Eye, EyeOff, Sparkles, Loader2, Inbox
+  User, Store, Lock, Phone, ArrowLeft, Mail, Eye, EyeOff, Sparkles, Loader2, Inbox, CheckCircle
 } from 'lucide-react';
 import { supabase } from '../services/supabase';
-import { BAZAARS, CATEGORIES } from '../constants';
+import { BAZAARS, CATEGORIES, SUBSCRIPTION_PLANS } from '../constants';
 
 interface LoginViewProps {
   setUser: (u: any) => void;
@@ -26,62 +26,40 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
     shopName: '',
     bazaar: BAZAARS[0],
     category: CATEGORIES[0].name,
-    address: ''
+    tier: 'BASIC'
   });
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      if (!supabase) throw new Error("Database connection not initialized.");
-      
       const { data, error } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password,
       });
       
       if (error) throw error;
-      if (!data.user) throw new Error("Login failed: User not found.");
+      if (!data.user) throw new Error("User not found.");
       
-      // Fetch profile
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', data.user.id)
-        .maybeSingle();
-        
-      // Use metadata if profile is missing in table (Self-Healing)
-      const metadata = data.user.user_metadata || {};
-      const finalRole = profile?.role || metadata?.role || 'BUYER';
-      const finalName = profile?.name || metadata?.full_name || 'User';
-
-      const userData = { 
-        ...data.user, 
-        role: finalRole, 
-        name: finalName,
-        ...profile 
-      };
-
-      setUser(userData);
-      navigate(finalRole === 'SELLER' ? '/seller' : '/');
+      const { data: profile } = await supabase.from('profiles').select('*').eq('id', data.user.id).maybeSingle();
+      const meta = data.user.user_metadata || {};
+      const finalRole = profile?.role || meta?.role || 'BUYER';
+      
+      setUser({ ...data.user, ...profile, role: finalRole });
+      
+      if (finalRole === 'ADMIN') navigate('/admin');
+      else if (finalRole === 'SELLER') navigate('/seller');
+      else navigate('/');
     } catch (err: any) {
-      console.error("Auth Error:", err);
-      alert(err.message === "Email not confirmed" ? "Check your inbox to verify your email." : err.message);
+      alert(err.message);
     } finally {
       setLoading(false);
     }
   };
 
   const handleSignup = async (role: 'BUYER' | 'SELLER') => {
-    if (!formData.email || !formData.password || !formData.name) {
-      alert("Please fill in all required fields.");
-      return;
-    }
-
     setLoading(true);
     try {
-      if (!supabase) throw new Error("Database connection not initialized.");
-      
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -89,11 +67,8 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
           emailRedirectTo: window.location.origin,
           data: {
             full_name: formData.name,
-            mobile: formData.mobile,
             role: role,
-            shop_name: role === 'SELLER' ? formData.shopName : null,
-            bazaar: role === 'SELLER' ? formData.bazaar : null,
-            category: role === 'SELLER' ? formData.category : null,
+            tier: formData.tier
           }
         }
       });
@@ -101,152 +76,81 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
       if (authError) throw authError;
       if (!authData.user) throw new Error("Signup failed.");
 
-      // Try creating database records immediately (might wait for email confirmation in some setups)
-      // We use upsert to prevent errors on double clicks
-      try {
-        await supabase.from('profiles').upsert({
-          id: authData.user.id,
-          name: formData.name,
-          mobile: formData.mobile,
-          role: role,
-          address: formData.address
+      await supabase.from('profiles').upsert({
+        id: authData.user.id,
+        name: formData.name,
+        mobile: formData.mobile,
+        role: role,
+        subscription_tier: formData.tier
+      });
+
+      if (role === 'SELLER') {
+        await supabase.from('shops').upsert({
+          owner_id: authData.user.id,
+          name: formData.shopName,
+          bazaar: formData.bazaar,
+          category: formData.category,
+          subscription_tier: formData.tier,
+          status: 'PENDING'
         });
-
-        if (role === 'SELLER') {
-          await supabase.from('shops').upsert({
-            owner_id: authData.user.id,
-            name: formData.shopName,
-            bazaar: formData.bazaar,
-            category: formData.category,
-            status: 'PENDING'
-          });
-        }
-      } catch (dbErr) {
-        console.warn("DB Background Sync Pending Email Verification");
+        setView('PENDING');
+      } else {
+        setView('CHECK_EMAIL');
       }
-
-      if (role === 'SELLER') setView('PENDING');
-      else setView('CHECK_EMAIL');
-      
     } catch (err: any) {
-      console.error("Signup Error:", err);
       alert(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  if (view === 'CHECK_EMAIL') {
-    return (
-      <div className="max-w-md mx-auto min-h-screen flex flex-col items-center justify-center p-6 text-center space-y-8 animate-in zoom-in">
-        <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 shadow-xl border-4 border-white">
-          <Inbox className="w-12 h-12" />
-        </div>
-        <div className="space-y-2">
-          <h1 className="text-3xl font-black italic uppercase tracking-tighter">Check Your Email</h1>
-          <p className="text-gray-500 text-sm">Confirmation link sent to <span className="font-bold text-gray-800">{formData.email}</span>.</p>
-        </div>
-        <button onClick={() => setView('LOGIN')} className="bg-gray-900 text-white font-black py-4 px-10 rounded-2xl text-[10px] uppercase tracking-widest">Back to Login</button>
-      </div>
-    );
-  }
-
-  if (view === 'PENDING') {
-    return (
-      <div className="max-w-md mx-auto min-h-screen flex flex-col items-center justify-center p-6 text-center space-y-8 animate-in zoom-in">
-        <div className="w-24 h-24 bg-pink-100 rounded-full flex items-center justify-center text-pink-600 shadow-xl border-4 border-white">
-          <Sparkles className="w-12 h-12" />
-        </div>
-        <div className="space-y-2">
-          <h1 className="text-3xl font-black italic uppercase tracking-tighter">Shop Registered</h1>
-          <p className="text-gray-500 text-sm font-medium">1. Verify your email link.<br/>2. Log in.<br/>3. Your shop will be active shortly!</p>
-        </div>
-        <button onClick={() => setView('LOGIN')} className="bg-pink-600 text-white font-black py-4 px-10 rounded-2xl text-[10px] uppercase tracking-widest shadow-xl">Back to Login</button>
-      </div>
-    );
-  }
-
-  if (view === 'SIGNUP_CHOICE') {
-    return (
-      <div className="max-w-md mx-auto min-h-screen flex flex-col items-center justify-center p-6 space-y-8">
-        <h1 className="text-4xl font-black text-gray-900 tracking-tighter uppercase italic text-center">Join Ghotki Bazar</h1>
-        <div className="grid grid-cols-1 gap-4 w-full">
-          <button onClick={() => setView('SIGNUP_BUYER')} className="p-8 bg-white border-2 border-gray-100 rounded-[2.5rem] flex flex-col items-center gap-4 hover:border-pink-500 transition-all group">
-            <div className="w-16 h-16 bg-pink-50 rounded-2xl flex items-center justify-center text-pink-600 group-hover:scale-110 transition-transform"><User className="w-8 h-8" /></div>
-            <p className="font-black text-lg uppercase italic tracking-tighter">I am a Shopper</p>
-          </button>
-          <button onClick={() => setView('SIGNUP_SHOP')} className="p-8 bg-gray-900 border-2 border-gray-900 rounded-[2.5rem] flex flex-col items-center gap-4 hover:shadow-2xl transition-all group text-white">
-            <div className="w-16 h-16 bg-pink-600 rounded-2xl flex items-center justify-center text-white group-hover:scale-110 transition-transform"><Store className="w-8 h-8" /></div>
-            <p className="font-black text-lg uppercase italic tracking-tighter">I am a Seller</p>
-          </button>
-        </div>
-        <button onClick={() => setView('LOGIN')} className="text-gray-400 font-bold uppercase text-[10px] tracking-widest">Back to Login</button>
-      </div>
-    );
-  }
+  if (view === 'CHECK_EMAIL') return <div className="min-h-screen flex items-center justify-center p-8 text-center"><h2 className="text-2xl font-black uppercase italic">Check Your Email</h2></div>;
+  if (view === 'PENDING') return <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center space-y-4"><h2 className="text-2xl font-black uppercase italic text-pink-600">Registration Success!</h2><p className="text-gray-500">Wait for admin to verify your shop after email confirmation.</p><button onClick={() => setView('LOGIN')} className="bg-gray-900 text-white px-8 py-3 rounded-xl font-black uppercase">To Login</button></div>;
 
   return (
-    <div className="max-w-md mx-auto min-h-screen flex flex-col items-center justify-center p-6 space-y-10 animate-in fade-in duration-500">
-      <div className="text-center">
-        <h1 className="text-5xl font-black text-pink-600 tracking-tighter uppercase italic">GLB BAZAR</h1>
-        <p className="text-gray-400 font-bold text-[10px] uppercase tracking-[0.3em]">Digitizing Ghotki Legacy</p>
-      </div>
-
-      <form onSubmit={(e) => {
-        if (view === 'LOGIN') handleAuth(e);
-        else { e.preventDefault(); handleSignup(view === 'SIGNUP_BUYER' ? 'BUYER' : 'SELLER'); }
-      }} className="w-full space-y-5">
-        {(view === 'SIGNUP_BUYER' || view === 'SIGNUP_SHOP') && (
-          <div className="space-y-4">
-             <div className="relative">
-               <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300" />
-               <input required type="text" placeholder="Full Name" className="w-full pl-12 pr-6 py-4.5 bg-white border border-gray-100 rounded-2xl shadow-sm outline-none focus:ring-2 focus:ring-pink-500 font-bold" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-             </div>
-             <div className="relative">
-               <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300" />
-               <input required type="tel" placeholder="Mobile Number" className="w-full pl-12 pr-6 py-4.5 bg-white border border-gray-100 rounded-2xl shadow-sm outline-none focus:ring-2 focus:ring-pink-500 font-bold" value={formData.mobile} onChange={e => setFormData({...formData, mobile: e.target.value})} />
-             </div>
-          </div>
-        )}
-
-        {view === 'SIGNUP_SHOP' && (
-          <div className="space-y-4">
-             <div className="relative">
-               <Store className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300" />
-               <input required type="text" placeholder="Shop Name" className="w-full pl-12 pr-6 py-4.5 bg-white border border-gray-100 rounded-2xl shadow-sm outline-none focus:ring-2 focus:ring-pink-500 font-bold" value={formData.shopName} onChange={e => setFormData({...formData, shopName: e.target.value})} />
-             </div>
-             <select className="w-full px-6 py-4.5 bg-white border border-gray-100 rounded-2xl shadow-sm font-bold appearance-none outline-none focus:ring-2 focus:ring-pink-500" value={formData.bazaar} onChange={e => setFormData({...formData, bazaar: e.target.value})}>
-               {BAZAARS.map(b => <option key={b} value={b}>{b}</option>)}
-             </select>
-          </div>
-        )}
-
-        <div className="space-y-4">
-          <div className="relative">
-            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300" />
-            <input required type="email" placeholder="Email Address" className="w-full pl-12 pr-6 py-4.5 bg-white border border-gray-100 rounded-2xl shadow-sm outline-none focus:ring-2 focus:ring-pink-500 font-bold" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
-          </div>
-          <div className="relative">
-            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300" />
-            <input required type={showPassword ? "text" : "password"} placeholder="Password" className="w-full pl-12 pr-14 py-4.5 bg-white border border-gray-100 rounded-2xl shadow-sm outline-none focus:ring-2 focus:ring-pink-500 font-bold" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
-            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-300 hover:text-pink-600">
-              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-            </button>
-          </div>
+    <div className="max-w-md mx-auto min-h-screen flex flex-col items-center justify-center p-6 space-y-8">
+      <h1 className="text-4xl font-black text-pink-600 uppercase italic">Ghotki Bazar</h1>
+      
+      {view === 'SIGNUP_CHOICE' ? (
+        <div className="w-full space-y-4">
+          <button onClick={() => setView('SIGNUP_BUYER')} className="w-full p-6 bg-white border border-gray-100 rounded-3xl font-black uppercase italic">I am a Buyer</button>
+          <button onClick={() => setView('SIGNUP_SHOP')} className="w-full p-6 bg-gray-900 text-white rounded-3xl font-black uppercase italic">I am a Seller</button>
         </div>
+      ) : (
+        <form onSubmit={(e) => { e.preventDefault(); view === 'LOGIN' ? handleAuth(e) : handleSignup(view === 'SIGNUP_SHOP' ? 'SELLER' : 'BUYER'); }} className="w-full space-y-4">
+          <input required type="email" placeholder="Email" className="w-full p-4 bg-white border rounded-2xl font-bold" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+          <input required type="password" placeholder="Password" className="w-full p-4 bg-white border rounded-2xl font-bold" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
+          
+          {view !== 'LOGIN' && (
+            <>
+              <input required type="text" placeholder="Full Name" className="w-full p-4 bg-white border rounded-2xl font-bold" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+              <input required type="tel" placeholder="Mobile" className="w-full p-4 bg-white border rounded-2xl font-bold" value={formData.mobile} onChange={e => setFormData({...formData, mobile: e.target.value})} />
+            </>
+          )}
 
-        <button disabled={loading} type="submit" className="w-full bg-pink-600 text-white font-black py-5 rounded-3xl shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all uppercase tracking-widest text-xs">
-          {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (view === 'LOGIN' ? 'Login to Bazar' : 'Register Now')}
-        </button>
-      </form>
+          {view === 'SIGNUP_SHOP' && (
+            <div className="space-y-4 border-t pt-4">
+              <input required type="text" placeholder="Shop Name" className="w-full p-4 bg-white border rounded-2xl font-bold" value={formData.shopName} onChange={e => setFormData({...formData, shopName: e.target.value})} />
+              <p className="text-[10px] font-black uppercase text-gray-400">Select Plan</p>
+              <div className="grid grid-cols-3 gap-2">
+                {SUBSCRIPTION_PLANS.map(plan => (
+                  <button key={plan.id} type="button" onClick={() => setFormData({...formData, tier: plan.id})} className={`p-3 rounded-xl text-[8px] font-black uppercase border-2 transition-all ${formData.tier === plan.id ? 'border-pink-600 bg-pink-50 text-pink-600' : 'border-gray-100 text-gray-400'}`}>
+                    {plan.label}<br/>PKR {plan.price}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
-      <div className="text-center space-y-4">
-        {view === 'LOGIN' ? (
-          <button onClick={() => setView('SIGNUP_CHOICE')} className="text-gray-400 font-black text-[10px] uppercase tracking-[0.2em]">New here? <span className="text-pink-600 font-black">Create Account</span></button>
-        ) : (
-          <button onClick={() => setView('LOGIN')} className="text-gray-400 font-black text-[10px] uppercase tracking-[0.2em]"><ArrowLeft className="w-3 h-3 inline mr-2" /> Back to <span className="text-pink-600 font-black">Login</span></button>
-        )}
-      </div>
+          <button disabled={loading} className="w-full bg-pink-600 text-white font-black py-5 rounded-2xl uppercase tracking-widest flex items-center justify-center gap-3">
+            {loading ? <Loader2 className="animate-spin" /> : (view === 'LOGIN' ? 'Login' : 'Join Now')}
+          </button>
+          
+          <button type="button" onClick={() => setView(view === 'LOGIN' ? 'SIGNUP_CHOICE' : 'LOGIN')} className="w-full text-center text-gray-400 font-black uppercase text-[10px]">
+            {view === 'LOGIN' ? 'Create Account' : 'Back to Login'}
+          </button>
+        </form>
+      )}
     </div>
   );
 };

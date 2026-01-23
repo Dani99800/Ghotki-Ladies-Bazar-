@@ -4,6 +4,9 @@ import { Shop, Product } from './types';
 export const MOCK_SHOPS: Shop[] = [
   {
     id: 's1',
+    // Added owner_id and subscription_tier to fix missing property errors
+    owner_id: 'u_owner_zubeda',
+    subscription_tier: 'STANDARD',
     name: 'Zubeda Boutique',
     ownerName: 'Zubeda Khan',
     mobile: '03001234567',
@@ -25,6 +28,9 @@ export const MOCK_SHOPS: Shop[] = [
   },
   {
     id: 's_j',
+    // Added owner_id and subscription_tier to fix missing property errors
+    owner_id: 'u_owner_j',
+    subscription_tier: 'BASIC',
     name: 'J. Boutique',
     ownerName: 'Junaid Jamshed',
     mobile: '03112223334',
@@ -46,6 +52,9 @@ export const MOCK_SHOPS: Shop[] = [
   },
   {
     id: 's_kapeel',
+    // Added owner_id and subscription_tier to fix missing property errors
+    owner_id: 'u_owner_kapeel',
+    subscription_tier: 'PREMIUM',
     name: 'Kapeel Dass Footwear',
     ownerName: 'Kapeel Dass',
     mobile: '03019876543',

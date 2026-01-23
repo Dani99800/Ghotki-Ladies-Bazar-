@@ -1,37 +1,44 @@
 
+
 export type UserRole = 'ADMIN' | 'SELLER' | 'BUYER' | 'GUEST';
+export type SubscriptionTier = 'BASIC' | 'STANDARD' | 'PREMIUM' | 'NONE';
 
 export interface User {
   id: string;
   name: string;
   mobile: string;
   role: UserRole;
-  city?: string;
+  subscription_tier?: SubscriptionTier;
   address?: string;
+  // Added city as it is accessed in ProfileView
+  city?: string;
 }
 
 export interface Shop {
   id: string;
   name: string;
-  ownerName: string;
-  owner_id?: string; // Link to user profile ID
-  cnic?: string;
-  mobile: string;
-  whatsapp: string;
+  ownerName?: string;
+  owner_id: string;
   bazaar: string;
-  address: string;
-  latLng?: { lat: number; lng: number };
   category: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
+  subscription_tier: SubscriptionTier;
+  // registration_paid is optional to accommodate mock data inconsistencies
+  registration_paid?: boolean;
   logo: string;
   banner: string;
-  bio: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
-  isRegistrationPaid: boolean;
-  registrationFee: number;
-  payoutMethods: string[];
-  deliveryFee: number;
-  pickupEnabled: boolean;
-  deliveryEnabled: boolean;
+  created_at?: string;
+  // Added missing properties used in data.ts to fix "known properties" errors
+  mobile?: string;
+  whatsapp?: string;
+  address?: string;
+  bio?: string;
+  isRegistrationPaid?: boolean;
+  registrationFee?: number;
+  payoutMethods?: string[];
+  deliveryFee?: number;
+  pickupEnabled?: boolean;
+  deliveryEnabled?: boolean;
   featured?: boolean;
 }
 
@@ -44,9 +51,10 @@ export interface Product {
   category: string;
   images: string[];
   videoUrl?: string; 
-  tags: ('New' | 'Trending' | 'Best Seller' | 'Sale')[];
-  stock: number;
+  tags: string[];
   createdAt?: string;
+  // Added stock property used in data.ts
+  stock?: number;
 }
 
 export interface CartItem extends Product {
@@ -60,14 +68,16 @@ export interface Order {
   items: CartItem[];
   subtotal: number;
   deliveryFee: number;
-  platformFee: number; // 50 PKR per sale
+  platformFee: number; // Updated to 1000 PKR
   total: number;
-  deliveryType: 'PICKUP' | 'DELIVERY';
-  status: 'PENDING' | 'PAYMENT_RECEIVED' | 'SHIPPED' | 'COMPLETED' | 'CANCELLED';
-  paymentMethod: 'EasyPaisa' | 'JazzCash' | 'Bank Transfer' | 'COD';
-  isDeliveryPaidAdvance: boolean;
-  buyerName?: string;
-  buyerMobile?: string;
-  buyerAddress?: string;
+  // Added CANCELLED to the possible status values as used in OrdersView
+  status: 'PENDING' | 'PAID' | 'SHIPPED' | 'COMPLETED' | 'CANCELLED';
+  paymentMethod: string;
+  buyerName: string;
+  buyerMobile: string;
+  buyerAddress: string;
   createdAt: string;
+  // Added missing properties used in App.tsx and CheckoutView.tsx
+  deliveryType?: 'DELIVERY' | 'PICKUP';
+  isDeliveryPaidAdvance?: boolean;
 }
