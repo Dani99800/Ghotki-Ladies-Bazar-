@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { Home, ShoppingBag, User as UserIcon, Search, ShoppingCart, LayoutDashboard, Database, ShieldAlert } from 'lucide-react';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Home, ShoppingBag, User as UserIcon, Search, ShoppingCart, LayoutDashboard, ShieldAlert, PlayCircle } from 'lucide-react';
 import { supabase } from './services/supabase';
 import { User as UserType, Shop, Product, CartItem, Order } from './types';
 import BuyerHome from './views/BuyerHome';
@@ -46,37 +46,23 @@ const App: React.FC = () => {
     return () => authListener.subscription.unsubscribe();
   }, []);
 
-  useEffect(() => {
-    if (user) fetchOrders();
-  }, [user]);
-
   const fetchProfile = async (id: string) => {
     if (!supabase) return;
     try {
       const { data: profile } = await supabase.from('profiles').select('*').eq('id', id).maybeSingle();
-      
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (authUser) {
         const meta = authUser.user_metadata || {};
-        const finalRole = profile?.role || meta.role || 'BUYER';
-        
         const userData = {
           id,
           name: profile?.name || meta.full_name || 'Bazar User',
-          role: finalRole,
+          role: profile?.role || meta.role || 'BUYER',
           subscription_tier: profile?.subscription_tier || meta.tier || 'NONE',
           mobile: profile?.mobile || meta.mobile || ''
         };
-
-        if (!profile) {
-          await supabase.from('profiles').upsert(userData);
-        }
-        
         setUser(userData as UserType);
       }
-    } catch (e) {
-      console.error("Profile Error:", e);
-    }
+    } catch (e) { console.error(e); }
   };
 
   const loadMarketplace = async () => {
@@ -103,15 +89,21 @@ const App: React.FC = () => {
           banner: s.banner_url || 'https://via.placeholder.com/800x400' 
         })));
       }
-    } catch (err) {
-      console.error("Data Load Error:", err);
-    }
+    } catch (err) { console.error(err); }
   };
 
   const fetchOrders = async () => {
     if (!supabase || !user) return;
     const { data } = await supabase.from('orders').select('*').or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`);
     if (data) setOrders(data.map(o => ({ ...o, buyerId: o.buyer_id, sellerId: o.seller_id, createdAt: o.created_at })));
+  };
+
+  const addToCart = (p: Product) => {
+    setCart(prev => {
+      const existing = prev.find(item => item.id === p.id);
+      if (existing) return prev.map(item => item.id === p.id ? { ...item, quantity: item.quantity + 1 } : item);
+      return [...prev, { ...p, quantity: 1 }];
+    });
   };
 
   const handlePlaceOrder = async (order: Order) => {
@@ -133,38 +125,52 @@ const App: React.FC = () => {
     if (!error) fetchOrders();
   };
 
-  if (!supabase) return <div className="p-20 text-center uppercase font-black">Database Connection Missing</div>;
+  const navItems = [
+    { icon: Home, label: 'Home', path: '/' },
+    { icon: PlayCircle, label: 'Live', path: '/explore' },
+    { icon: ShoppingBag, label: 'Shops', path: '/shops' },
+    { icon: user?.role === 'SELLER' ? LayoutDashboard : ShoppingCart, label: user?.role === 'SELLER' ? 'Dashboard' : 'Cart', path: user?.role === 'SELLER' ? '/seller' : '/cart' },
+  ];
 
   return (
-    <div className="min-h-screen pb-20 md:pb-0 md:pt-16 bg-gray-50">
-      <nav className="fixed top-0 left-0 right-0 h-16 bg-white border-b flex items-center justify-between px-4 z-50">
-        <h1 onClick={() => navigate('/')} className="text-pink-600 font-black text-xl italic uppercase cursor-pointer">GLB BAZAR</h1>
-        <div className="flex items-center gap-3">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <nav className="fixed top-0 left-0 right-0 h-16 bg-white border-b flex items-center justify-between px-6 z-50">
+        <h1 onClick={() => navigate('/')} className="text-pink-600 font-black text-xl italic uppercase cursor-pointer tracking-tighter">GLB BAZAR</h1>
+        <div className="hidden md:flex items-center gap-8">
+          {navItems.map(item => (
+            <button key={item.path} onClick={() => navigate(item.path)} className="text-xs font-black uppercase tracking-widest text-gray-500 hover:text-pink-600 transition-colors">{item.label}</button>
+          ))}
+        </div>
+        <div className="flex items-center gap-4">
           {user?.role === 'ADMIN' && <ShieldAlert onClick={() => navigate('/admin')} className="w-5 h-5 text-orange-500 cursor-pointer" />}
-          <UserIcon onClick={() => navigate('/profile')} className="w-6 h-6 text-gray-400 cursor-pointer" />
+          <UserIcon onClick={() => navigate('/profile')} className="w-6 h-6 text-gray-400 cursor-pointer hover:text-pink-600 transition-colors" />
         </div>
       </nav>
 
-      <Routes>
-        <Route path="/" element={<BuyerHome shops={shops} products={products} addToCart={() => {}} lang={lang} user={user} onPlaceOrder={handlePlaceOrder} />} />
-        <Route path="/explore" element={<ExploreView products={products} addToCart={() => {}} onPlaceOrder={handlePlaceOrder} user={user} />} />
-        <Route path="/shops" element={<ShopsListView shops={shops} lang={lang} />} />
-        <Route path="/shop/:id" element={<ShopView shops={shops} products={products} addToCart={() => {}} lang={lang} />} />
-        <Route path="/product/:id" element={<ProductView products={products} addToCart={() => {}} lang={lang} />} />
-        <Route path="/login" element={<LoginView setUser={setUser} lang={lang} />} />
-        <Route path="/profile" element={user ? <ProfileView user={user} onLogout={() => { supabase.auth.signOut(); setUser(null); navigate('/login'); }} lang={lang} /> : <Navigate to="/login" />} />
-        
-        {/* Pass refreshData helper to Admin */}
-        <Route path="/admin" element={user?.role === 'ADMIN' ? <AdminDashboard shops={shops} setShops={setShops} orders={orders} refreshData={loadMarketplace} /> : <Navigate to="/" />} />
-        
-        <Route path="/seller/*" element={user?.role === 'SELLER' ? <SellerDashboard products={products} user={user} addProduct={p => setProducts([p, ...products])} orders={orders} shops={shops} /> : <Navigate to="/login" />} />
-      </Routes>
+      <main className="flex-1 pt-16 pb-24 md:pb-0">
+        <Routes>
+          <Route path="/" element={<BuyerHome shops={shops} products={products} addToCart={addToCart} lang={lang} user={user} onPlaceOrder={handlePlaceOrder} />} />
+          <Route path="/explore" element={<ExploreView products={products} addToCart={addToCart} onPlaceOrder={handlePlaceOrder} user={user} />} />
+          <Route path="/shops" element={<ShopsListView shops={shops} lang={lang} />} />
+          <Route path="/shop/:id" element={<ShopView shops={shops} products={products} addToCart={addToCart} lang={lang} />} />
+          <Route path="/product/:id" element={<ProductView products={products} addToCart={addToCart} lang={lang} />} />
+          <Route path="/cart" element={<CartView cart={cart} removeFromCart={id => setCart(cart.filter(c => c.id !== id))} updateQuantity={(id, d) => setCart(cart.map(c => c.id === id ? {...c, quantity: Math.max(1, c.quantity+d)} : c))} lang={lang} />} />
+          <Route path="/login" element={<LoginView setUser={setUser} lang={lang} />} />
+          <Route path="/profile" element={user ? <ProfileView user={user} onLogout={() => { supabase?.auth.signOut(); setUser(null); navigate('/login'); }} lang={lang} /> : <Navigate to="/login" />} />
+          <Route path="/admin" element={user?.role === 'ADMIN' ? <AdminDashboard shops={shops} setShops={setShops} orders={orders} refreshData={loadMarketplace} /> : <Navigate to="/" />} />
+          <Route path="/seller/*" element={user?.role === 'SELLER' ? <SellerDashboard products={products} user={user} addProduct={loadMarketplace} orders={orders} shops={shops} refreshShop={loadMarketplace} /> : <Navigate to="/login" />} />
+        </Routes>
+      </main>
 
-      <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t flex items-center justify-around z-50">
-        <Home onClick={() => navigate('/')} className="w-6 h-6 text-gray-400" />
-        <Search onClick={() => navigate('/explore')} className="w-6 h-6 text-gray-400" />
-        <ShoppingBag onClick={() => navigate('/shops')} className="w-6 h-6 text-gray-400" />
-        {user?.role === 'SELLER' ? <LayoutDashboard onClick={() => navigate('/seller')} className="w-6 h-6 text-pink-600" /> : <ShoppingCart onClick={() => navigate('/cart')} className="w-6 h-6 text-gray-400" />}
+      <div className="fixed bottom-0 left-0 right-0 h-20 bg-white/80 backdrop-blur-xl border-t flex items-center justify-around z-50 px-2 shadow-2xl">
+        {navItems.map(item => (
+          <button key={item.path} onClick={() => navigate(item.path)} className="flex flex-col items-center gap-1 group">
+            <div className={`p-2 rounded-2xl transition-all ${location.pathname === item.path ? 'bg-pink-600 text-white shadow-lg' : 'text-gray-400 group-hover:text-pink-600'}`}>
+              <item.icon className="w-6 h-6" />
+            </div>
+            <span className={`text-[8px] font-black uppercase tracking-widest ${location.pathname === item.path ? 'text-pink-600' : 'text-gray-400'}`}>{item.label}</span>
+          </button>
+        ))}
       </div>
     </div>
   );
