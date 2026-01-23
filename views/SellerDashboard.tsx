@@ -22,6 +22,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
   const [showAddModal, setShowAddModal] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<'IDLE' | 'UPLOADING' | 'PUBLISHING'>('IDLE');
   const [loadingShop, setLoadingShop] = useState(false);
+  const [launchSuccess, setLaunchSuccess] = useState(false);
   
   const myShop = shops.find(s => s.owner_id === user.id);
   const myProducts = products.filter(p => p.shopId === myShop?.id);
@@ -34,36 +35,38 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
     bio: ''
   });
 
-  // Automatically pull the Shop Name from the registration metadata
+  // Pull initial data from auth user metadata to pre-fill onboarding
   useEffect(() => {
     if (!myShop && supabase) {
-      supabase.auth.getUser().then(({ data: { user: authUser } }) => {
+      const getInitialMeta = async () => {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
         if (authUser?.user_metadata) {
           const meta = authUser.user_metadata;
           setSetupData(prev => ({
             ...prev,
-            name: meta.shop_name || prev.name,
+            name: meta.shop_name || meta.full_name || prev.name,
             bazaar: meta.bazaar || prev.bazaar,
             category: meta.category || prev.category
           }));
         }
-      });
+      };
+      getInitialMeta();
     }
   }, [myShop]);
 
   const handleCreateShop = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!supabase) return;
+    if (!supabase || loadingShop) return; // Guard against multiple clicks
+    
     setLoadingShop(true);
     
     try {
-      // We first try with the 'bio' column.
       const { error } = await supabase.from('shops').insert({
         owner_id: user.id,
         name: setupData.name,
         bazaar: setupData.bazaar,
         category: setupData.category,
-        bio: setupData.bio, // This is the column we added via SQL
+        bio: setupData.bio,
         subscription_tier: user.subscription_tier || 'BASIC',
         status: 'PENDING',
         logo_url: 'https://images.unsplash.com/photo-1594465911325-1e42f9d37536?auto=format&fit=crop&q=80&w=200',
@@ -71,26 +74,39 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
       });
 
       if (error) {
-        // If it fails because 'bio' is still missing, we tell the user clearly.
         if (error.message.includes('column "bio"')) {
-           alert("DATABASE ERROR: You need to add the 'bio' column in your Supabase SQL Editor. Run: ALTER TABLE shops ADD COLUMN bio TEXT;");
-           throw error;
+           alert("SCHEMA ERROR: Missing 'bio' column. Please run this in Supabase SQL Editor: ALTER TABLE shops ADD COLUMN bio TEXT;");
+        } else {
+           alert("Launch Error: " + error.message);
         }
         throw error;
       }
       
-      window.location.reload(); 
+      setLaunchSuccess(true);
+      // Wait a moment for database consistency before refreshing
+      setTimeout(() => {
+        window.location.reload(); 
+      }, 2000);
+
     } catch (err: any) {
-      console.error("Shop Setup Error:", err);
+      console.error("Shop Setup Failed:", err);
     } finally {
       setLoadingShop(false);
     }
   };
 
-  const handleAddProduct = async (e: React.FormEvent) => {
-    e.preventDefault();
-    // Implementation for adding products
-  };
+  if (launchSuccess) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center space-y-6 animate-in fade-in zoom-in duration-500">
+         <div className="w-24 h-24 bg-green-50 text-green-600 rounded-full flex items-center justify-center mx-auto shadow-2xl">
+            <Check className="w-12 h-12" />
+         </div>
+         <h2 className="text-3xl font-black uppercase italic tracking-tighter">Store Launched!</h2>
+         <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">Finalizing your digital storefront...</p>
+         <Loader2 className="animate-spin text-pink-600" />
+      </div>
+    );
+  }
 
   if (!myShop) {
     return (
@@ -100,42 +116,42 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
             <Building2 className="w-12 h-12" />
           </div>
           <div className="space-y-1">
-             <h1 className="text-3xl font-black uppercase italic tracking-tighter">Open Your Store</h1>
-             <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest">Complete your profile to go live</p>
+             <h1 className="text-3xl font-black uppercase italic tracking-tighter">Business Setup</h1>
+             <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest">Setup your bazaar presence</p>
           </div>
         </div>
 
         <form onSubmit={handleCreateShop} className="space-y-6 bg-white p-8 rounded-[3rem] border border-gray-100 shadow-2xl shadow-pink-100/20">
           <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase text-gray-400 ml-1">Business Name</label>
-            <input required type="text" className="w-full p-5 bg-gray-50 rounded-2xl font-bold border-none outline-none focus:ring-2 focus:ring-pink-500/20" value={setupData.name} onChange={e => setSetupData({...setupData, name: e.target.value})} />
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Shop Name</label>
+            <input required type="text" placeholder="e.g. Ghotki Traditional Fabrics" className="w-full p-5 bg-gray-50 rounded-2xl font-bold border-none outline-none focus:ring-2 focus:ring-pink-500/20" value={setupData.name} onChange={e => setSetupData({...setupData, name: e.target.value})} />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase text-gray-400 ml-1">Market</label>
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Market</label>
               <select className="w-full p-4 bg-gray-50 rounded-2xl font-bold border-none outline-none focus:ring-2 focus:ring-pink-500/20" value={setupData.bazaar} onChange={e => setSetupData({...setupData, bazaar: e.target.value})}>
                 {BAZAARS.map(b => <option key={b} value={b}>{b}</option>)}
               </select>
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase text-gray-400 ml-1">Category</label>
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Category</label>
               <select className="w-full p-4 bg-gray-50 rounded-2xl font-bold border-none outline-none focus:ring-2 focus:ring-pink-500/20" value={setupData.category} onChange={e => setSetupData({...setupData, category: e.target.value})}>
                 {CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
               </select>
             </div>
           </div>
           <div className="space-y-2">
-             <label className="text-[10px] font-black uppercase text-gray-400 ml-1">Shop Description (Bio)</label>
-             <textarea required placeholder="Tell customers about your craftsmanship..." className="w-full p-5 bg-gray-50 rounded-2xl font-bold border-none h-24 resize-none outline-none focus:ring-2 focus:ring-pink-500/20" value={setupData.bio} onChange={e => setSetupData({...setupData, bio: e.target.value})} />
+             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">About Your Shop</label>
+             <textarea required placeholder="Specialties, history, or craftsmanship..." className="w-full p-5 bg-gray-50 rounded-2xl font-bold border-none h-24 resize-none outline-none focus:ring-2 focus:ring-pink-500/20" value={setupData.bio} onChange={e => setSetupData({...setupData, bio: e.target.value})} />
           </div>
 
           <div className="bg-orange-50 p-4 rounded-2xl border border-orange-100 flex gap-3 items-center">
              <AlertCircle className="w-5 h-5 text-orange-500 shrink-0" />
-             <p className="text-[9px] font-black text-orange-800 uppercase leading-tight tracking-tight">Your shop will be PENDING until the GLB Admin approves it manually.</p>
+             <p className="text-[9px] font-black text-orange-800 uppercase leading-tight tracking-tight">Your store will be visible to buyers once GLB Admin approves this profile.</p>
           </div>
 
           <button disabled={loadingShop} className="w-full bg-pink-600 text-white font-black py-5 rounded-[2rem] uppercase tracking-widest text-[11px] flex items-center justify-center gap-3 shadow-xl active:scale-95 transition-all">
-            {loadingShop ? <Loader2 className="animate-spin w-5 h-5" /> : <>Launch Shop Profile <Globe className="w-4 h-4" /></>}
+            {loadingShop ? <Loader2 className="animate-spin w-5 h-5" /> : <>Complete Onboarding <Globe className="w-4 h-4" /></>}
           </button>
         </form>
       </div>

@@ -34,8 +34,12 @@ const App: React.FC = () => {
     });
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) fetchProfile(session.user.id);
-      else setUser(null);
+      if (session) {
+        fetchProfile(session.user.id);
+        loadMarketplace(); // Reload to catch new shops/products after login
+      } else {
+        setUser(null);
+      }
     });
 
     loadMarketplace();
