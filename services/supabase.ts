@@ -2,17 +2,21 @@ import { createClient } from '@supabase/supabase-js';
 
 /**
  * Supabase Configuration
- * These values connect your app to your specific database project.
+ * 
+ * STORAGE INSTRUCTIONS:
+ * You must create a bucket named exactly: assets
+ * Do NOT use a period at the end. Just "assets".
+ * Ensure the bucket is set to "Public" in your Supabase dashboard.
  */
 const supabaseUrl = 
   (import.meta as any).env?.VITE_SUPABASE_URL || 
   (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_URL : '') || 
-  'https://fiubihnroqvwaaeglcnd.supabase.co'; // Integrated your project URL
+  'https://fiubihnroqvwaaeglcnd.supabase.co';
 
 const supabaseAnonKey = 
   (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 
   (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_ANON_KEY : '') || 
-  'sb_publishable_P7Yj4EYFqtFuyXjyyU_RUg_gzCWbkhA'; // Integrated your anon key
+  'sb_publishable_P7Yj4EYFqtFuyXjyyU_RUg_gzCWbkhA';
 
 // Initialize the Supabase client
 export const supabase = (supabaseUrl && supabaseUrl !== 'YOUR_PROJECT_URL_HERE' && supabaseAnonKey) 

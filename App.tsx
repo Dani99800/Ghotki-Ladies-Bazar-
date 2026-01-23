@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   Routes, 
@@ -9,7 +8,7 @@ import {
 } from 'react-router-dom';
 import { 
   Home, ShoppingBag, User as UserIcon, Search, ShoppingCart, 
-  LayoutDashboard, AlertCircle, Database, Settings
+  LayoutDashboard, Database, ShieldAlert
 } from 'lucide-react';
 
 import { supabase } from './services/supabase';
@@ -22,8 +21,9 @@ import LoginView from './views/LoginView';
 import ExploreView from './views/ExploreView';
 import ShopsListView from './views/ShopsListView';
 import ProfileView from './views/ProfileView';
-// Fix: Import missing SellerDashboard component
 import SellerDashboard from './views/SellerDashboard';
+import AdminDashboard from './views/AdminDashboard';
+import OrdersView from './views/OrdersView';
 
 const App: React.FC = () => {
   const navigate = useNavigate();
@@ -37,7 +37,6 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!supabase) return;
 
-    // Monitor Auth Session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) fetchProfile(session.user.id);
     });
@@ -54,10 +53,36 @@ const App: React.FC = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (user) {
+      fetchOrders();
+    }
+  }, [user]);
+
   const fetchProfile = async (id: string) => {
     if (!supabase) return;
     const { data } = await supabase.from('profiles').select('*').eq('id', id).single();
     if (data) setUser({ ...data });
+  };
+
+  const fetchOrders = async () => {
+    if (!supabase || !user) return;
+    const { data } = await supabase
+      .from('orders')
+      .select('*')
+      .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`)
+      .order('created_at', { ascending: false });
+    
+    if (data) {
+      setOrders(data.map(o => ({
+        ...o,
+        buyerId: o.buyer_id,
+        sellerId: o.seller_id,
+        items: o.items || [],
+        createdAt: o.created_at,
+        isDeliveryPaidAdvance: o.is_delivery_paid_advance
+      })));
+    }
   };
 
   const loadMarketplace = async () => {
@@ -65,7 +90,7 @@ const App: React.FC = () => {
     try {
       const [pRes, sRes] = await Promise.all([
         supabase.from('products').select('*').order('created_at', { ascending: false }),
-        supabase.from('shops').select('*').eq('status', 'APPROVED')
+        supabase.from('shops').select('*')
       ]);
       
       if (pRes.data) setProducts(pRes.data.map((p: any) => ({
@@ -80,13 +105,38 @@ const App: React.FC = () => {
     }
   };
 
+  const handlePlaceOrder = async (order: Order) => {
+    if (!supabase) return;
+    const { error } = await supabase.from('orders').insert({
+      buyer_id: order.buyerId,
+      seller_id: order.sellerId,
+      items: order.items,
+      subtotal: order.subtotal,
+      delivery_fee: order.deliveryFee,
+      platform_fee: order.platformFee,
+      total: order.total,
+      delivery_type: order.deliveryType,
+      status: order.status,
+      payment_method: order.paymentMethod,
+      is_delivery_paid_advance: order.isDeliveryPaidAdvance,
+      buyer_name: order.buyerName,
+      buyer_mobile: order.buyerMobile,
+      buyer_address: order.buyerAddress
+    });
+
+    if (!error) {
+      fetchOrders();
+    } else {
+      console.error("Order Error:", error);
+    }
+  };
+
   const handleLogout = async () => {
     if (supabase) await supabase.auth.signOut();
     setUser(null);
     navigate('/login');
   };
 
-  // Graceful degradation: If Supabase is not connected, show an setup screen
   if (!supabase) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6 text-center">
@@ -94,25 +144,8 @@ const App: React.FC = () => {
           <Database className="w-10 h-10" />
         </div>
         <h1 className="text-2xl font-black uppercase italic tracking-tighter mb-2">Connect Supabase</h1>
-        <p className="text-gray-500 text-sm max-w-xs mb-8">
-          To enable Ghotki Bazar database features, please add your Supabase credentials to your environment variables.
-        </p>
-        <div className="w-full max-w-sm bg-white p-6 rounded-[2rem] shadow-xl border border-gray-100 text-left space-y-4">
-          <div className="flex items-start gap-3">
-             <div className="w-6 h-6 bg-pink-50 rounded-full flex items-center justify-center text-pink-600 text-[10px] font-bold shrink-0">1</div>
-             <p className="text-xs text-gray-600">Go to <b>Project Settings > API</b> in Supabase.</p>
-          </div>
-          <div className="flex items-start gap-3">
-             <div className="w-6 h-6 bg-pink-50 rounded-full flex items-center justify-center text-pink-600 text-[10px] font-bold shrink-0">2</div>
-             <p className="text-xs text-gray-600">Add <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> to your Environment Variables.</p>
-          </div>
-          <button 
-            onClick={() => window.location.reload()}
-            className="w-full bg-gray-900 text-white font-black py-4 rounded-2xl text-[10px] uppercase tracking-widest mt-4"
-          >
-            Refresh App
-          </button>
-        </div>
+        <p className="text-gray-500 text-sm max-w-xs mb-8">Add credentials to environment variables to enable the Ghotki database.</p>
+        <button onClick={() => window.location.reload()} className="bg-gray-900 text-white font-black py-4 px-10 rounded-2xl text-[10px] uppercase tracking-widest mt-4">Refresh App</button>
       </div>
     );
   }
@@ -122,14 +155,16 @@ const App: React.FC = () => {
       <Navbar user={user} lang={lang} setLang={setLang} />
       
       <Routes>
-        <Route path="/" element={<BuyerHome shops={shops} products={products} addToCart={p => setCart([...cart, {...p, quantity: 1}])} lang={lang} user={user} />} />
-        <Route path="/explore" element={<ExploreView products={products} addToCart={() => {}} onPlaceOrder={() => {}} user={user} />} />
+        <Route path="/" element={<BuyerHome shops={shops} products={products} addToCart={p => setCart([...cart, {...p, quantity: 1}])} lang={lang} user={user} onPlaceOrder={handlePlaceOrder} />} />
+        <Route path="/explore" element={<ExploreView products={products} addToCart={() => {}} onPlaceOrder={handlePlaceOrder} user={user} />} />
         <Route path="/shops" element={<ShopsListView shops={shops} lang={lang} />} />
         <Route path="/shop/:id" element={<ShopView shops={shops} products={products} addToCart={() => {}} lang={lang} />} />
         <Route path="/product/:id" element={<ProductView products={products} addToCart={() => {}} lang={lang} />} />
         <Route path="/login" element={<LoginView setUser={setUser} lang={lang} />} />
         <Route path="/profile" element={user ? <ProfileView user={user} onLogout={handleLogout} lang={lang} /> : <Navigate to="/login" />} />
-        <Route path="/seller/*" element={user ? <SellerDashboard products={products} user={user} addProduct={(p) => setProducts([p, ...products])} orders={orders} notifications={[]} markRead={() => {}} shops={shops} /> : <Navigate to="/login" />} />
+        <Route path="/orders" element={user ? <OrdersView orders={orders} user={user} shops={shops} /> : <Navigate to="/login" />} />
+        <Route path="/admin" element={user?.role === 'ADMIN' ? <AdminDashboard shops={shops} setShops={setShops} orders={orders} /> : <Navigate to="/" />} />
+        <Route path="/seller/*" element={user?.role === 'SELLER' ? <SellerDashboard products={products} user={user} addProduct={(p) => setProducts([p, ...products])} orders={orders} notifications={[]} markRead={() => {}} shops={shops} /> : <Navigate to="/login" />} />
       </Routes>
 
       <BottomNav user={user} cartCount={cart.length} />
@@ -145,11 +180,16 @@ const Navbar: React.FC<{ user: UserType | null, lang: 'EN' | 'UR', setLang: (l: 
   return (
     <nav className="fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-100 flex items-center justify-between px-4 z-50 shadow-sm">
       <div className="flex items-center gap-2">
-        <h1 onClick={() => navigate('/')} className="text-pink-600 font-bold text-xl cursor-pointer tracking-tight">GLB <span className="text-gray-400 font-normal">Bazar</span></h1>
+        <h1 onClick={() => navigate('/')} className="text-pink-600 font-bold text-xl cursor-pointer tracking-tight italic uppercase">GLB <span className="text-gray-400 font-normal">Bazar</span></h1>
       </div>
       <div className="flex items-center gap-3">
         <button onClick={() => setLang(lang === 'EN' ? 'UR' : 'EN')} className="text-[10px] font-black uppercase tracking-widest px-3 py-1.5 border-2 border-pink-50 rounded-xl text-pink-600">{lang === 'EN' ? 'اردو' : 'English'}</button>
-        {user ? <div onClick={() => navigate('/profile')} className="w-9 h-9 rounded-full bg-pink-100 flex items-center justify-center text-pink-600 font-black text-sm cursor-pointer uppercase">{user.name?.[0] || 'U'}</div> : <button onClick={() => navigate('/login')} className="text-pink-600 font-black uppercase text-[10px]">Login</button>}
+        {user ? (
+          <div className="flex items-center gap-2">
+            {user.role === 'ADMIN' && <ShieldAlert onClick={() => navigate('/admin')} className="w-5 h-5 text-orange-500 cursor-pointer" />}
+            <div onClick={() => navigate('/profile')} className="w-9 h-9 rounded-full bg-pink-100 flex items-center justify-center text-pink-600 font-black text-sm cursor-pointer uppercase">{user.name?.[0] || 'U'}</div>
+          </div>
+        ) : <button onClick={() => navigate('/login')} className="text-pink-600 font-black uppercase text-[10px]">Login</button>}
       </div>
     </nav>
   );
@@ -159,6 +199,7 @@ const BottomNav: React.FC<{ user: UserType | null, cartCount: number }> = ({ use
   const navigate = useNavigate();
   const location = useLocation();
   const isSeller = user?.role === 'SELLER';
+  
   const navItems = [
     { icon: Home, label: 'Home', path: '/' },
     { icon: Search, label: 'Explore', path: '/explore' },
@@ -172,8 +213,8 @@ const BottomNav: React.FC<{ user: UserType | null, cartCount: number }> = ({ use
         const isActive = location.pathname === item.path || (item.path === '/seller' && location.pathname.startsWith('/seller'));
         return (
           <button key={item.label} onClick={() => navigate(item.path)} className={`flex flex-col items-center justify-center gap-1 flex-1 ${isActive ? 'text-pink-600' : 'text-gray-400'}`}>
-            <item.icon className="w-6 h-6" />
-            <span className="text-[9px] font-black uppercase tracking-tighter">{item.label}</span>
+            <item.icon className="w-5 h-5" />
+            <span className="text-[8px] font-black uppercase tracking-tighter">{item.label}</span>
           </button>
         );
       })}

@@ -10,7 +10,8 @@ import {
   ChevronRight, 
   ShoppingBag, 
   Settings,
-  Bell
+  Bell,
+  LayoutDashboard
 } from 'lucide-react';
 import { User } from '../types';
 
@@ -24,10 +25,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({ user, onLogout, lang }) => {
   const navigate = useNavigate();
 
   const menuItems = [
-    { icon: ShoppingBag, label: 'My Orders', path: '/orders' },
-    { icon: Bell, label: 'Notifications', path: '#' },
-    { icon: Settings, label: 'Account Settings', path: '#' },
-  ];
+    { icon: ShoppingBag, label: 'My Orders', path: '/orders', show: true },
+    { icon: LayoutDashboard, label: 'Admin Panel', path: '/admin', show: user.role === 'ADMIN' },
+    { icon: Bell, label: 'Notifications', path: '#', show: true },
+    { icon: Settings, label: 'Account Settings', path: '#', show: true },
+  ].filter(i => i.show);
 
   return (
     <div className="max-w-md mx-auto p-4 space-y-6 animate-in slide-in-from-bottom-4 duration-500 pb-20">
@@ -66,24 +68,15 @@ const ProfileView: React.FC<ProfileViewProps> = ({ user, onLogout, lang }) => {
               <p className="font-bold text-gray-900">{user.city || 'Ghotki'}, {user.address || 'Address not set'}</p>
             </div>
           </div>
-
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-pink-500">
-              <Shield className="w-5 h-5" />
-            </div>
-            <div className="flex-1">
-              <p className="text-[10px] font-black text-gray-400 uppercase">Security</p>
-              <p className="font-bold text-gray-900">Verified User</p>
-            </div>
-          </div>
         </div>
       </div>
 
       <div className="space-y-3">
-        <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Settings</h2>
+        <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Menu</h2>
         {menuItems.map((item, idx) => (
           <button 
             key={idx}
+            onClick={() => item.path !== '#' && navigate(item.path)}
             className="w-full bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between group active:scale-[0.98] transition-all"
           >
             <div className="flex items-center gap-4">
@@ -104,7 +97,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ user, onLogout, lang }) => {
       </button>
 
       <p className="text-center text-[9px] text-gray-300 uppercase font-black tracking-widest pt-4">
-        App Version 2.1.0 • Ghotki Ladies Bazar
+        Digitizing Ghotki Legacy • v2.2.0
       </p>
     </div>
   );
