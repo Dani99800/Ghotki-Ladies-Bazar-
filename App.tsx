@@ -36,7 +36,7 @@ const App: React.FC = () => {
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
         fetchProfile(session.user.id);
-        loadMarketplace(); // Reload to catch new shops/products after login
+        loadMarketplace(); 
       } else {
         setUser(null);
       }
@@ -86,8 +86,23 @@ const App: React.FC = () => {
         supabase.from('products').select('*').order('created_at', { ascending: false }),
         supabase.from('shops').select('*')
       ]);
-      if (pRes.data) setProducts(pRes.data.map((p: any) => ({ ...p, images: p.image_urls || [], shopId: p.shop_id, videoUrl: p.video_url })));
-      if (sRes.data) setShops(sRes.data.map((s: any) => ({ ...s, logo: s.logo_url || 'https://via.placeholder.com/150', banner: s.banner_url || 'https://via.placeholder.com/800x400' })));
+      
+      if (pRes.data) {
+        setProducts(pRes.data.map((p: any) => ({ 
+          ...p, 
+          images: p.image_urls || [], 
+          shopId: p.shop_id, 
+          videoUrl: p.video_url 
+        })));
+      }
+      
+      if (sRes.data) {
+        setShops(sRes.data.map((s: any) => ({ 
+          ...s, 
+          logo: s.logo_url || 'https://via.placeholder.com/150', 
+          banner: s.banner_url || 'https://via.placeholder.com/800x400' 
+        })));
+      }
     } catch (err) {
       console.error("Data Load Error:", err);
     }
@@ -138,7 +153,10 @@ const App: React.FC = () => {
         <Route path="/product/:id" element={<ProductView products={products} addToCart={() => {}} lang={lang} />} />
         <Route path="/login" element={<LoginView setUser={setUser} lang={lang} />} />
         <Route path="/profile" element={user ? <ProfileView user={user} onLogout={() => { supabase.auth.signOut(); setUser(null); navigate('/login'); }} lang={lang} /> : <Navigate to="/login" />} />
-        <Route path="/admin" element={user?.role === 'ADMIN' ? <AdminDashboard shops={shops} setShops={setShops} orders={orders} /> : <Navigate to="/" />} />
+        
+        {/* Pass refreshData helper to Admin */}
+        <Route path="/admin" element={user?.role === 'ADMIN' ? <AdminDashboard shops={shops} setShops={setShops} orders={orders} refreshData={loadMarketplace} /> : <Navigate to="/" />} />
+        
         <Route path="/seller/*" element={user?.role === 'SELLER' ? <SellerDashboard products={products} user={user} addProduct={p => setProducts([p, ...products])} orders={orders} shops={shops} /> : <Navigate to="/login" />} />
       </Routes>
 
