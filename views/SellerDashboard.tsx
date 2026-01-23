@@ -39,15 +39,41 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
     if (!supabase || !myShop) return;
     setLoading(true);
     try {
-      const path = `shops/${myShop.id}/${type}_${Date.now()}`;
+      // Use User ID as the root folder for security policies
+      const path = `${user.id}/shop_assets/${type}_${Date.now()}`;
       const publicUrl = await uploadFile('marketplace', path, file);
+      
       const updateData = type === 'logo' ? { logo_url: publicUrl } : { banner_url: publicUrl };
       const { error } = await supabase.from('shops').update(updateData).eq('id', myShop.id);
-      if (error) throw error;
+      
+      if (error) {
+        if (error.code === '42501') throw new Error("Security Policy Error: You don't have permission to update this shop. Ensure RLS 'UPDATE' policy is enabled for authenticated users on the 'shops' table.");
+        throw error;
+      }
+      
       refreshShop();
     } catch (err: any) {
-      if (err.message?.includes('bucket not found')) {
-        alert("CRITICAL: Storage bucket 'marketplace' not found. Please create a PUBLIC bucket named 'marketplace' in Supabase Storage.");
+      alert(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleProductFileUpload = async (file: File, isVideo: boolean) => {
+    if (!supabase || !myShop) return;
+    setLoading(true);
+    try {
+      // Use User ID as the root folder for security policies
+      const path = `${user.id}/products/${Date.now()}_${file.name.replace(/\s/g, '_')}`;
+      const url = await uploadFile('marketplace', path, file);
+      
+      if (isVideo) setNewProduct(prev => ({ ...prev, videoUrl: url }));
+      else setNewProduct(prev => ({ ...prev, images: [...prev.images, url] }));
+    } catch (err: any) {
+       if (err.message?.includes('bucket not found')) {
+        alert("Error: 'marketplace' bucket missing in Supabase Storage. Please create a PUBLIC bucket named 'marketplace'.");
+      } else if (err.code === '42501') {
+        alert("Security Policy Error: You don't have permission to upload to this folder. Ensure your Storage policy allows INSERT for authenticated users.");
       } else {
         alert("Upload failed: " + err.message);
       }
@@ -57,11 +83,11 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
   };
 
   const handleDeleteProduct = async (id: string) => {
-    if (!supabase || !confirm("Are you sure you want to delete this product? This cannot be undone.")) return;
+    if (!supabase || !confirm("Are you sure you want to delete this product?")) return;
     try {
       const { error } = await supabase.from('products').delete().eq('id', id);
       if (error) throw error;
-      addProduct(); // Refresh list via App.tsx function
+      addProduct();
     } catch (err: any) {
       alert("Delete failed: " + err.message);
     }
@@ -70,8 +96,6 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
   const handleCreateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!supabase || !myShop) return;
-    
-    // VALIDATION: Strict requirement for at least one image
     if (newProduct.images.length === 0) {
       alert("Please upload at least one image before publishing.");
       return;
@@ -100,25 +124,6 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
     }
   };
 
-  const handleProductFileUpload = async (file: File, isVideo: boolean) => {
-    if (!supabase || !myShop) return;
-    setLoading(true);
-    try {
-      const path = `products/${myShop.id}/${Date.now()}_${file.name.replace(/\s/g, '_')}`;
-      const url = await uploadFile('marketplace', path, file);
-      if (isVideo) setNewProduct(prev => ({ ...prev, videoUrl: url }));
-      else setNewProduct(prev => ({ ...prev, images: [...prev.images, url] }));
-    } catch (err: any) {
-       if (err.message?.includes('bucket not found')) {
-        alert("Error: 'marketplace' bucket missing in Supabase Storage.");
-      } else {
-        alert("Upload failed.");
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
   if (!myShop) return <div className="p-20 text-center uppercase font-black animate-pulse text-gray-300">Loading Seller Dashboard...</div>;
 
   return (
@@ -130,6 +135,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         <div className="absolute bottom-6 left-6 flex items-center gap-4">
            <div className="relative">
               <img src={myShop.logo} className="w-16 h-16 rounded-2xl border-2 border-white object-cover bg-white" />
+              {loading && <div className="absolute inset-0 bg-black/40 rounded-2xl flex items-center justify-center"><Loader2 className="w-6 h-6 text-white animate-spin" /></div>}
            </div>
            <div className="text-white">
               <h2 className="text-xl font-black italic uppercase tracking-tighter">{myShop.name}</h2>
@@ -144,13 +150,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
       {/* Tabs */}
       <div className="flex gap-2 p-1.5 bg-gray-100 rounded-[1.8rem]">
         {['Inventory', 'Orders', 'Settings'].map(tab => (
-          <button 
-            key={tab} 
-            onClick={() => setActiveTab(tab as any)} 
-            className={`flex-1 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab ? 'bg-white text-pink-600 shadow-md' : 'text-gray-400'}`}
-          >
-            {tab}
-          </button>
+          <button key={tab} onClick={() => setActiveTab(tab as any)} className={`flex-1 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab ? 'bg-white text-pink-600 shadow-md' : 'text-gray-400'}`}>{tab}</button>
         ))}
       </div>
 
@@ -162,7 +162,6 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
                 <PlusCircle className="w-4 h-4" /> Add New
              </button>
           </div>
-          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {myProducts.map(p => (
               <div key={p.id} className="bg-white p-4 rounded-[2rem] border border-gray-100 flex items-center gap-4 shadow-sm group hover:border-pink-100 transition-all">
@@ -170,115 +169,77 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
                 <div className="flex-1">
                   <h4 className="font-black text-sm uppercase italic text-gray-900">{p.name}</h4>
                   <p className="text-pink-600 font-black text-xs">PKR {p.price.toLocaleString()}</p>
-                  <div className="flex gap-2 mt-2">
-                    {p.videoUrl && <span className="px-2 py-0.5 bg-pink-50 text-pink-500 text-[8px] font-black rounded uppercase">Live Reel</span>}
-                  </div>
                 </div>
-                <button 
-                  onClick={() => handleDeleteProduct(p.id)}
-                  className="p-3 bg-red-50 text-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-100"
-                >
+                <button onClick={() => handleDeleteProduct(p.id)} className="p-3 bg-red-50 text-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-100">
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
             ))}
-            {myProducts.length === 0 && (
-              <div className="col-span-full py-20 text-center border-2 border-dashed border-gray-100 rounded-[3rem]">
-                <Package className="w-10 h-10 text-gray-200 mx-auto mb-2" />
-                <p className="text-gray-400 font-black uppercase text-[10px]">Your shop is empty</p>
-              </div>
-            )}
           </div>
         </div>
       )}
 
       {activeTab === 'Settings' && (
         <div className="bg-white rounded-[2.5rem] p-8 space-y-8 border border-gray-100 shadow-sm">
-           <div className="space-y-4">
-              <h3 className="font-black uppercase italic tracking-tighter text-lg">Shop Media</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                 <div className="space-y-3">
-                    <p className="text-[10px] font-black uppercase text-gray-400 ml-1">Logo</p>
-                    <div className="relative w-32 h-32 rounded-3xl border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden group bg-gray-50">
-                       <img src={myShop.logo} className="w-full h-full object-cover" />
-                       <label className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
-                          <input type="file" className="hidden" accept="image/*" onChange={e => e.target.files?.[0] && handleUpdateShopMedia('logo', e.target.files[0])} />
-                          <Camera className="text-white w-8 h-8" />
-                       </label>
-                    </div>
-                 </div>
-                 <div className="space-y-3">
-                    <p className="text-[10px] font-black uppercase text-gray-400 ml-1">Banner</p>
-                    <div className="relative w-full h-32 rounded-3xl border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden group bg-gray-50">
-                       <img src={myShop.banner} className="w-full h-full object-cover" />
-                       <label className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
-                          <input type="file" className="hidden" accept="image/*" onChange={e => e.target.files?.[0] && handleUpdateShopMedia('banner', e.target.files[0])} />
-                          <Camera className="text-white w-8 h-8" />
-                       </label>
-                    </div>
-                 </div>
+           <h3 className="font-black uppercase italic tracking-tighter text-lg">Shop Media</h3>
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-3">
+                 <p className="text-[10px] font-black uppercase text-gray-400">Update Logo</p>
+                 <label className="relative block w-32 h-32 rounded-3xl border-2 border-dashed border-gray-200 overflow-hidden cursor-pointer">
+                    <input type="file" className="hidden" accept="image/*" onChange={e => e.target.files?.[0] && handleUpdateShopMedia('logo', e.target.files[0])} />
+                    <img src={myShop.logo} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"><Camera className="text-white" /></div>
+                 </label>
+              </div>
+              <div className="space-y-3">
+                 <p className="text-[10px] font-black uppercase text-gray-400">Update Banner</p>
+                 <label className="relative block w-full h-32 rounded-3xl border-2 border-dashed border-gray-200 overflow-hidden cursor-pointer">
+                    <input type="file" className="hidden" accept="image/*" onChange={e => e.target.files?.[0] && handleUpdateShopMedia('banner', e.target.files[0])} />
+                    <img src={myShop.banner} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"><Camera className="text-white" /></div>
+                 </label>
               </div>
            </div>
         </div>
       )}
 
-      {/* Add Product Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-end justify-center p-4">
-           <div className="bg-white w-full max-w-xl rounded-t-[3rem] p-8 space-y-6 animate-in slide-in-from-bottom-full duration-500 max-h-[90vh] overflow-y-auto custom-scrollbar shadow-2xl">
+           <div className="bg-white w-full max-w-xl rounded-t-[3rem] p-8 space-y-6 animate-in slide-in-from-bottom-full duration-500 max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center">
                  <h2 className="text-2xl font-black uppercase italic tracking-tighter">New Product</h2>
-                 <button onClick={() => setShowAddModal(false)} className="p-2 bg-gray-100 rounded-xl"><X className="w-5 h-5 text-gray-400" /></button>
+                 <button onClick={() => setShowAddModal(false)}><X className="text-gray-400" /></button>
               </div>
-
               <form onSubmit={handleCreateProduct} className="space-y-5">
-                 <div className="space-y-2">
-                    <p className="text-[10px] font-black uppercase text-gray-400 ml-1">Media (At least 1 image required)</p>
-                    <div className="flex gap-3 overflow-x-auto pb-4 no-scrollbar">
-                       <label className="w-24 h-24 rounded-3xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center cursor-pointer shrink-0 hover:bg-gray-50">
-                          <input type="file" className="hidden" accept="image/*" onChange={e => e.target.files?.[0] && handleProductFileUpload(e.target.files[0], false)} />
-                          <ImageIcon className="w-6 h-6 text-gray-400" />
-                          <span className="text-[9px] font-black text-gray-400 uppercase mt-1">Image</span>
-                       </label>
-                       
-                       {!newProduct.videoUrl && (
-                         <label className="w-24 h-24 rounded-3xl border-2 border-dashed border-pink-200 bg-pink-50 flex flex-col items-center justify-center cursor-pointer shrink-0 hover:bg-pink-100">
-                            <input type="file" className="hidden" accept="video/*" onChange={e => e.target.files?.[0] && handleProductFileUpload(e.target.files[0], true)} />
-                            <Video className="w-6 h-6 text-pink-500" />
-                            <span className="text-[9px] font-black text-pink-500 uppercase mt-1">Add Reel</span>
-                         </label>
-                       )}
-
-                       {newProduct.images.map((img, i) => (
-                         <div key={i} className="relative w-24 h-24 shrink-0">
-                           <img src={img} className="w-full h-full rounded-3xl object-cover border" />
-                           <button type="button" onClick={() => setNewProduct({...newProduct, images: newProduct.images.filter((_, idx) => idx !== i)})} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-1 shadow-md"><X className="w-3 h-3" /></button>
-                         </div>
-                       ))}
-                       
-                       {newProduct.videoUrl && (
-                         <div className="relative w-24 h-24 shrink-0">
-                           <div className="w-full h-full rounded-3xl bg-black flex flex-col items-center justify-center border-2 border-pink-500 overflow-hidden">
-                             <PlayCircle className="text-white w-8 h-8" />
-                             <span className="text-[8px] text-white font-black uppercase mt-1">REEL READY</span>
-                           </div>
-                           <button type="button" onClick={() => setNewProduct({...newProduct, videoUrl: ''})} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-1 shadow-md"><X className="w-3 h-3" /></button>
-                         </div>
-                       )}
-                    </div>
+                 <div className="flex gap-3 overflow-x-auto pb-4 no-scrollbar">
+                    <label className="w-24 h-24 rounded-3xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center cursor-pointer shrink-0">
+                       <input type="file" className="hidden" accept="image/*" onChange={e => e.target.files?.[0] && handleProductFileUpload(e.target.files[0], false)} />
+                       <ImageIcon className="text-gray-400" />
+                       <span className="text-[8px] font-black text-gray-400 uppercase">Image</span>
+                    </label>
+                    <label className="w-24 h-24 rounded-3xl border-2 border-dashed border-pink-200 bg-pink-50 flex flex-col items-center justify-center cursor-pointer shrink-0">
+                       <input type="file" className="hidden" accept="video/*" onChange={e => e.target.files?.[0] && handleProductFileUpload(e.target.files[0], true)} />
+                       <Video className="text-pink-500" />
+                       <span className="text-[8px] font-black text-pink-500 uppercase">Reel</span>
+                    </label>
+                    {newProduct.images.map((img, i) => (
+                      <div key={i} className="relative w-24 h-24 shrink-0">
+                        <img src={img} className="w-full h-full rounded-3xl object-cover border" />
+                        <button type="button" onClick={() => setNewProduct({...newProduct, images: newProduct.images.filter((_, idx) => idx !== i)})} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-1"><X className="w-3 h-3" /></button>
+                      </div>
+                    ))}
+                    {newProduct.videoUrl && (
+                      <div className="relative w-24 h-24 shrink-0 bg-black rounded-3xl flex items-center justify-center border-2 border-pink-500">
+                        <PlayCircle className="text-white" />
+                        <button type="button" onClick={() => setNewProduct({...newProduct, videoUrl: ''})} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-1"><X className="w-3 h-3" /></button>
+                      </div>
+                    )}
                  </div>
-
-                 <input required placeholder="Product Name" className="w-full p-5 bg-gray-50 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-pink-500/20" value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} />
-                 <div className="grid grid-cols-2 gap-4">
-                    <input required type="number" placeholder="Price (PKR)" className="w-full p-5 bg-gray-50 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-pink-500/20" value={newProduct.price} onChange={e => setNewProduct({...newProduct, price: e.target.value})} />
-                    <select className="w-full p-5 bg-gray-50 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-pink-500/20" value={newProduct.category} onChange={e => setNewProduct({...newProduct, category: e.target.value})}>
-                       {CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                    </select>
-                 </div>
-                 <textarea placeholder="Tell buyers why they will love this..." className="w-full p-5 bg-gray-50 rounded-2xl font-bold h-32 resize-none outline-none focus:ring-2 focus:ring-pink-500/20" value={newProduct.description} onChange={e => setNewProduct({...newProduct, description: e.target.value})} />
-                 
-                 <button disabled={loading} className="w-full bg-pink-600 text-white font-black py-5 rounded-2xl uppercase tracking-widest text-[11px] flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50">
-                    {loading ? <Loader2 className="animate-spin" /> : 'Publish to Bazar'}
+                 <input required placeholder="Name" className="w-full p-4 bg-gray-50 rounded-2xl font-bold" value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} />
+                 <input required type="number" placeholder="Price" className="w-full p-4 bg-gray-50 rounded-2xl font-bold" value={newProduct.price} onChange={e => setNewProduct({...newProduct, price: e.target.value})} />
+                 <textarea required placeholder="Description" className="w-full p-4 bg-gray-50 rounded-2xl font-bold h-24" value={newProduct.description} onChange={e => setNewProduct({...newProduct, description: e.target.value})} />
+                 <button disabled={loading} className="w-full bg-pink-600 text-white font-black py-5 rounded-2xl uppercase tracking-widest text-[11px] flex items-center justify-center gap-3">
+                    {loading ? <Loader2 className="animate-spin" /> : 'Publish'}
                  </button>
               </form>
            </div>
