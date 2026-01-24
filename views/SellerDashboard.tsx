@@ -1,12 +1,12 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   PlusCircle, ShoppingBag, X, Video, Image as ImageIcon,
   Loader2, Settings, Camera, PlayCircle, Trash2, AlertCircle,
   Package, Check, MessageCircle, Phone, MapPin, Clock
 } from 'lucide-react';
 import { Product, Order, User as UserType, Shop } from '../types';
-import { CATEGORIES } from '../constants';
+import { CATEGORIES, NOTIFICATION_SOUND } from '../constants';
 import { supabase, uploadFile } from '../services/supabase';
 
 interface SellerDashboardProps {
@@ -22,10 +22,21 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
   const [activeTab, setActiveTab] = useState<'Inventory' | 'Orders' | 'Settings'>('Inventory');
   const [showAddModal, setShowAddModal] = useState(false);
   const [loading, setLoading] = useState(false);
+  const audioNotifiedRef = useRef(false);
 
   const myShop = shops.find(s => s.owner_id === user.id);
   const myProducts = products.filter(p => p.shopId === myShop?.id);
   const myOrders = orders.filter(o => o.sellerId === myShop?.id);
+  const pendingOrders = myOrders.filter(o => o.status === 'PENDING');
+
+  // Notification Sound Effect
+  useEffect(() => {
+    if (pendingOrders.length > 0 && !audioNotifiedRef.current) {
+      const audio = new Audio(NOTIFICATION_SOUND);
+      audio.play().catch(e => console.log("Audio play blocked by browser", e));
+      audioNotifiedRef.current = true;
+    }
+  }, [pendingOrders.length]);
 
   const [newProduct, setNewProduct] = useState({
     name: '',
@@ -36,7 +47,6 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
     videoUrl: ''
   });
 
-  // Restricted Feature Check
   const canPostVideo = myShop?.subscription_tier === 'STANDARD' || myShop?.subscription_tier === 'PREMIUM';
 
   const updateOrderStatus = async (orderId: string, status: string) => {
@@ -45,7 +55,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
     try {
       const { error } = await supabase.from('orders').update({ status }).eq('id', orderId);
       if (error) throw error;
-      refreshShop(); // This should trigger a global order fetch in App.tsx if it's listening
+      refreshShop();
     } catch (err: any) {
       alert("Order update failed: " + err.message);
     } finally {
@@ -72,12 +82,10 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
 
   const handleProductFileUpload = async (file: File, isVideo: boolean) => {
     if (!supabase || !myShop) return;
-    
     if (isVideo && !canPostVideo) {
       alert("This feature requires a Standard (2500 PKR) or Premium plan. Please upgrade to post video reels.");
       return;
     }
-
     setLoading(true);
     try {
       const path = `${user.id}/products/${Date.now()}_${file.name.replace(/\s/g, '_')}`;
@@ -109,7 +117,6 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
       alert("Please upload at least one image before publishing.");
       return;
     }
-
     setLoading(true);
     try {
       const { error } = await supabase.from('products').insert({
@@ -137,6 +144,17 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6 pb-32">
+      {/* Pending Orders Alert */}
+      {pendingOrders.length > 0 && (
+        <div className="bg-pink-600 text-white p-4 rounded-2xl flex items-center justify-between shadow-lg animate-pulse">
+           <div className="flex items-center gap-3">
+              <AlertCircle className="w-5 h-5" />
+              <p className="text-[10px] font-black uppercase tracking-widest">You have {pendingOrders.length} New Order{pendingOrders.length > 1 ? 's' : ''}!</p>
+           </div>
+           <button onClick={() => setActiveTab('Orders')} className="bg-white text-pink-600 px-4 py-2 rounded-lg text-[8px] font-black uppercase">View Now</button>
+        </div>
+      )}
+
       {/* Shop Header */}
       <div className="relative h-48 rounded-[2.5rem] overflow-hidden shadow-2xl group">
         <img src={myShop.banner} className="w-full h-full object-cover" />
@@ -150,7 +168,6 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         </div>
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-2 p-1.5 bg-gray-100 rounded-[1.8rem]">
         {['Inventory', 'Orders', 'Settings'].map(tab => (
           <button key={tab} onClick={() => setActiveTab(tab as any)} className={`flex-1 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab ? 'bg-white text-pink-600 shadow-md' : 'text-gray-400'}`}>{tab}</button>
@@ -159,7 +176,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
 
       {activeTab === 'Orders' && (
         <div className="space-y-4">
-          <h3 className="font-black uppercase text-xs text-gray-500 ml-2">Recent Shop Orders ({myOrders.length})</h3>
+          <h3 className="font-black uppercase text-xs text-gray-500 ml-2">Shop Orders ({myOrders.length})</h3>
           {myOrders.map(order => (
             <div key={order.id} className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm space-y-4">
               <div className="flex justify-between items-center">
@@ -272,14 +289,12 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
                        <ImageIcon className="text-gray-400" />
                        <span className="text-[8px] font-black text-gray-400 uppercase">Image</span>
                     </label>
-                    
                     <label className={`w-24 h-24 rounded-3xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer shrink-0 transition-all ${canPostVideo ? 'border-pink-200 bg-pink-50' : 'border-gray-100 bg-gray-50 opacity-50'}`}>
                        <input type="file" className="hidden" accept="video/*" onChange={e => e.target.files?.[0] && handleProductFileUpload(e.target.files[0], true)} disabled={!canPostVideo} />
                        <Video className={canPostVideo ? "text-pink-500" : "text-gray-300"} />
                        <span className={`text-[8px] font-black uppercase ${canPostVideo ? "text-pink-500" : "text-gray-300"}`}>Reel</span>
                        {!canPostVideo && <span className="text-[6px] font-black uppercase text-red-400 mt-1">PRO ONLY</span>}
                     </label>
-
                     {newProduct.images.map((img, i) => (
                       <div key={i} className="relative w-24 h-24 shrink-0">
                         <img src={img} className="w-full h-full rounded-3xl object-cover border" />

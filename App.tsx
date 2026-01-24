@@ -50,6 +50,12 @@ const App: React.FC = () => {
     return () => authListener.subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (user) {
+      fetchOrders();
+    }
+  }, [user]);
+
   const fetchProfile = async (id: string) => {
     if (!supabase) return;
     try {
@@ -111,7 +117,15 @@ const App: React.FC = () => {
   const fetchOrders = async () => {
     if (!supabase || !user) return;
     const { data } = await supabase.from('orders').select('*').or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`);
-    if (data) setOrders(data.map(o => ({ ...o, buyerId: o.buyer_id, sellerId: o.seller_id, createdAt: o.created_at })));
+    if (data) setOrders(data.map(o => ({ 
+      ...o, 
+      buyerId: o.buyer_id, 
+      sellerId: o.seller_id, 
+      createdAt: o.created_at,
+      buyerName: o.buyer_name,
+      buyerMobile: o.buyer_mobile,
+      buyerAddress: o.buyer_address
+    })));
   };
 
   const addToCart = (p: Product) => {
@@ -124,13 +138,14 @@ const App: React.FC = () => {
 
   const handlePlaceOrder = async (order: Order) => {
     if (!supabase) return;
+    console.log("Placing Order...", order);
     const { error } = await supabase.from('orders').insert({
       buyer_id: order.buyerId,
       seller_id: order.sellerId,
       items: order.items,
       subtotal: order.subtotal,
       delivery_fee: order.deliveryFee,
-      platform_fee: 1000,
+      platform_fee: order.platformFee || 1000,
       total: order.total,
       status: 'PENDING',
       payment_method: order.paymentMethod,
@@ -138,7 +153,11 @@ const App: React.FC = () => {
       buyer_mobile: order.buyerMobile,
       buyer_address: order.buyerAddress
     });
-    if (!error) fetchOrders();
+    if (error) {
+      console.error("Order Insertion Error:", error);
+      throw error;
+    }
+    if (user) fetchOrders();
   };
 
   const navItems = [
@@ -186,6 +205,7 @@ const App: React.FC = () => {
           <Route path="/profile" element={user ? <ProfileView user={user} onLogout={() => { supabase?.auth.signOut(); setUser(null); navigate('/login'); }} lang={lang} /> : <Navigate to="/login" />} />
           <Route path="/admin" element={user?.role === 'ADMIN' ? <AdminDashboard shops={shops} setShops={setShops} orders={orders} refreshData={loadMarketplace} /> : <Navigate to="/" />} />
           <Route path="/seller/*" element={user?.role === 'SELLER' ? <SellerDashboard products={products} user={user} addProduct={loadMarketplace} orders={orders} shops={shops} refreshShop={loadMarketplace} /> : <Navigate to="/login" />} />
+          <Route path="/checkout" element={<CheckoutView cart={cart} clearCart={() => setCart([])} user={user} lang={lang} onPlaceOrder={handlePlaceOrder} />} />
         </Routes>
       </main>
 
