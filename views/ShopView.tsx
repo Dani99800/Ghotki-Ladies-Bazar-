@@ -94,7 +94,7 @@ const ShopView: React.FC<ShopViewProps> = ({ shops, products, addToCart, lang, u
                 </div>
                 <div className="p-3 flex-1 flex flex-col justify-between">
                   <div onClick={() => navigate(`/product/${product.id}`)}>
-                    <h3 className="font-bold text-sm truncate">{product.name}</h3>
+                    <h3 className="font-bold text-sm text-gray-900 truncate">{product.name}</h3>
                     <span className="text-pink-600 font-bold text-sm">PKR {product.price.toLocaleString()}</span>
                   </div>
                   
@@ -134,7 +134,7 @@ const ShopView: React.FC<ShopViewProps> = ({ shops, products, addToCart, lang, u
       {checkoutProduct && (
         <InstantCheckout 
           product={checkoutProduct} 
-          shopOwnerId={shop.owner_id}
+          shopId={shop.id} // MUST BE shop.id (UUID)
           onClose={() => setCheckoutProduct(null)} 
           onPlaceOrder={onPlaceOrder} 
           user={user} 

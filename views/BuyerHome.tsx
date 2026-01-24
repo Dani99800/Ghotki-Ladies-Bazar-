@@ -47,7 +47,7 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, addToCart, lang,
         <input
           type="text"
           placeholder="Search items, shops, or categories..."
-          className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition-all"
+          className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition-all text-gray-900"
         />
       </div>
 
@@ -155,7 +155,7 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, addToCart, lang,
       {checkoutProduct && (
         <InstantCheckout 
           product={checkoutProduct} 
-          shopOwnerId={shops.find(s => s.id === checkoutProduct.shopId)?.owner_id || ''}
+          shopId={checkoutProduct.shopId} // UUID of the shop
           onClose={() => setCheckoutProduct(null)} 
           onPlaceOrder={onPlaceOrder || (() => {})} 
           user={user || null} 

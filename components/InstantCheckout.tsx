@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { X, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
-import { Product, Order, User as UserType, Shop } from '../types';
+import { Product, Order, User as UserType } from '../types';
 import { PLATFORM_FEE_PKR, NOTIFICATION_SOUND } from '../constants';
 
 interface InstantCheckoutProps {
@@ -9,10 +9,10 @@ interface InstantCheckoutProps {
   onClose: () => void;
   onPlaceOrder: (o: Order) => void;
   user: UserType | null;
-  shopOwnerId?: string; // We need this to ensure the seller gets the order
+  shopId: string; // Changed back to shopId to match database foreign key (shops.id)
 }
 
-const InstantCheckout: React.FC<InstantCheckoutProps & { shopOwnerId: string }> = ({ product, onClose, onPlaceOrder, user, shopOwnerId }) => {
+const InstantCheckout: React.FC<InstantCheckoutProps> = ({ product, onClose, onPlaceOrder, user, shopId }) => {
   const [step, setStep] = useState<'FORM' | 'SUCCESS'>('FORM');
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -39,7 +39,7 @@ const InstantCheckout: React.FC<InstantCheckoutProps & { shopOwnerId: string }> 
     const order: Order = {
       id: 'ord_' + Math.random().toString(36).substr(2, 9),
       buyerId: user?.id || 'guest_' + Date.now(),
-      sellerId: shopOwnerId, // CRITICAL: Link to owner's profile ID
+      sellerId: shopId, // MUST BE shop.id to satisfy DB constraint
       items: [{ ...product, quantity: 1 }],
       subtotal: product.price,
       deliveryFee: formData.method === 'DELIVERY' ? 150 : 0,
@@ -58,9 +58,9 @@ const InstantCheckout: React.FC<InstantCheckoutProps & { shopOwnerId: string }> 
       playNotification();
       setStep('SUCCESS');
       setTimeout(() => onClose(), 3500);
-    } catch (err) {
-      console.error("Order error:", err);
-      alert("Failed to place order. Please try again.");
+    } catch (err: any) {
+      console.error("Order placement failed:", err);
+      alert(`Failed to place order: ${err.message || 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
@@ -89,9 +89,9 @@ const InstantCheckout: React.FC<InstantCheckoutProps & { shopOwnerId: string }> 
 
               <div className="space-y-3">
                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Buyer Information</p>
-                 <input required type="text" placeholder="Your Full Name" className="w-full p-4 bg-gray-50 rounded-2xl font-bold text-sm border border-transparent focus:border-pink-200 outline-none transition-all" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-                 <input required type="tel" placeholder="Mobile Number (Active)" className="w-full p-4 bg-gray-50 rounded-2xl font-bold text-sm border border-transparent focus:border-pink-200 outline-none transition-all" value={formData.mobile} onChange={e => setFormData({...formData, mobile: e.target.value})} />
-                 <textarea required placeholder="Delivery Address in Ghotki" className="w-full p-4 bg-gray-50 rounded-2xl font-bold text-sm h-20 border border-transparent focus:border-pink-200 outline-none transition-all" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
+                 <input required type="text" placeholder="Your Full Name" className="w-full p-4 bg-gray-50 rounded-2xl font-bold text-sm text-gray-900 border border-transparent focus:border-pink-200 outline-none transition-all" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                 <input required type="tel" placeholder="Mobile Number (Active)" className="w-full p-4 bg-gray-50 rounded-2xl font-bold text-sm text-gray-900 border border-transparent focus:border-pink-200 outline-none transition-all" value={formData.mobile} onChange={e => setFormData({...formData, mobile: e.target.value})} />
+                 <textarea required placeholder="Delivery Address in Ghotki" className="w-full p-4 bg-gray-50 rounded-2xl font-bold text-sm text-gray-900 h-20 border border-transparent focus:border-pink-200 outline-none transition-all" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
               </div>
 
               <div className="p-6 bg-gray-900 rounded-3xl text-white flex justify-between items-center shadow-xl">

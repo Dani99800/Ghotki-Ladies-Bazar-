@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Truck, Store, CreditCard, ShieldCheck, CheckCircle2, AlertTriangle, User, Phone, MapPin } from 'lucide-react';
+import { Truck, Store, CreditCard, ShieldCheck, CheckCircle2, AlertCircle, User, Phone, MapPin } from 'lucide-react';
 import { CartItem, User as UserType, Order, Shop } from '../types';
 import { PLATFORM_FEE_PKR, NOTIFICATION_SOUND } from '../constants';
 
@@ -54,7 +54,7 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, clearCart, user, lang
         const order: Order = {
           id: 'ord_' + Math.random().toString(36).substr(2, 9),
           buyerId: user?.id || 'guest_' + Date.now(),
-          sellerId: shop.owner_id, // CRITICAL: Target the owner profile
+          sellerId: shop.id, // CRITICAL FIX: Use shop.id (UUID) to satisfy database foreign key and ensure visibility in seller dashboard
           items: sellerItems,
           subtotal: sellerSubtotal,
           deliveryFee: method === 'DELIVERY' ? 150 : 0,
@@ -77,8 +77,9 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, clearCart, user, lang
         clearCart();
         navigate('/');
       }, 3500);
-    } catch (err) {
-      alert("Failed to place order. Please try again.");
+    } catch (err: any) {
+      console.error("Cart checkout error:", err);
+      alert(`Failed to place order: ${err.message || 'Unknown error'}`);
     }
   };
 
@@ -88,7 +89,7 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, clearCart, user, lang
         <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center text-green-600 animate-bounce">
           <CheckCircle2 className="w-12 h-12" />
         </div>
-        <h1 className="text-2xl font-bold uppercase italic tracking-tighter">Orders Confirmed!</h1>
+        <h1 className="text-2xl font-bold uppercase italic tracking-tighter text-gray-900">Orders Confirmed!</h1>
         <p className="text-gray-500 text-sm">Your order has been sent to the sellers. They will contact you shortly to confirm the delivery.</p>
         <p className="text-pink-600 font-bold animate-pulse text-xs mt-4 uppercase">Redirecting to marketplace...</p>
       </div>
@@ -97,29 +98,28 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, clearCart, user, lang
 
   return (
     <div className="max-w-2xl mx-auto p-4 space-y-8 pb-32 animate-in fade-in duration-500">
-      <h1 className="text-2xl font-black uppercase italic tracking-tighter">Checkout Details</h1>
+      <h1 className="text-2xl font-black uppercase italic tracking-tighter text-gray-900">Checkout Details</h1>
 
-      {/* Guest Info Section */}
       <section className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm space-y-4">
         <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Delivery Info</h2>
         <div className="space-y-3">
           <div className="relative">
             <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input required placeholder="Full Name" className="w-full pl-10 pr-4 py-4 bg-gray-50 rounded-2xl font-bold text-sm border border-transparent focus:border-pink-200 outline-none transition-all" value={guestInfo.name} onChange={e => setGuestInfo({...guestInfo, name: e.target.value})} />
+            <input required placeholder="Full Name" className="w-full pl-10 pr-4 py-4 bg-gray-50 rounded-2xl font-bold text-sm text-gray-900 border border-transparent focus:border-pink-200 outline-none transition-all" value={guestInfo.name} onChange={e => setGuestInfo({...guestInfo, name: e.target.value})} />
           </div>
           <div className="relative">
             <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input required placeholder="Mobile Number" className="w-full pl-10 pr-4 py-4 bg-gray-50 rounded-2xl font-bold text-sm border border-transparent focus:border-pink-200 outline-none transition-all" value={guestInfo.mobile} onChange={e => setGuestInfo({...guestInfo, mobile: e.target.value})} />
+            <input required placeholder="Mobile Number" className="w-full pl-10 pr-4 py-4 bg-gray-50 rounded-2xl font-bold text-sm text-gray-900 border border-transparent focus:border-pink-200 outline-none transition-all" value={guestInfo.mobile} onChange={e => setGuestInfo({...guestInfo, mobile: e.target.value})} />
           </div>
           <div className="relative">
             <MapPin className="absolute left-4 top-4 w-4 h-4 text-gray-400" />
-            <textarea required placeholder="Full Delivery Address" className="w-full pl-10 pr-4 py-4 bg-gray-50 rounded-2xl font-bold text-sm h-24 border border-transparent focus:border-pink-200 outline-none transition-all" value={guestInfo.address} onChange={e => setGuestInfo({...guestInfo, address: e.target.value})} />
+            <textarea required placeholder="Full Delivery Address" className="w-full pl-10 pr-4 py-4 bg-gray-50 rounded-2xl font-bold text-sm text-gray-900 h-24 border border-transparent focus:border-pink-200 outline-none transition-all" value={guestInfo.address} onChange={e => setGuestInfo({...guestInfo, address: e.target.value})} />
           </div>
         </div>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Fulfillment</h2>
+        <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 text-gray-900">Fulfillment</h2>
         <div className="grid grid-cols-2 gap-3">
           <button onClick={() => setMethod('DELIVERY')} className={`p-5 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all ${method === 'DELIVERY' ? 'border-pink-600 bg-pink-50 text-pink-600' : 'border-gray-200 bg-white text-gray-400'}`}>
             <Truck className="w-6 h-6" /><span className="text-[10px] font-black uppercase">Home Delivery</span>

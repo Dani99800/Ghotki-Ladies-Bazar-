@@ -28,7 +28,6 @@ const App: React.FC = () => {
   const [lang, setLang] = useState<'EN' | 'UR'>('EN');
   const [loading, setLoading] = useState(true);
 
-  // Load Initial Session & Marketplace Data
   useEffect(() => {
     if (!supabase) return;
     
@@ -42,7 +41,6 @@ const App: React.FC = () => {
         fetchProfile(session.user.id);
       } else {
         setUser(null);
-        setOrders([]);
         setLoading(false);
       }
     });
@@ -51,24 +49,6 @@ const App: React.FC = () => {
     return () => authListener.subscription.unsubscribe();
   }, []);
 
-  // Real-time Orders Subscription
-  useEffect(() => {
-    if (!supabase || !user) return;
-
-    // Subscribe to order changes to ensure live updates for sellers
-    const channel = supabase
-      .channel('public:orders')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
-        fetchOrders();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user, shops]); // Re-subscribe if shops update to ensure filter is correct
-
-  // Re-fetch orders when user or shops change
   useEffect(() => {
     if (user && shops.length > 0) {
       fetchOrders();
@@ -131,34 +111,27 @@ const App: React.FC = () => {
   const fetchOrders = async () => {
     if (!supabase || !user) return;
     
-    // For sellers, we need their shop ID to find relevant orders including Guest orders
+    // For sellers, we need their shop ID to find relevant orders
     const myShop = shops.find(s => s.owner_id === user.id);
     
+    // Fetch orders where either buyer_id matches profile OR seller_id matches shop UUID
     let query = supabase.from('orders').select('*');
     if (myShop) {
-      // Fetch orders where buyer matches OR it's sold by this seller's shop
       query = query.or(`buyer_id.eq.${user.id},seller_id.eq.${myShop.id}`);
     } else {
       query = query.eq('buyer_id', user.id);
     }
 
-    const { data, error } = await query.order('created_at', { ascending: false });
-    if (error) {
-      console.error("Fetch Orders Error:", error);
-      return;
-    }
-    
-    if (data) {
-      setOrders(data.map(o => ({ 
-        ...o, 
-        buyerId: o.buyer_id || `guest_${o.id}`, // Fallback for guest display
-        sellerId: o.seller_id, 
-        createdAt: o.created_at,
-        buyerName: o.buyer_name,
-        buyerMobile: o.buyer_mobile,
-        buyerAddress: o.buyer_address
-      })));
-    }
+    const { data } = await query;
+    if (data) setOrders(data.map(o => ({ 
+      ...o, 
+      buyerId: o.buyer_id, 
+      sellerId: o.seller_id, 
+      createdAt: o.created_at,
+      buyerName: o.buyer_name,
+      buyerMobile: o.buyer_mobile,
+      buyerAddress: o.buyer_address
+    })));
   };
 
   const addToCart = (p: Product) => {
@@ -171,12 +144,10 @@ const App: React.FC = () => {
 
   const handlePlaceOrder = async (order: Order) => {
     if (!supabase) return;
-    
-    const isGuest = !order.buyerId || order.buyerId.startsWith('guest_');
-    
+    const isGuest = order.buyerId.startsWith('guest_');
     const { error } = await supabase.from('orders').insert({
       buyer_id: isGuest ? null : order.buyerId,
-      seller_id: order.sellerId, // MUST BE the shop.id UUID
+      seller_id: order.sellerId, // MUST BE shop.id UUID
       items: order.items,
       subtotal: order.subtotal,
       delivery_fee: order.deliveryFee,
@@ -188,14 +159,11 @@ const App: React.FC = () => {
       buyer_mobile: order.buyerMobile,
       buyer_address: order.buyerAddress
     });
-    
     if (error) {
       console.error("Order insertion error:", error);
       throw error;
     }
-    
-    // If guest, they won't have a state to refresh, but the Seller's real-time channel will trigger.
-    if (user) fetchOrders();
+    fetchOrders(); // Refresh local orders list
   };
 
   const navItems = [
