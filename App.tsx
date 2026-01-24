@@ -68,7 +68,8 @@ const App: React.FC = () => {
           name: profile?.name || meta.full_name || 'Bazar User',
           role: profile?.role || meta.role || 'BUYER',
           subscription_tier: profile?.subscription_tier || meta.tier || 'NONE',
-          mobile: profile?.mobile || meta.mobile || ''
+          mobile: profile?.mobile || meta.mobile || '',
+          address: profile?.address || meta.address || ''
         };
         setUser(userData as UserType);
       }
@@ -82,17 +83,12 @@ const App: React.FC = () => {
   const loadMarketplace = async () => {
     if (!supabase) return;
     try {
-      console.log("Fetching Marketplace Data...");
       const [pRes, sRes] = await Promise.all([
         supabase.from('products').select('*').order('created_at', { ascending: false }),
         supabase.from('shops').select('*')
       ]);
       
-      if (sRes.error) console.error("Shops Fetch Error:", sRes.error);
-      if (pRes.error) console.error("Products Fetch Error:", pRes.error);
-
       if (sRes.data) {
-        console.log(`Found ${sRes.data.length} shops in database.`);
         setShops(sRes.data.map((s: any) => ({ 
           ...s, 
           logo: s.logo_url || 'https://via.placeholder.com/150', 
@@ -101,7 +97,6 @@ const App: React.FC = () => {
       }
       
       if (pRes.data) {
-        console.log(`Found ${pRes.data.length} products in database.`);
         setProducts(pRes.data.map((p: any) => ({ 
           ...p, 
           images: p.image_urls || [], 
@@ -110,7 +105,7 @@ const App: React.FC = () => {
         })));
       }
     } catch (err) { 
-      console.error("Critical Marketplace Load Error:", err); 
+      console.error("Marketplace Load Error:", err); 
     }
   };
 
@@ -138,7 +133,6 @@ const App: React.FC = () => {
 
   const handlePlaceOrder = async (order: Order) => {
     if (!supabase) return;
-    console.log("Placing Order...", order);
     const { error } = await supabase.from('orders').insert({
       buyer_id: order.buyerId,
       seller_id: order.sellerId,
@@ -153,10 +147,7 @@ const App: React.FC = () => {
       buyer_mobile: order.buyerMobile,
       buyer_address: order.buyerAddress
     });
-    if (error) {
-      console.error("Order Insertion Error:", error);
-      throw error;
-    }
+    if (error) throw error;
     if (user) fetchOrders();
   };
 
@@ -198,14 +189,15 @@ const App: React.FC = () => {
           <Route path="/" element={<BuyerHome shops={shops} products={products} addToCart={addToCart} lang={lang} user={user} onPlaceOrder={handlePlaceOrder} />} />
           <Route path="/explore" element={<ExploreView products={products} addToCart={addToCart} onPlaceOrder={handlePlaceOrder} user={user} />} />
           <Route path="/shops" element={<ShopsListView shops={shops} lang={lang} />} />
-          <Route path="/shop/:id" element={<ShopView shops={shops} products={products} addToCart={addToCart} lang={lang} />} />
+          <Route path="/shop/:id" element={<ShopView shops={shops} products={products} addToCart={addToCart} lang={lang} user={user} onPlaceOrder={handlePlaceOrder} />} />
           <Route path="/product/:id" element={<ProductView products={products} addToCart={addToCart} lang={lang} />} />
           <Route path="/cart" element={<CartView cart={cart} removeFromCart={id => setCart(cart.filter(c => c.id !== id))} updateQuantity={(id, d) => setCart(cart.map(c => c.id === id ? {...c, quantity: Math.max(1, c.quantity+d)} : c))} lang={lang} />} />
           <Route path="/login" element={<LoginView setUser={setUser} lang={lang} />} />
           <Route path="/profile" element={user ? <ProfileView user={user} onLogout={() => { supabase?.auth.signOut(); setUser(null); navigate('/login'); }} lang={lang} /> : <Navigate to="/login" />} />
           <Route path="/admin" element={user?.role === 'ADMIN' ? <AdminDashboard shops={shops} setShops={setShops} orders={orders} refreshData={loadMarketplace} /> : <Navigate to="/" />} />
           <Route path="/seller/*" element={user?.role === 'SELLER' ? <SellerDashboard products={products} user={user} addProduct={loadMarketplace} orders={orders} shops={shops} refreshShop={loadMarketplace} /> : <Navigate to="/login" />} />
-          <Route path="/checkout" element={<CheckoutView cart={cart} clearCart={() => setCart([])} user={user} lang={lang} onPlaceOrder={handlePlaceOrder} />} />
+          <Route path="/checkout" element={<CheckoutView cart={cart} clearCart={() => setCart([])} user={user} lang={lang} onPlaceOrder={handlePlaceOrder} shops={shops} />} />
+          <Route path="/orders" element={user ? <OrdersView orders={orders} user={user} shops={shops} /> : <Navigate to="/login" />} />
         </Routes>
       </main>
 

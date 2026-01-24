@@ -2,21 +2,25 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ShoppingCart, MessageCircle, MapPin, Phone, Star, Info, LayoutGrid } from 'lucide-react';
-import { Shop, Product } from '../types';
+import { Shop, Product, Order, User as UserType } from '../types';
+import InstantCheckout from '../components/InstantCheckout';
 
 interface ShopViewProps {
   shops: Shop[];
   products: Product[];
   addToCart: (p: Product) => void;
   lang: 'EN' | 'UR';
+  user: UserType | null;
+  onPlaceOrder: (o: Order) => void;
 }
 
-const ShopView: React.FC<ShopViewProps> = ({ shops, products, addToCart, lang }) => {
+const ShopView: React.FC<ShopViewProps> = ({ shops, products, addToCart, lang, user, onPlaceOrder }) => {
   const { id } = useParams();
   const navigate = useNavigate();
   const shop = shops.find(s => s.id === id);
   const shopProducts = products.filter(p => p.shopId === id);
   const [activeTab, setActiveTab] = useState<'Products' | 'About'>('Products');
+  const [checkoutProduct, setCheckoutProduct] = useState<Product | null>(null);
 
   if (!shop) return <div className="p-8 text-center">Shop not found</div>;
 
@@ -43,7 +47,7 @@ const ShopView: React.FC<ShopViewProps> = ({ shops, products, addToCart, lang })
               </div>
             </div>
             <button 
-              onClick={() => window.open(`https://wa.me/${shop.whatsapp}`)}
+              onClick={() => window.open(`https://wa.me/${shop.whatsapp || shop.mobile}`)}
               className="p-3 bg-green-50 text-green-600 rounded-2xl"
             >
               <MessageCircle className="w-5 h-5" />
@@ -91,18 +95,17 @@ const ShopView: React.FC<ShopViewProps> = ({ shops, products, addToCart, lang })
                 <div className="p-3 flex-1 flex flex-col justify-between">
                   <div onClick={() => navigate(`/product/${product.id}`)}>
                     <h3 className="font-bold text-sm truncate">{product.name}</h3>
-                    <span className="text-pink-600 font-bold text-sm">PKR {product.price}</span>
+                    <span className="text-pink-600 font-bold text-sm">PKR {product.price.toLocaleString()}</span>
                   </div>
                   
                   <button 
                     onClick={(e) => {
                       e.stopPropagation();
-                      addToCart(product);
-                      navigate('/cart');
+                      setCheckoutProduct(product);
                     }}
                     className="w-full bg-pink-600 text-white py-2 rounded-xl text-[10px] font-black uppercase tracking-widest mt-2 active:scale-95 transition-all"
                   >
-                    Buy
+                    Buy Now
                   </button>
                 </div>
               </div>
@@ -112,7 +115,7 @@ const ShopView: React.FC<ShopViewProps> = ({ shops, products, addToCart, lang })
           <div className="bg-white rounded-2xl p-6 shadow-sm space-y-4">
             <div>
               <h3 className="font-bold text-gray-900 mb-2">Shop Bio</h3>
-              <p className="text-sm text-gray-600 leading-relaxed">{shop.bio}</p>
+              <p className="text-sm text-gray-600 leading-relaxed">{shop.bio || 'No description available for this shop.'}</p>
             </div>
             <div className="pt-4 border-t space-y-3">
               <div className="flex items-center gap-3 text-sm text-gray-600">
@@ -121,12 +124,22 @@ const ShopView: React.FC<ShopViewProps> = ({ shops, products, addToCart, lang })
               </div>
               <div className="flex items-center gap-3 text-sm text-gray-600">
                 <Info className="w-4 h-4 text-pink-500" />
-                <span>Delivery Fee: PKR {shop.deliveryFee}</span>
+                <span>Delivery Fee: PKR {shop.deliveryFee || 150}</span>
               </div>
             </div>
           </div>
         )}
       </div>
+
+      {checkoutProduct && (
+        <InstantCheckout 
+          product={checkoutProduct} 
+          shopOwnerId={shop.owner_id}
+          onClose={() => setCheckoutProduct(null)} 
+          onPlaceOrder={onPlaceOrder} 
+          user={user} 
+        />
+      )}
     </div>
   );
 };
