@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   PlusCircle, ShoppingBag, X, Video, Image as ImageIcon,
   Loader2, Settings, Camera, PlayCircle, Trash2, AlertCircle,
-  Package, Check
+  Package, Check, MessageCircle, Phone, MapPin, Clock
 } from 'lucide-react';
 import { Product, Order, User as UserType, Shop } from '../types';
 import { CATEGORIES } from '../constants';
@@ -25,6 +25,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
 
   const myShop = shops.find(s => s.owner_id === user.id);
   const myProducts = products.filter(p => p.shopId === myShop?.id);
+  const myOrders = orders.filter(o => o.sellerId === myShop?.id);
 
   const [newProduct, setNewProduct] = useState({
     name: '',
@@ -35,22 +36,32 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
     videoUrl: ''
   });
 
+  // Restricted Feature Check
+  const canPostVideo = myShop?.subscription_tier === 'STANDARD' || myShop?.subscription_tier === 'PREMIUM';
+
+  const updateOrderStatus = async (orderId: string, status: string) => {
+    if (!supabase) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase.from('orders').update({ status }).eq('id', orderId);
+      if (error) throw error;
+      refreshShop(); // This should trigger a global order fetch in App.tsx if it's listening
+    } catch (err: any) {
+      alert("Order update failed: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleUpdateShopMedia = async (type: 'logo' | 'banner', file: File) => {
     if (!supabase || !myShop) return;
     setLoading(true);
     try {
-      // Use User ID as the root folder for security policies
       const path = `${user.id}/shop_assets/${type}_${Date.now()}`;
       const publicUrl = await uploadFile('marketplace', path, file);
-      
       const updateData = type === 'logo' ? { logo_url: publicUrl } : { banner_url: publicUrl };
       const { error } = await supabase.from('shops').update(updateData).eq('id', myShop.id);
-      
-      if (error) {
-        if (error.code === '42501') throw new Error("Security Policy Error: You don't have permission to update this shop. Ensure RLS 'UPDATE' policy is enabled for authenticated users on the 'shops' table.");
-        throw error;
-      }
-      
+      if (error) throw error;
       refreshShop();
     } catch (err: any) {
       alert(err.message);
@@ -61,22 +72,20 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
 
   const handleProductFileUpload = async (file: File, isVideo: boolean) => {
     if (!supabase || !myShop) return;
+    
+    if (isVideo && !canPostVideo) {
+      alert("This feature requires a Standard (2500 PKR) or Premium plan. Please upgrade to post video reels.");
+      return;
+    }
+
     setLoading(true);
     try {
-      // Use User ID as the root folder for security policies
       const path = `${user.id}/products/${Date.now()}_${file.name.replace(/\s/g, '_')}`;
       const url = await uploadFile('marketplace', path, file);
-      
       if (isVideo) setNewProduct(prev => ({ ...prev, videoUrl: url }));
       else setNewProduct(prev => ({ ...prev, images: [...prev.images, url] }));
     } catch (err: any) {
-       if (err.message?.includes('bucket not found')) {
-        alert("Error: 'marketplace' bucket missing in Supabase Storage. Please create a PUBLIC bucket named 'marketplace'.");
-      } else if (err.code === '42501') {
-        alert("Security Policy Error: You don't have permission to upload to this folder. Ensure your Storage policy allows INSERT for authenticated users.");
-      } else {
-        alert("Upload failed: " + err.message);
-      }
+       alert("Upload failed: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -133,18 +142,12 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         <img src={myShop.banner} className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-black/30 group-hover:bg-black/20 transition-all" />
         <div className="absolute bottom-6 left-6 flex items-center gap-4">
-           <div className="relative">
-              <img src={myShop.logo} className="w-16 h-16 rounded-2xl border-2 border-white object-cover bg-white" />
-              {loading && <div className="absolute inset-0 bg-black/40 rounded-2xl flex items-center justify-center"><Loader2 className="w-6 h-6 text-white animate-spin" /></div>}
-           </div>
+           <img src={myShop.logo} className="w-16 h-16 rounded-2xl border-2 border-white object-cover bg-white" />
            <div className="text-white">
               <h2 className="text-xl font-black italic uppercase tracking-tighter">{myShop.name}</h2>
-              <p className="text-[10px] font-bold uppercase text-pink-300">{myShop.bazaar}</p>
+              <p className="text-[10px] font-bold uppercase text-pink-300">{myShop.subscription_tier} MEMBER • {myShop.bazaar}</p>
            </div>
         </div>
-        <button onClick={() => setActiveTab('Settings')} className="absolute top-6 right-6 p-3 bg-white/20 backdrop-blur-md rounded-2xl text-white hover:bg-white/40 transition-all">
-          <Settings className="w-5 h-5" />
-        </button>
       </div>
 
       {/* Tabs */}
@@ -153,6 +156,58 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
           <button key={tab} onClick={() => setActiveTab(tab as any)} className={`flex-1 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab ? 'bg-white text-pink-600 shadow-md' : 'text-gray-400'}`}>{tab}</button>
         ))}
       </div>
+
+      {activeTab === 'Orders' && (
+        <div className="space-y-4">
+          <h3 className="font-black uppercase text-xs text-gray-500 ml-2">Recent Shop Orders ({myOrders.length})</h3>
+          {myOrders.map(order => (
+            <div key={order.id} className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm space-y-4">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-pink-50 text-pink-600 rounded-xl"><Package className="w-5 h-5" /></div>
+                  <div>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Order #{order.id.slice(-6).toUpperCase()}</p>
+                    <p className="font-bold text-gray-900">{order.buyerName}</p>
+                  </div>
+                </div>
+                <div className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest ${order.status === 'PENDING' ? 'bg-orange-100 text-orange-600' : 'bg-green-100 text-green-600'}`}>
+                  {order.status}
+                </div>
+              </div>
+              
+              <div className="space-y-2 pt-2">
+                 {order.items.map((item, idx) => (
+                   <div key={idx} className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-gray-600">{item.name} x {item.quantity}</span>
+                      <span className="font-black text-pink-600">PKR {item.price * item.quantity}</span>
+                   </div>
+                 ))}
+                 <div className="flex justify-between items-center pt-2 border-t mt-2">
+                    <span className="text-[10px] font-black uppercase text-gray-400">Total Revenue</span>
+                    <span className="text-lg font-black italic">PKR {order.total.toLocaleString()}</span>
+                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-4 border-t">
+                 {order.status === 'PENDING' && (
+                   <button onClick={() => updateOrderStatus(order.id, 'SHIPPED')} className="bg-pink-600 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2">
+                      <Check className="w-4 h-4" /> Ship Order
+                   </button>
+                 )}
+                 <button onClick={() => window.open(`https://wa.me/${order.buyerMobile}`)} className="bg-green-50 text-green-600 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2">
+                    <MessageCircle className="w-4 h-4" /> Message Buyer
+                 </button>
+              </div>
+            </div>
+          ))}
+          {myOrders.length === 0 && (
+            <div className="py-20 text-center space-y-3 opacity-30">
+               <ShoppingBag className="w-12 h-12 mx-auto" />
+               <p className="font-black text-[10px] uppercase">No orders yet</p>
+            </div>
+          )}
+        </div>
+      )}
 
       {activeTab === 'Inventory' && (
         <div className="space-y-4">
@@ -217,11 +272,14 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
                        <ImageIcon className="text-gray-400" />
                        <span className="text-[8px] font-black text-gray-400 uppercase">Image</span>
                     </label>
-                    <label className="w-24 h-24 rounded-3xl border-2 border-dashed border-pink-200 bg-pink-50 flex flex-col items-center justify-center cursor-pointer shrink-0">
-                       <input type="file" className="hidden" accept="video/*" onChange={e => e.target.files?.[0] && handleProductFileUpload(e.target.files[0], true)} />
-                       <Video className="text-pink-500" />
-                       <span className="text-[8px] font-black text-pink-500 uppercase">Reel</span>
+                    
+                    <label className={`w-24 h-24 rounded-3xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer shrink-0 transition-all ${canPostVideo ? 'border-pink-200 bg-pink-50' : 'border-gray-100 bg-gray-50 opacity-50'}`}>
+                       <input type="file" className="hidden" accept="video/*" onChange={e => e.target.files?.[0] && handleProductFileUpload(e.target.files[0], true)} disabled={!canPostVideo} />
+                       <Video className={canPostVideo ? "text-pink-500" : "text-gray-300"} />
+                       <span className={`text-[8px] font-black uppercase ${canPostVideo ? "text-pink-500" : "text-gray-300"}`}>Reel</span>
+                       {!canPostVideo && <span className="text-[6px] font-black uppercase text-red-400 mt-1">PRO ONLY</span>}
                     </label>
+
                     {newProduct.images.map((img, i) => (
                       <div key={i} className="relative w-24 h-24 shrink-0">
                         <img src={img} className="w-full h-full rounded-3xl object-cover border" />
@@ -235,11 +293,16 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
                       </div>
                     )}
                  </div>
-                 <input required placeholder="Name" className="w-full p-4 bg-gray-50 rounded-2xl font-bold" value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} />
-                 <input required type="number" placeholder="Price" className="w-full p-4 bg-gray-50 rounded-2xl font-bold" value={newProduct.price} onChange={e => setNewProduct({...newProduct, price: e.target.value})} />
+                 <input required placeholder="Product Name" className="w-full p-4 bg-gray-50 rounded-2xl font-bold" value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} />
+                 <div className="grid grid-cols-2 gap-4">
+                    <input required type="number" placeholder="Price" className="w-full p-4 bg-gray-50 rounded-2xl font-bold" value={newProduct.price} onChange={e => setNewProduct({...newProduct, price: e.target.value})} />
+                    <select className="w-full p-4 bg-gray-50 rounded-2xl font-bold text-gray-500 outline-none" value={newProduct.category} onChange={e => setNewProduct({...newProduct, category: e.target.value})}>
+                       {CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                    </select>
+                 </div>
                  <textarea required placeholder="Description" className="w-full p-4 bg-gray-50 rounded-2xl font-bold h-24" value={newProduct.description} onChange={e => setNewProduct({...newProduct, description: e.target.value})} />
                  <button disabled={loading} className="w-full bg-pink-600 text-white font-black py-5 rounded-2xl uppercase tracking-widest text-[11px] flex items-center justify-center gap-3">
-                    {loading ? <Loader2 className="animate-spin" /> : 'Publish'}
+                    {loading ? <Loader2 className="animate-spin" /> : 'Publish Item'}
                  </button>
               </form>
            </div>
