@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { Home, ShoppingBag, User as UserIcon, Search, ShoppingCart, LayoutDashboard, ShieldAlert, PlayCircle } from 'lucide-react';
+import { Home, ShoppingBag, User as UserIcon, Search, ShoppingCart, LayoutDashboard, ShieldAlert, PlayCircle, Bookmark } from 'lucide-react';
 import { supabase } from './services/supabase';
 import { User as UserType, Shop, Product, CartItem, Order } from './types';
 import BuyerHome from './views/BuyerHome';
@@ -25,8 +25,21 @@ const App: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [savedProductIds, setSavedProductIds] = useState<string[]>([]);
   const [lang, setLang] = useState<'EN' | 'UR'>('EN');
   const [loading, setLoading] = useState(true);
+
+  // Load Saved Product IDs from LocalStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('glb_saved_products');
+    if (saved) {
+      try { setSavedProductIds(JSON.parse(saved)); } catch(e) {}
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('glb_saved_products', JSON.stringify(savedProductIds));
+  }, [savedProductIds]);
 
   // Load Initial Session & Marketplace Data
   useEffect(() => {
@@ -55,7 +68,6 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!supabase || !user) return;
 
-    // Subscribe to order changes to ensure live updates for sellers
     const channel = supabase
       .channel('public:orders')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
@@ -66,9 +78,8 @@ const App: React.FC = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, shops]); // Re-subscribe if shops update to ensure filter is correct
+  }, [user, shops]);
 
-  // Re-fetch orders when user or shops change
   useEffect(() => {
     if (user && shops.length > 0) {
       fetchOrders();
@@ -131,12 +142,10 @@ const App: React.FC = () => {
   const fetchOrders = async () => {
     if (!supabase || !user) return;
     
-    // For sellers, we need their shop ID to find relevant orders including Guest orders
     const myShop = shops.find(s => s.owner_id === user.id);
     
     let query = supabase.from('orders').select('*');
     if (myShop) {
-      // Fetch orders where buyer matches OR it's sold by this seller's shop
       query = query.or(`buyer_id.eq.${user.id},seller_id.eq.${myShop.id}`);
     } else {
       query = query.eq('buyer_id', user.id);
@@ -151,7 +160,7 @@ const App: React.FC = () => {
     if (data) {
       setOrders(data.map(o => ({ 
         ...o, 
-        buyerId: o.buyer_id || `guest_${o.id}`, // Fallback for guest display
+        buyerId: o.buyer_id || `guest_${o.id}`, 
         sellerId: o.seller_id, 
         createdAt: o.created_at,
         buyerName: o.buyer_name,
@@ -169,14 +178,18 @@ const App: React.FC = () => {
     });
   };
 
+  const toggleSaveProduct = (productId: string) => {
+    setSavedProductIds(prev => 
+      prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId]
+    );
+  };
+
   const handlePlaceOrder = async (order: Order) => {
     if (!supabase) return;
-    
     const isGuest = !order.buyerId || order.buyerId.startsWith('guest_');
-    
     const { error } = await supabase.from('orders').insert({
       buyer_id: isGuest ? null : order.buyerId,
-      seller_id: order.sellerId, // MUST BE the shop.id UUID
+      seller_id: order.sellerId,
       items: order.items,
       subtotal: order.subtotal,
       delivery_fee: order.deliveryFee,
@@ -193,8 +206,6 @@ const App: React.FC = () => {
       console.error("Order insertion error:", error);
       throw error;
     }
-    
-    // If guest, they won't have a state to refresh, but the Seller's real-time channel will trigger.
     if (user) fetchOrders();
   };
 
@@ -202,6 +213,7 @@ const App: React.FC = () => {
     { icon: Home, label: 'Home', path: '/' },
     { icon: PlayCircle, label: 'Live', path: '/explore' },
     { icon: ShoppingBag, label: 'Shops', path: '/shops' },
+    ...(user && user.role === 'BUYER' ? [{ icon: Bookmark, label: 'Saved', path: '/saved' }] : []),
     { icon: user?.role === 'SELLER' ? LayoutDashboard : ShoppingCart, label: user?.role === 'SELLER' ? 'Dashboard' : 'Cart', path: user?.role === 'SELLER' ? '/seller' : '/cart' },
   ];
 
@@ -234,7 +246,8 @@ const App: React.FC = () => {
       <main className="flex-1 pt-16 pb-24 md:pb-0">
         <Routes>
           <Route path="/" element={<BuyerHome shops={shops} products={products} addToCart={addToCart} lang={lang} user={user} onPlaceOrder={handlePlaceOrder} />} />
-          <Route path="/explore" element={<ExploreView products={products} addToCart={addToCart} onPlaceOrder={handlePlaceOrder} user={user} />} />
+          <Route path="/explore" element={<ExploreView products={products} addToCart={addToCart} onPlaceOrder={handlePlaceOrder} user={user} savedProductIds={savedProductIds} onToggleSave={toggleSaveProduct} />} />
+          <Route path="/saved" element={<ExploreView products={products} addToCart={addToCart} onPlaceOrder={handlePlaceOrder} user={user} savedProductIds={savedProductIds} onToggleSave={toggleSaveProduct} isSavedOnly />} />
           <Route path="/shops" element={<ShopsListView shops={shops} lang={lang} />} />
           <Route path="/shop/:id" element={<ShopView shops={shops} products={products} addToCart={addToCart} lang={lang} user={user} onPlaceOrder={handlePlaceOrder} />} />
           <Route path="/product/:id" element={<ProductView products={products} addToCart={addToCart} lang={lang} />} />

@@ -25,13 +25,13 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
   const [loading, setLoading] = useState(false);
   
   const pendingCountRef = useRef<number>(0);
-  const initialLoadRef = useRef<boolean>(true);
+  const isFirstRender = useRef<boolean>(true);
 
   // Identify this seller's shop
   const myShop = shops.find(s => s.owner_id === user.id);
   const myProducts = products.filter(p => p.shopId === myShop?.id);
   
-  // CRITICAL: Filter orders strictly by the shop's unique UUID to catch ALL orders (Guests + Buyers)
+  // Filter orders strictly by the shop's unique UUID to catch ALL orders
   const myOrders = orders.filter(o => o.sellerId === myShop?.id); 
   const pendingOrders = myOrders.filter(o => o.status === 'PENDING');
 
@@ -67,22 +67,22 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
     }
   };
 
-  // Sound and Alert Logic
+  // Sound Notification Logic: Play when pending count increases
   useEffect(() => {
     if (!myShop) return;
 
-    // Trigger on new incoming orders
-    if (!initialLoadRef.current && pendingOrders.length > pendingCountRef.current) {
+    if (isFirstRender.current) {
+      pendingCountRef.current = pendingOrders.length;
+      isFirstRender.current = false;
+      return;
+    }
+
+    if (pendingOrders.length > pendingCountRef.current) {
       playNotification();
     }
     
-    // Once orders are loaded at least once
-    if (orders.length > 0) {
-      initialLoadRef.current = false;
-    }
-    
     pendingCountRef.current = pendingOrders.length;
-  }, [pendingOrders.length, myShop, orders.length]);
+  }, [pendingOrders.length, myShop]);
 
   const updateOrderStatus = async (orderId: string, status: string) => {
     if (!supabase) return;

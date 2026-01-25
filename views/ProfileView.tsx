@@ -11,7 +11,8 @@ import {
   ShoppingBag, 
   Settings,
   Bell,
-  LayoutDashboard
+  LayoutDashboard,
+  Bookmark
 } from 'lucide-react';
 import { User } from '../types';
 
@@ -26,6 +27,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ user, onLogout, lang }) => {
 
   const menuItems = [
     { icon: ShoppingBag, label: 'My Orders', path: '/orders', show: true },
+    { icon: Bookmark, label: 'Saved Videos', path: '/saved', show: user.role === 'BUYER' },
     { icon: LayoutDashboard, label: 'Admin Panel', path: '/admin', show: user.role === 'ADMIN' },
     { icon: Bell, label: 'Notifications', path: '#', show: true },
     { icon: Settings, label: 'Account Settings', path: '#', show: true },
