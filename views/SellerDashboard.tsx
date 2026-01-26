@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   PlusCircle, ShoppingBag, X, Video, Image as ImageIcon,
@@ -29,7 +30,32 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
   const myShop = shops.find(s => s.owner_id === user.id);
   const prevOrdersCount = useRef(orders.length);
 
-  // New Order Alert Logic
+  const [settingsForm, setSettingsForm] = useState({
+    name: '',
+    bio: '',
+    mobile: '',
+    whatsapp: '',
+    logoFile: null as File | null,
+    bannerFile: null as File | null,
+    logoPreview: '',
+    bannerPreview: ''
+  });
+
+  // Sync settingsForm with myShop data when it changes
+  useEffect(() => {
+    if (myShop) {
+      setSettingsForm(prev => ({
+        ...prev,
+        name: myShop.name,
+        bio: myShop.bio || '',
+        mobile: myShop.mobile || '',
+        whatsapp: myShop.whatsapp || '',
+        logoPreview: myShop.logo,
+        bannerPreview: myShop.banner
+      }));
+    }
+  }, [myShop]);
+
   useEffect(() => {
     if (orders.length > prevOrdersCount.current && myShop) {
       const latestOrder = orders[0];
@@ -43,15 +69,6 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
     prevOrdersCount.current = orders.length;
   }, [orders, myShop]);
 
-  // Settings State
-  const [settingsForm, setSettingsForm] = useState({
-    name: myShop?.name || '',
-    bio: myShop?.bio || '',
-    mobile: myShop?.mobile || '',
-    whatsapp: myShop?.whatsapp || '',
-  });
-
-  // Product Form State
   const [productForm, setProductForm] = useState({
     name: '',
     price: '',
@@ -68,52 +85,47 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
   
   const isReelUnlocked = myShop?.subscription_tier === 'STANDARD' || myShop?.subscription_tier === 'PREMIUM';
 
-  const openAddModal = () => {
-    setEditingProduct(null);
-    setProductForm({
-      name: '',
-      price: '',
-      category: CATEGORIES[0].name,
-      description: '',
-      videoFile: null,
-      videoUrl: '',
-      images: [],
-      existingImageUrls: []
-    });
-    setShowModal(true);
-  };
-
-  const openEditModal = (product: Product) => {
-    setEditingProduct(product);
-    setProductForm({
-      name: product.name,
-      price: product.price.toString(),
-      category: product.category,
-      description: product.description,
-      videoFile: null,
-      videoUrl: product.videoUrl || '',
-      images: [],
-      existingImageUrls: product.images || []
-    });
-    setShowModal(true);
-  };
-
   const handleSettingsUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!supabase || !myShop) return;
     setLoading(true);
     try {
+      let finalLogoUrl = myShop.logo;
+      let finalBannerUrl = myShop.banner;
+
+      // Handle logo upload
+      if (settingsForm.logoFile) {
+        const logoPath = `shops/${myShop.id}/logo_${Date.now()}`;
+        finalLogoUrl = await uploadFile('marketplace', logoPath, settingsForm.logoFile);
+      }
+
+      // Handle banner upload
+      if (settingsForm.bannerFile) {
+        const bannerPath = `shops/${myShop.id}/banner_${Date.now()}`;
+        finalBannerUrl = await uploadFile('marketplace', bannerPath, settingsForm.bannerFile);
+      }
+
+      // Final update to database
       const { error } = await supabase.from('shops').update({
         name: settingsForm.name,
         bio: settingsForm.bio,
         mobile: settingsForm.mobile,
         whatsapp: settingsForm.whatsapp,
+        logo_url: finalLogoUrl,
+        banner_url: finalBannerUrl
       }).eq('id', myShop.id);
 
       if (error) throw error;
-      alert("Shop profile updated!");
-      refreshShop();
+      
+      alert("Shop profile and branding updated successfully!");
+      
+      // Clear local file state
+      setSettingsForm(prev => ({ ...prev, logoFile: null, bannerFile: null }));
+      
+      // Force parent state refresh
+      await refreshShop();
     } catch (err: any) {
+      console.error("Settings Update Error:", err);
       alert("Settings Update Error: " + err.message);
     } finally {
       setLoading(false);
@@ -122,26 +134,19 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
 
   const handleSubmitProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!supabase || !myShop) {
-      alert("System Error: Shop or Database not connected.");
-      return;
-    }
+    if (!supabase || !myShop) return;
     setLoading(true);
     try {
-      // 1. Upload Images to 'marketplace' bucket
       const uploadedUrls = [...productForm.existingImageUrls];
       for (const file of productForm.images) {
-        const timestamp = Date.now();
-        const path = `products/${myShop.id}/${timestamp}_${file.name.replace(/\s/g, '_')}`;
+        const path = `products/${myShop.id}/${Date.now()}_${file.name.replace(/\s/g, '_')}`;
         const url = await uploadFile('marketplace', path, file);
         uploadedUrls.push(url);
       }
 
-      // 2. Upload Reel (Video)
       let finalVideoUrl = productForm.videoUrl;
       if (isReelUnlocked && productForm.videoFile) {
-        const timestamp = Date.now();
-        const videoPath = `reels/${myShop.id}/${timestamp}_${productForm.videoFile.name.replace(/\s/g, '_')}`;
+        const videoPath = `reels/${myShop.id}/${Date.now()}_${productForm.videoFile.name.replace(/\s/g, '_')}`;
         finalVideoUrl = await uploadFile('marketplace', videoPath, productForm.videoFile);
       }
 
@@ -156,25 +161,17 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         tags: editingProduct ? editingProduct.tags : ['New']
       };
 
-      let result;
       if (editingProduct) {
-        result = await supabase.from('products').update(productData).eq('id', editingProduct.id);
+        await supabase.from('products').update(productData).eq('id', editingProduct.id);
       } else {
-        result = await supabase.from('products').insert(productData);
-      }
-
-      if (result.error) {
-        // This is where "Row Level Security" errors are caught
-        console.error("Supabase Database Error:", result.error);
-        throw new Error(result.error.message);
+        await supabase.from('products').insert(productData);
       }
 
       setShowModal(false);
-      addProduct(); // Refresh global products list
-      alert(editingProduct ? "Listing Updated!" : "Listing Published Successfully!");
+      addProduct();
+      alert(editingProduct ? "Listing Updated!" : "Listing Published!");
     } catch (err: any) {
-      console.error("Product Save Catch Block:", err);
-      alert("Publishing Failed: " + err.message + "\n\nTip: Ensure your marketplace storage bucket exists and SQL RLS policies are set.");
+      alert("Publishing Failed: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -260,11 +257,57 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
       {/* Settings Panel */}
       {activeTab === 'Settings' && (
         <div className="animate-in slide-in-from-bottom-4 duration-500">
-          <form onSubmit={handleSettingsUpdate} className="bg-white p-8 rounded-[3rem] border border-gray-100 shadow-sm space-y-6">
+          <form onSubmit={handleSettingsUpdate} className="bg-white p-8 rounded-[3rem] border border-gray-100 shadow-sm space-y-8">
             <h3 className="font-black uppercase text-xs tracking-widest text-pink-600 flex items-center gap-2">
               <Settings className="w-4 h-4" /> Marketplace Profile
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+            {/* Branding Section */}
+            <div className="space-y-4">
+              <p className="text-[9px] font-black uppercase text-gray-400 ml-2">Shop Branding</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Logo Upload */}
+                <div className="space-y-2">
+                  <p className="text-[8px] font-bold text-gray-500 uppercase ml-2">Logo Square (1:1)</p>
+                  <label className="relative w-32 h-32 rounded-3xl border-2 border-dashed border-gray-200 overflow-hidden flex items-center justify-center cursor-pointer hover:border-pink-500 transition-all bg-gray-50">
+                    {settingsForm.logoPreview ? (
+                      <img src={settingsForm.logoPreview} className="w-full h-full object-cover" />
+                    ) : (
+                      <Camera className="w-8 h-8 text-gray-300" />
+                    )}
+                    <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 flex items-center justify-center transition-opacity">
+                      <UploadCloud className="text-white w-6 h-6" />
+                    </div>
+                    <input type="file" className="hidden" accept="image/*" onChange={(e) => {
+                      if (e.target.files?.[0]) {
+                        setSettingsForm({...settingsForm, logoFile: e.target.files[0], logoPreview: URL.createObjectURL(e.target.files[0])});
+                      }
+                    }} />
+                  </label>
+                </div>
+                {/* Banner Upload */}
+                <div className="space-y-2 flex-1">
+                  <p className="text-[8px] font-bold text-gray-500 uppercase ml-2">Banner Landscape (2:1)</p>
+                  <label className="relative h-32 w-full rounded-3xl border-2 border-dashed border-gray-200 overflow-hidden flex items-center justify-center cursor-pointer hover:border-pink-500 transition-all bg-gray-50">
+                    {settingsForm.bannerPreview ? (
+                      <img src={settingsForm.bannerPreview} className="w-full h-full object-cover" />
+                    ) : (
+                      <ImageIcon className="w-8 h-8 text-gray-300" />
+                    )}
+                    <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 flex items-center justify-center transition-opacity">
+                      <UploadCloud className="text-white w-6 h-6" />
+                    </div>
+                    <input type="file" className="hidden" accept="image/*" onChange={(e) => {
+                      if (e.target.files?.[0]) {
+                        setSettingsForm({...settingsForm, bannerFile: e.target.files[0], bannerPreview: URL.createObjectURL(e.target.files[0])});
+                      }
+                    }} />
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-4">
               <div className="space-y-1.5">
                 <label className="text-[9px] font-black uppercase text-gray-400 ml-2">Shop Name</label>
                 <input required className="w-full p-5 bg-gray-50 rounded-2xl font-bold text-sm text-gray-900 border-none outline-none focus:ring-2 focus:ring-pink-500/20" value={settingsForm.name} onChange={e => setSettingsForm({...settingsForm, name: e.target.value})} />
@@ -279,7 +322,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
               </div>
             </div>
             <button disabled={loading} className="w-full py-5 bg-pink-600 text-white font-black rounded-3xl uppercase tracking-widest text-[11px] shadow-2xl shadow-pink-200 flex items-center justify-center gap-3">
-              {loading ? <Loader2 className="animate-spin w-5 h-5" /> : <Save className="w-5 h-5" />} Update My Shop
+              {loading ? <Loader2 className="animate-spin w-5 h-5" /> : <Save className="w-5 h-5" />} Save All Changes
             </button>
           </form>
         </div>
@@ -290,7 +333,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         <div className="space-y-5 animate-in slide-in-from-bottom-4 duration-500">
           <div className="flex justify-between items-center px-2">
              <h3 className="font-black uppercase text-[10px] tracking-widest text-gray-400">Products ({myProducts.length})</h3>
-             <button onClick={openAddModal} className="bg-pink-600 text-white px-8 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl flex items-center gap-2 hover:bg-pink-700 transition-all">
+             <button onClick={() => { setEditingProduct(null); setShowModal(true); }} className="bg-pink-600 text-white px-8 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl flex items-center gap-2 hover:bg-pink-700 transition-all">
                <PlusCircle className="w-4 h-4" /> Add New Item
              </button>
           </div>
@@ -316,7 +359,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
                   <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{p.category}</p>
                 </div>
                 <div className="flex flex-col gap-2">
-                  <button onClick={() => openEditModal(p)} className="p-3 bg-gray-50 rounded-xl text-gray-400 hover:text-pink-600 transition-colors">
+                  <button onClick={() => { setEditingProduct(p); setProductForm({name: p.name, price: p.price.toString(), category: p.category, description: p.description, videoFile: null, videoUrl: p.videoUrl || '', images: [], existingImageUrls: p.images || []}); setShowModal(true); }} className="p-3 bg-gray-50 rounded-xl text-gray-400 hover:text-pink-600 transition-colors">
                      <Edit3 className="w-4 h-4" />
                   </button>
                   <button onClick={() => handleDeleteProduct(p.id)} className="p-3 bg-gray-50 rounded-xl text-gray-400 hover:text-red-600 transition-colors">

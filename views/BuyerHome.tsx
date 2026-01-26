@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, MapPin, Sparkles, TrendingUp, LayoutGrid, ShoppingCart, FilterX } from 'lucide-react';
+import { Search, MapPin, Sparkles, TrendingUp, LayoutGrid, ShoppingCart, FilterX, Store, ChevronRight } from 'lucide-react';
 import { Shop, Product, Order, User as UserType, Category } from '../types';
 import { BAZAARS } from '../constants';
 import InstantCheckout from '../components/InstantCheckout';
@@ -18,15 +18,25 @@ interface BuyerHomeProps {
 
 const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories, addToCart, lang, user, onPlaceOrder }) => {
   const navigate = useNavigate();
+  const [searchTerm, setSearchTerm] = useState('');
   const [selectedBazaar, setSelectedBazaar] = useState<string>('All');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [checkoutProduct, setCheckoutProduct] = useState<Product | null>(null);
+
+  // Search Logic
+  const filteredShops = searchTerm.length > 0 
+    ? shops.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    : [];
 
   const filteredProducts = products.filter(p => {
     const shop = shops.find(s => s.id === p.shopId);
     const bazaarMatch = selectedBazaar === 'All' || (shop && shop.bazaar === selectedBazaar);
     const categoryMatch = selectedCategory === 'All' || p.category === selectedCategory;
-    return bazaarMatch && categoryMatch;
+    const searchMatch = searchTerm === '' || 
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      p.description.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    return bazaarMatch && categoryMatch && searchMatch;
   });
 
   const trendingProducts = filteredProducts.filter(p => {
@@ -45,10 +55,38 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories, addT
         </div>
         <input
           type="text"
-          placeholder="Search items, shops, or categories..."
+          placeholder="Search items or shops (e.g. J., Edinrobe)..."
           className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition-all text-gray-900 font-medium"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
+
+      {/* Matching Shops Search Results */}
+      {searchTerm.length > 0 && filteredShops.length > 0 && (
+        <section className="animate-in slide-in-from-top-2">
+          <div className="flex items-center gap-2 mb-4">
+            <Store className="w-4 h-4 text-pink-500" />
+            <h2 className="font-black text-[10px] uppercase tracking-widest text-gray-400">Matching Shops</h2>
+          </div>
+          <div className="flex overflow-x-auto gap-3 pb-2 no-scrollbar">
+            {filteredShops.map(shop => (
+              <div 
+                key={shop.id} 
+                onClick={() => navigate(`/shop/${shop.id}`)}
+                className="flex-shrink-0 w-64 bg-white p-4 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-4 cursor-pointer hover:shadow-md transition-all active:scale-95"
+              >
+                <img src={shop.logo} className="w-12 h-12 rounded-xl object-cover border shadow-sm" alt={shop.name} />
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-black text-xs text-gray-900 truncate uppercase italic">{shop.name}</h4>
+                  <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest truncate">{shop.bazaar}</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-gray-300" />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Bazaar Filter */}
       <section className="space-y-4">
@@ -116,7 +154,6 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories, addT
                     <h3 className="font-bold text-sm text-gray-900 truncate mb-1">{product.name}</h3>
                     <p className="text-pink-600 font-black text-sm">PKR {product.price.toLocaleString()}</p>
                   </div>
-                  {/* FIXED: High contrast button text */}
                   <button 
                     onClick={() => setCheckoutProduct(product)} 
                     className="mt-3 w-full bg-pink-600 text-white font-black py-3 rounded-xl text-[10px] uppercase tracking-widest shadow-lg shadow-pink-100 active:scale-95 transition-all"
@@ -148,7 +185,6 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories, addT
                   <p className="text-[10px] text-gray-400 font-bold uppercase mb-2">{shops.find(s => s.id === product.shopId)?.name}</p>
                   <span className="text-pink-600 font-black text-sm">PKR {product.price.toLocaleString()}</span>
                 </div>
-                {/* FIXED: High contrast button text */}
                 <button 
                   onClick={() => setCheckoutProduct(product)} 
                   className="bg-pink-600 text-white px-6 py-4 rounded-2xl text-[10px] font-black shadow-xl active:scale-90 transition-transform uppercase tracking-widest"
@@ -162,9 +198,9 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories, addT
       )}
 
       {/* Empty State */}
-      {filteredProducts.length === 0 && (
+      {filteredProducts.length === 0 && filteredShops.length === 0 && (
         <div className="py-20 text-center space-y-4 bg-white rounded-[3rem] border-2 border-dashed border-gray-100">
-           <p className="text-gray-400 font-black uppercase text-[10px] tracking-widest">No matching items found</p>
+           <p className="text-gray-400 font-black uppercase text-[10px] tracking-widest">No matching items or shops found</p>
         </div>
       )}
 

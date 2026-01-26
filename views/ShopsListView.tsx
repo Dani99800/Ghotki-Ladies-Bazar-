@@ -17,13 +17,21 @@ const ShopsListView: React.FC<ShopsListViewProps> = ({ shops, lang }) => {
 
   const filtered = shops
     .filter(s => {
-      // NOTE: For development, you might want to remove this check temporarily
-      // to see pending shops. For production, keep status === 'APPROVED'.
       const matchesStatus = s.status === 'APPROVED';
-      const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                           s.category.toLowerCase().includes(searchTerm.toLowerCase());
       return matchesStatus && matchesSearch;
     })
-    .sort((a, b) => (tierWeight[b.subscription_tier as keyof typeof tierWeight] || 0) - (tierWeight[a.subscription_tier as keyof typeof tierWeight] || 0));
+    .sort((a, b) => {
+      // 1. Sort by Admin Priority (Higher first)
+      const priorityA = a.sort_priority || 0;
+      const priorityB = b.sort_priority || 0;
+      if (priorityA !== priorityB) return priorityB - priorityA;
+
+      // 2. Sort by Subscription Tier
+      return (tierWeight[b.subscription_tier as keyof typeof tierWeight] || 0) - 
+             (tierWeight[a.subscription_tier as keyof typeof tierWeight] || 0);
+    });
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6 pb-32 animate-in fade-in duration-500">
@@ -36,7 +44,7 @@ const ShopsListView: React.FC<ShopsListViewProps> = ({ shops, lang }) => {
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300" />
         <input 
           type="text" 
-          placeholder="Search shops or categories..." 
+          placeholder="Search shops (J., Edinrobe, Zubeda)..." 
           className="w-full pl-12 pr-6 py-5 bg-white border border-gray-100 rounded-3xl shadow-sm outline-none transition-all focus:ring-2 focus:ring-pink-500/20 font-bold"
           value={searchTerm}
           onChange={e => setSearchTerm(e.target.value)}
@@ -47,8 +55,8 @@ const ShopsListView: React.FC<ShopsListViewProps> = ({ shops, lang }) => {
         <div className="py-20 text-center space-y-4 bg-white rounded-[3rem] border border-dashed border-gray-200">
            <AlertCircle className="w-12 h-12 text-gray-200 mx-auto" />
            <div className="space-y-1">
-             <p className="font-black uppercase text-xs text-gray-400">No approved shops found</p>
-             <p className="text-[10px] text-gray-300 font-bold px-10">Admin must approve shops before they appear here for buyers.</p>
+             <p className="font-black uppercase text-xs text-gray-400">No matching shops found</p>
+             <p className="text-[10px] text-gray-300 font-bold px-10">Try searching for a different name or category.</p>
            </div>
         </div>
       ) : (

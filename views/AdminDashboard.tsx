@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { 
   Store, DollarSign, Shield, TrendingUp, AlertCircle, ShoppingBag, ArrowUpRight, Loader2, Check, Clock, Star, StarOff, 
-  Settings, Image as ImageIcon, Camera, UploadCloud
+  Settings, Image as ImageIcon, Camera, UploadCloud, ArrowUp, ArrowDown, Hash
 } from 'lucide-react';
 import { Shop, Order, Category } from '../types';
 import { supabase, uploadFile } from '../services/supabase';
@@ -28,6 +28,21 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ shops, setShops, orders
       if (refreshData) await refreshData();
     } catch (err: any) {
       alert("Status Update Failed: " + err.message);
+    } finally {
+      setLoadingId(null);
+    }
+  };
+
+  const updatePriority = async (id: string, current: number, delta: number) => {
+    if (!supabase) return;
+    setLoadingId(id);
+    try {
+      const newPriority = Math.max(0, (current || 0) + delta);
+      const { error } = await supabase.from('shops').update({ sort_priority: newPriority }).eq('id', id);
+      if (error) throw error;
+      if (refreshData) await refreshData();
+    } catch (err: any) {
+      alert("Priority Update Failed: " + err.message);
     } finally {
       setLoadingId(null);
     }
@@ -104,9 +119,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ shops, setShops, orders
 
       {activeAdminTab === 'SHOPS' ? (
         <div className="bg-white p-8 rounded-[3rem] border border-gray-100 shadow-sm space-y-8 animate-in slide-in-from-bottom-4">
-          <h2 className="font-black text-sm uppercase tracking-widest flex items-center gap-3 text-gray-900">
-            <Store className="w-5 h-5 text-pink-500" /> Merchant Verification
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2 className="font-black text-sm uppercase tracking-widest flex items-center gap-3 text-gray-900">
+              <Store className="w-5 h-5 text-pink-500" /> Merchant Verification
+            </h2>
+            <p className="text-[8px] font-black text-gray-400 uppercase">Set Shop Rank (Priority)</p>
+          </div>
           <div className="space-y-5">
             {shops.map(shop => (
               <div key={shop.id} className="p-6 bg-gray-50/50 rounded-[2.5rem] flex flex-col gap-6 border border-gray-100 transition-all hover:bg-white hover:shadow-xl">
@@ -119,6 +137,25 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ shops, setShops, orders
                        </div>
                     </div>
                     <div className="flex items-center gap-2">
+                      {/* Priority Ranking Control */}
+                      <div className="flex flex-col items-center bg-white rounded-xl border border-gray-100 p-1 mr-2">
+                        <button 
+                          disabled={loadingId === shop.id}
+                          onClick={() => updatePriority(shop.id, shop.sort_priority || 0, 1)}
+                          className="p-1 hover:text-pink-600 transition-colors"
+                        >
+                          <ArrowUp className="w-4 h-4" />
+                        </button>
+                        <span className="text-[10px] font-black text-pink-600">{shop.sort_priority || 0}</span>
+                        <button 
+                          disabled={loadingId === shop.id}
+                          onClick={() => updatePriority(shop.id, shop.sort_priority || 0, -1)}
+                          className="p-1 hover:text-gray-400 transition-colors"
+                        >
+                          <ArrowDown className="w-4 h-4" />
+                        </button>
+                      </div>
+
                       <button 
                         onClick={() => toggleFeatured(shop)}
                         className={`p-4 rounded-2xl border-2 transition-all active:scale-90 ${shop.featured ? 'bg-pink-100 text-pink-600 border-pink-200 shadow-inner' : 'bg-white text-gray-300 border-gray-100'}`}

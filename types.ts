@@ -43,6 +43,7 @@ export interface Shop {
   pickupEnabled?: boolean;
   deliveryEnabled?: boolean;
   featured?: boolean;
+  sort_priority?: number; // Higher numbers appear first
 }
 
 export interface Product {
