@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Home, ShoppingBag, User as UserIcon, Search, ShoppingCart, LayoutDashboard, ShieldAlert, PlayCircle, Bookmark } from 'lucide-react';
 import { supabase } from './services/supabase';
-import { User as UserType, Shop, Product, CartItem, Order } from './types';
+import { User as UserType, Shop, Product, CartItem, Order, Category } from './types';
 import BuyerHome from './views/BuyerHome';
 import ShopView from './views/ShopView';
 import ProductView from './views/ProductView';
@@ -23,13 +23,13 @@ const App: React.FC = () => {
   const [user, setUser] = useState<UserType | null>(null);
   const [shops, setShops] = useState<Shop[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [savedProductIds, setSavedProductIds] = useState<string[]>([]);
   const [lang, setLang] = useState<'EN' | 'UR'>('EN');
   const [loading, setLoading] = useState(true);
 
-  // Load Saved Product IDs from LocalStorage
   useEffect(() => {
     const saved = localStorage.getItem('glb_saved_products');
     if (saved) {
@@ -41,7 +41,6 @@ const App: React.FC = () => {
     localStorage.setItem('glb_saved_products', JSON.stringify(savedProductIds));
   }, [savedProductIds]);
 
-  // Load Initial Session & Marketplace Data
   useEffect(() => {
     if (!supabase) return;
     
@@ -63,22 +62,6 @@ const App: React.FC = () => {
     loadMarketplace();
     return () => authListener.subscription.unsubscribe();
   }, []);
-
-  // Real-time Orders Subscription
-  useEffect(() => {
-    if (!supabase || !user) return;
-
-    const channel = supabase
-      .channel('public:orders')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
-        fetchOrders();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user, shops]);
 
   useEffect(() => {
     if (user && shops.length > 0) {
@@ -113,9 +96,10 @@ const App: React.FC = () => {
   const loadMarketplace = async () => {
     if (!supabase) return;
     try {
-      const [pRes, sRes] = await Promise.all([
+      const [pRes, sRes, cRes] = await Promise.all([
         supabase.from('products').select('*').order('created_at', { ascending: false }),
-        supabase.from('shops').select('*')
+        supabase.from('shops').select('*'),
+        supabase.from('categories').select('*')
       ]);
       
       if (sRes.data) {
@@ -134,6 +118,10 @@ const App: React.FC = () => {
           videoUrl: p.video_url 
         })));
       }
+
+      if (cRes.data) {
+        setCategories(cRes.data);
+      }
     } catch (err) { 
       console.error("Marketplace Load Error:", err); 
     }
@@ -141,22 +129,14 @@ const App: React.FC = () => {
 
   const fetchOrders = async () => {
     if (!supabase || !user) return;
-    
     const myShop = shops.find(s => s.owner_id === user.id);
-    
     let query = supabase.from('orders').select('*');
     if (myShop) {
       query = query.or(`buyer_id.eq.${user.id},seller_id.eq.${myShop.id}`);
     } else {
       query = query.eq('buyer_id', user.id);
     }
-
     const { data, error } = await query.order('created_at', { ascending: false });
-    if (error) {
-      console.error("Fetch Orders Error:", error);
-      return;
-    }
-    
     if (data) {
       setOrders(data.map(o => ({ 
         ...o, 
@@ -186,8 +166,8 @@ const App: React.FC = () => {
 
   const handlePlaceOrder = async (order: Order) => {
     if (!supabase) return;
-    const isGuest = !order.buyerId || order.buyerId.startsWith('guest_');
-    const { error } = await supabase.from('orders').insert({
+    const isGuest = !order.buyerId || order.buyerId.toString().includes('guest_');
+    const orderData = {
       buyer_id: isGuest ? null : order.buyerId,
       seller_id: order.sellerId,
       items: order.items,
@@ -200,12 +180,9 @@ const App: React.FC = () => {
       buyer_name: order.buyerName,
       buyer_mobile: order.buyerMobile,
       buyer_address: order.buyerAddress
-    });
-    
-    if (error) {
-      console.error("Order insertion error:", error);
-      throw error;
-    }
+    };
+    const { error } = await supabase.from('orders').insert(orderData);
+    if (error) throw error;
     if (user) fetchOrders();
   };
 
@@ -245,7 +222,7 @@ const App: React.FC = () => {
 
       <main className="flex-1 pt-16 pb-24 md:pb-0">
         <Routes>
-          <Route path="/" element={<BuyerHome shops={shops} products={products} addToCart={addToCart} lang={lang} user={user} onPlaceOrder={handlePlaceOrder} />} />
+          <Route path="/" element={<BuyerHome shops={shops} products={products} categories={categories} addToCart={addToCart} lang={lang} user={user} onPlaceOrder={handlePlaceOrder} />} />
           <Route path="/explore" element={<ExploreView products={products} addToCart={addToCart} onPlaceOrder={handlePlaceOrder} user={user} savedProductIds={savedProductIds} onToggleSave={toggleSaveProduct} />} />
           <Route path="/saved" element={<ExploreView products={products} addToCart={addToCart} onPlaceOrder={handlePlaceOrder} user={user} savedProductIds={savedProductIds} onToggleSave={toggleSaveProduct} isSavedOnly />} />
           <Route path="/shops" element={<ShopsListView shops={shops} lang={lang} />} />
@@ -254,7 +231,7 @@ const App: React.FC = () => {
           <Route path="/cart" element={<CartView cart={cart} removeFromCart={id => setCart(cart.filter(c => c.id !== id))} updateQuantity={(id, d) => setCart(cart.map(c => c.id === id ? {...c, quantity: Math.max(1, c.quantity+d)} : c))} lang={lang} />} />
           <Route path="/login" element={<LoginView setUser={setUser} lang={lang} />} />
           <Route path="/profile" element={user ? <ProfileView user={user} onLogout={() => { supabase?.auth.signOut(); setUser(null); navigate('/login'); }} lang={lang} /> : <Navigate to="/login" />} />
-          <Route path="/admin" element={user?.role === 'ADMIN' ? <AdminDashboard shops={shops} setShops={setShops} orders={orders} refreshData={loadMarketplace} /> : <Navigate to="/" />} />
+          <Route path="/admin" element={user?.role === 'ADMIN' ? <AdminDashboard shops={shops} setShops={setShops} orders={orders} categories={categories} refreshData={loadMarketplace} /> : <Navigate to="/" />} />
           <Route path="/seller/*" element={user?.role === 'SELLER' ? <SellerDashboard products={products} user={user} addProduct={loadMarketplace} orders={orders} shops={shops} refreshShop={loadMarketplace} /> : <Navigate to="/login" />} />
           <Route path="/checkout" element={<CheckoutView cart={cart} clearCart={() => setCart([])} user={user} lang={lang} onPlaceOrder={handlePlaceOrder} shops={shops} />} />
           <Route path="/orders" element={user ? <OrdersView orders={orders} user={user} shops={shops} /> : <Navigate to="/login" />} />

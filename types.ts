@@ -1,3 +1,4 @@
+
 export type UserRole = 'ADMIN' | 'SELLER' | 'BUYER' | 'GUEST';
 export type SubscriptionTier = 'BASIC' | 'STANDARD' | 'PREMIUM' | 'NONE';
 
@@ -10,6 +11,12 @@ export interface User {
   address?: string;
   city?: string;
   savedProductIds?: string[];
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  image_url: string;
 }
 
 export interface Shop {

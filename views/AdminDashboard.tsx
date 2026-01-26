@@ -1,23 +1,23 @@
+
 import React, { useState } from 'react';
 import { 
   Store, DollarSign, Shield, TrendingUp, AlertCircle, ShoppingBag, ArrowUpRight, Loader2, Check, Clock, Star, StarOff, 
   Settings, Image as ImageIcon, Camera, UploadCloud
 } from 'lucide-react';
-import { Shop, Order } from '../types';
+import { Shop, Order, Category } from '../types';
 import { supabase, uploadFile } from '../services/supabase';
-import { CATEGORIES as INITIAL_CATEGORIES } from '../constants';
 
 interface AdminDashboardProps {
   shops: Shop[];
   setShops: (shops: Shop[]) => void;
   orders: Order[];
+  categories: Category[];
   refreshData?: () => Promise<void>;
 }
 
-const AdminDashboard: React.FC<AdminDashboardProps> = ({ shops, setShops, orders, refreshData }) => {
+const AdminDashboard: React.FC<AdminDashboardProps> = ({ shops, setShops, orders, categories, refreshData }) => {
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [activeAdminTab, setActiveAdminTab] = useState<'SHOPS' | 'CATEGORIES'>('SHOPS');
-  const [categories, setCategories] = useState(INITIAL_CATEGORIES);
   
   const updateStatus = async (id: string, status: string) => {
     if (!supabase) return;
@@ -37,12 +37,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ shops, setShops, orders
     if (!supabase) return;
     setLoadingId(catId);
     try {
-      const path = `categories/${catId}_${Date.now()}_${file.name}`;
+      const path = `categories/${catId}_${Date.now()}_${file.name.replace(/\s/g, '_')}`;
       const url = await uploadFile('marketplace', path, file);
       
-      // Since CATEGORIES in constants is static, this local update provides UI feedback
-      setCategories(prev => prev.map(c => c.id === catId ? { ...c, image: url } : c));
-      alert(`Category image updated successfully! Public URL: ${url}`);
+      const { error } = await supabase
+        .from('categories')
+        .update({ image_url: url })
+        .eq('id', catId);
+
+      if (error) throw error;
+      
+      if (refreshData) await refreshData();
+      alert(`Category photo updated! Home screen will now reflect this change.`);
     } catch (err: any) {
       alert("Category upload failed: " + err.message);
     } finally {
@@ -146,7 +152,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ shops, setShops, orders
                 <div key={cat.id} className="p-5 bg-gray-50 rounded-[2.5rem] border border-gray-100 flex items-center justify-between group transition-all hover:bg-white hover:shadow-lg">
                    <div className="flex items-center gap-6">
                       <div className="relative w-24 h-24 shrink-0 overflow-hidden rounded-[2rem] border-4 border-white shadow-md bg-white">
-                        <img src={cat.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                        <img src={cat.image_url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
                       </div>
                       <div className="space-y-1">
                         <p className="font-black uppercase text-sm tracking-tighter text-gray-900">{cat.name}</p>

@@ -39,6 +39,15 @@ const ExploreView: React.FC<ExploreViewProps> = ({
     allReels = allReels.filter(p => savedProductIds.includes(p.id));
   }
 
+  const handleToggleSave = (productId: string) => {
+    if (!user) {
+      alert("Please sign up to save your favorite reels to your profile!");
+      navigate('/login');
+      return;
+    }
+    onToggleSave(productId);
+  };
+
   return (
     <div className="fixed inset-0 bg-black z-[100] overflow-y-scroll snap-y snap-mandatory h-screen no-scrollbar">
       {/* Header Overlay */}
@@ -78,7 +87,7 @@ const ExploreView: React.FC<ExploreViewProps> = ({
           onBuy={() => setCheckoutProduct(product)} 
           onShop={() => navigate(`/shop/${product.shopId}`)}
           isSaved={savedProductIds.includes(product.id)}
-          onSave={() => onToggleSave(product.id)}
+          onSave={() => handleToggleSave(product.id)}
         />
       ))}
 
