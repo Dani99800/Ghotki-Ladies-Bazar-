@@ -1,4 +1,3 @@
-
 export type UserRole = 'ADMIN' | 'SELLER' | 'BUYER' | 'GUEST';
 export type SubscriptionTier = 'BASIC' | 'STANDARD' | 'PREMIUM' | 'NONE';
 

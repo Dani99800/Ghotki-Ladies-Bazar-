@@ -5,7 +5,6 @@ export default defineConfig({
   plugins: [react()],
   define: {
     // Inject environment variables safely for the browser
-    'process.env.API_KEY': JSON.stringify(process.env.API_KEY || ''),
     'process.env.VITE_SUPABASE_URL': JSON.stringify(process.env.VITE_SUPABASE_URL || ''),
     'process.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(process.env.VITE_SUPABASE_ANON_KEY || ''),
     // Provide a global process object to prevent ReferenceErrors

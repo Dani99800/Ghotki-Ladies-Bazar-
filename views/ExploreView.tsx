@@ -1,8 +1,7 @@
-
 import React, { useRef, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  ArrowLeft, Heart, Share2, Volume2, VolumeX, Store, Sparkles, PlayCircle, Bookmark
+  ArrowLeft, Heart, Share2, Volume2, VolumeX, Store, Sparkles, PlayCircle, Bookmark, Loader2
 } from 'lucide-react';
 import { Product, Order, User as UserType } from '../types';
 import InstantCheckout from '../components/InstantCheckout';
@@ -42,7 +41,7 @@ const ExploreView: React.FC<ExploreViewProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black z-[100] overflow-y-scroll snap-y snap-mandatory h-screen no-scrollbar">
-      {/* Header Overlay - Slimmer and more transparent */}
+      {/* Header Overlay */}
       <div className="fixed top-0 left-0 right-0 p-4 flex items-center justify-between z-[110] bg-gradient-to-b from-black/80 to-transparent">
         <button onClick={() => navigate(-1)} className="p-3 bg-white/10 backdrop-blur-md rounded-full text-white active:scale-90 transition-all">
           <ArrowLeft className="w-6 h-6" />
@@ -107,6 +106,7 @@ const ReelItem: React.FC<{
   const videoRef = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
   const [liked, setLiked] = useState(false);
+  const [loading, setLoading] = useState(true);
   
   const videoUrl = product.videoUrl || (product as any).video_url;
 
@@ -129,14 +129,20 @@ const ReelItem: React.FC<{
 
   return (
     <div className="relative h-screen w-full snap-start bg-black flex items-center justify-center overflow-hidden">
+      {loading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black z-10">
+           <Loader2 className="w-10 h-10 animate-spin text-pink-600" />
+        </div>
+      )}
       <video
         ref={videoRef}
         src={videoUrl}
-        // FIXED: Changed from object-cover to object-contain so the video fits perfectly without zooming
         className="h-full w-full object-contain"
         loop
         muted={muted}
         playsInline
+        onLoadStart={() => setLoading(true)}
+        onLoadedData={() => setLoading(false)}
         onClick={() => {
           if (playing) videoRef.current?.pause();
           else videoRef.current?.play();
@@ -144,8 +150,8 @@ const ReelItem: React.FC<{
         }}
       />
 
-      {/* Adjusted Bottom Overlay: Positioned extremely low to keep video seen full */}
-      <div className="absolute bottom-0 left-0 right-0 p-5 pb-6 bg-gradient-to-t from-black/60 via-black/10 to-transparent z-20 pointer-events-none">
+      {/* Bottom Overlay */}
+      <div className="absolute bottom-0 left-0 right-0 p-5 pb-6 bg-gradient-to-t from-black/80 via-black/10 to-transparent z-20 pointer-events-none">
          <div className="flex items-end justify-between gap-4 pointer-events-auto">
             <div className="flex-1 space-y-1.5 drop-shadow-xl">
                <div className="flex items-center gap-2">
@@ -167,7 +173,7 @@ const ReelItem: React.FC<{
          </div>
       </div>
 
-      {/* Side Actions - Positioned comfortably on the right side */}
+      {/* Side Actions */}
       <div className="absolute bottom-28 right-4 flex flex-col gap-5 items-center z-30 pointer-events-auto">
         <button onClick={(e) => { e.stopPropagation(); setLiked(!liked); }} className={`p-4 backdrop-blur-xl rounded-full border transition-all ${liked ? 'bg-pink-600 text-white border-pink-500 shadow-pink-500/50 shadow-lg scale-110' : 'bg-white/10 text-white border-white/20 hover:bg-white/20'}`}>
           <Heart className={`w-5 h-5 ${liked ? 'fill-white' : ''}`} />

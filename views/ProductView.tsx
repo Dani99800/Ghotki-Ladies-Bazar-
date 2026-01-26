@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ShoppingCart, 
@@ -8,13 +7,11 @@ import {
   Truck, 
   Store, 
   ArrowLeft, 
-  Sparkles,
   Heart,
   Share2,
   Check
 } from 'lucide-react';
 import { Product } from '../types';
-import { geminiService } from '../services/gemini';
 
 interface ProductViewProps {
   products: Product[];
@@ -26,25 +23,7 @@ const ProductView: React.FC<ProductViewProps> = ({ products, addToCart, lang }) 
   const { id } = useParams();
   const navigate = useNavigate();
   const product = products.find(p => p.id === id);
-  const [aiDesc, setAiDesc] = useState<string>('');
-  const [loadingAi, setLoadingAi] = useState(false);
   const [added, setAdded] = useState(false);
-
-  useEffect(() => {
-    if (product) {
-      setLoadingAi(true);
-      geminiService.generateProductDescription(product.name, product.category)
-        .then(async (desc) => {
-          if (lang === 'UR') {
-            const urdu = await geminiService.translateToUrdu(desc);
-            setAiDesc(urdu);
-          } else {
-            setAiDesc(desc);
-          }
-        })
-        .finally(() => setLoadingAi(false));
-    }
-  }, [product, lang]);
 
   const handleAddToCart = () => {
     if (!product) return;
@@ -100,24 +79,6 @@ const ProductView: React.FC<ProductViewProps> = ({ products, addToCart, lang }) 
           </div>
           <h1 className="text-3xl font-black text-gray-900 leading-tight mb-2">{product.name}</h1>
           <p className="text-3xl text-pink-600 font-black">PKR {product.price.toLocaleString()}</p>
-        </div>
-
-        {/* AI Insight Section */}
-        <div className="bg-gradient-to-br from-pink-50 to-pink-100/30 rounded-[2rem] p-6 border border-pink-100 relative overflow-hidden group">
-          <div className="absolute -top-4 -right-4 w-24 h-24 bg-pink-200/20 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-1000" />
-          <h3 className="text-xs font-black text-pink-600 mb-3 flex items-center gap-2 uppercase tracking-widest">
-            <Sparkles className="w-4 h-4 fill-pink-600" /> Style Advisor
-          </h3>
-          {loadingAi ? (
-            <div className="space-y-2">
-              <div className="h-4 bg-pink-200/50 animate-pulse rounded-full w-full" />
-              <div className="h-4 bg-pink-200/50 animate-pulse rounded-full w-4/5" />
-            </div>
-          ) : (
-            <p className="text-gray-800 text-sm leading-relaxed italic font-medium">
-              "{aiDesc}"
-            </p>
-          )}
         </div>
 
         <div className="space-y-4">
