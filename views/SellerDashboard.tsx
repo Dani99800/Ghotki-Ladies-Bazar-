@@ -58,7 +58,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
     category: CATEGORIES[0].name,
     description: '',
     videoFile: null as File | null,
-    videoUrl: '', // Existing URL for edits
+    videoUrl: '', 
     images: [] as File[],
     existingImageUrls: [] as string[]
   });
@@ -114,7 +114,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
       alert("Shop profile updated!");
       refreshShop();
     } catch (err: any) {
-      alert("Error: " + err.message);
+      alert("Settings Update Error: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -122,21 +122,26 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
 
   const handleSubmitProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!supabase || !myShop) return;
+    if (!supabase || !myShop) {
+      alert("System Error: Shop or Database not connected.");
+      return;
+    }
     setLoading(true);
     try {
-      // 1. Upload Images
+      // 1. Upload Images to 'marketplace' bucket
       const uploadedUrls = [...productForm.existingImageUrls];
       for (const file of productForm.images) {
-        const path = `products/${myShop.id}/${Date.now()}_${file.name}`;
+        const timestamp = Date.now();
+        const path = `products/${myShop.id}/${timestamp}_${file.name.replace(/\s/g, '_')}`;
         const url = await uploadFile('marketplace', path, file);
         uploadedUrls.push(url);
       }
 
-      // 2. Upload Reel (Video) if present and plan allows
+      // 2. Upload Reel (Video)
       let finalVideoUrl = productForm.videoUrl;
       if (isReelUnlocked && productForm.videoFile) {
-        const videoPath = `reels/${myShop.id}/${Date.now()}_${productForm.videoFile.name}`;
+        const timestamp = Date.now();
+        const videoPath = `reels/${myShop.id}/${timestamp}_${productForm.videoFile.name.replace(/\s/g, '_')}`;
         finalVideoUrl = await uploadFile('marketplace', videoPath, productForm.videoFile);
       }
 
@@ -151,18 +156,25 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         tags: editingProduct ? editingProduct.tags : ['New']
       };
 
+      let result;
       if (editingProduct) {
-        const { error } = await supabase.from('products').update(productData).eq('id', editingProduct.id);
-        if (error) throw error;
+        result = await supabase.from('products').update(productData).eq('id', editingProduct.id);
       } else {
-        const { error } = await supabase.from('products').insert(productData);
-        if (error) throw error;
+        result = await supabase.from('products').insert(productData);
+      }
+
+      if (result.error) {
+        // This is where "Row Level Security" errors are caught
+        console.error("Supabase Database Error:", result.error);
+        throw new Error(result.error.message);
       }
 
       setShowModal(false);
-      addProduct();
+      addProduct(); // Refresh global products list
+      alert(editingProduct ? "Listing Updated!" : "Listing Published Successfully!");
     } catch (err: any) {
-      alert("Operation failed: " + err.message);
+      console.error("Product Save Catch Block:", err);
+      alert("Publishing Failed: " + err.message + "\n\nTip: Ensure your marketplace storage bucket exists and SQL RLS policies are set.");
     } finally {
       setLoading(false);
     }
@@ -364,7 +376,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
       {/* Add/Edit Product Modal */}
       {showModal && (
         <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-md p-4 flex items-end justify-center">
-           <div className="bg-white w-full max-w-lg rounded-[3rem] p-8 space-y-7 animate-in slide-in-from-bottom-full duration-500 overflow-y-auto max-h-[95vh] custom-scrollbar shadow-2xl border-t-8 border-pink-600">
+           <div className="bg-white w-full max-w-lg rounded-t-[3rem] p-8 space-y-7 animate-in slide-in-from-bottom-full duration-500 overflow-y-auto max-h-[95vh] custom-scrollbar shadow-2xl border-t-8 border-pink-600">
               <div className="flex items-center justify-between">
                  <h2 className="text-3xl font-black uppercase italic tracking-tighter text-gray-900 leading-none">
                    {editingProduct ? 'Edit Listing' : 'New Listing'}
