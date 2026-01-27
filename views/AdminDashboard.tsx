@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { 
   Store, DollarSign, Shield, TrendingUp, AlertCircle, ShoppingBag, ArrowUpRight, Loader2, Check, Clock, Star, StarOff, 
-  Settings, Image as ImageIcon, Camera, UploadCloud, ArrowUp, ArrowDown, Hash
+  Settings, Image as ImageIcon, Camera, UploadCloud, ArrowUp, ArrowDown, Hash, Plus
 } from 'lucide-react';
 import { Shop, Order, Category } from '../types';
 import { supabase, uploadFile } from '../services/supabase';
@@ -18,7 +18,8 @@ interface AdminDashboardProps {
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ shops, setShops, orders, categories, refreshData }) => {
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [activeAdminTab, setActiveAdminTab] = useState<'SHOPS' | 'CATEGORIES'>('SHOPS');
-  
+  const [newCatName, setNewCatName] = useState('');
+
   const updateStatus = async (id: string, status: string) => {
     if (!supabase) return;
     setLoadingId(id);
@@ -63,9 +64,27 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ shops, setShops, orders
       if (error) throw error;
       
       if (refreshData) await refreshData();
-      alert(`Category photo updated! Home screen will now reflect this change.`);
+      alert(`Category photo updated!`);
     } catch (err: any) {
       alert("Category upload failed: " + err.message);
+    } finally {
+      setLoadingId(null);
+    }
+  };
+
+  const handleAddCategory = async () => {
+    if (!supabase || !newCatName) return;
+    setLoadingId('new_cat');
+    try {
+      const { error } = await supabase.from('categories').insert({
+        name: newCatName,
+        image_url: 'https://via.placeholder.com/400'
+      });
+      if (error) throw error;
+      setNewCatName('');
+      if (refreshData) await refreshData();
+    } catch (err: any) {
+      alert("Add Category Failed: " + err.message);
     } finally {
       setLoadingId(null);
     }
@@ -112,7 +131,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ shops, setShops, orders
         </div>
       </div>
 
-      <div className="flex gap-2 p-1 bg-gray-100 rounded-[2rem] max-w-sm mx-auto shadow-inner">
+      <div className="flex gap-2 p-1 bg-gray-100 rounded-[2rem] max-sm:max-w-xs mx-auto shadow-inner">
         <button onClick={() => setActiveAdminTab('SHOPS')} className={`flex-1 py-4 rounded-[1.8rem] text-[9px] font-black uppercase tracking-widest transition-all ${activeAdminTab === 'SHOPS' ? 'bg-white text-pink-600 shadow-lg' : 'text-gray-400'}`}>Verify Shops</button>
         <button onClick={() => setActiveAdminTab('CATEGORIES')} className={`flex-1 py-4 rounded-[1.8rem] text-[9px] font-black uppercase tracking-widest transition-all ${activeAdminTab === 'CATEGORIES' ? 'bg-white text-pink-600 shadow-lg' : 'text-gray-400'}`}>Market Setup</button>
       </div>
@@ -137,7 +156,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ shops, setShops, orders
                        </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      {/* Priority Ranking Control */}
                       <div className="flex flex-col items-center bg-white rounded-xl border border-gray-100 p-1 mr-2">
                         <button 
                           disabled={loadingId === shop.id}
@@ -176,12 +194,32 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ shops, setShops, orders
         </div>
       ) : (
         <div className="bg-white p-8 rounded-[3rem] border border-gray-100 shadow-sm space-y-8 animate-in slide-in-from-bottom-4">
-           <div className="flex items-center justify-between px-2">
-              <div className="flex items-center gap-3">
-                <ImageIcon className="w-6 h-6 text-pink-500" />
-                <h2 className="font-black text-sm uppercase tracking-widest text-gray-900">Manage Categories</h2>
+           <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between px-2">
+                <div className="flex items-center gap-3">
+                  <ImageIcon className="w-6 h-6 text-pink-500" />
+                  <h2 className="font-black text-sm uppercase tracking-widest text-gray-900">Market Categories</h2>
+                </div>
+                <p className="text-[8px] font-black text-pink-600 uppercase tracking-widest">Image Override System</p>
               </div>
-              <p className="text-[8px] font-black text-pink-600 uppercase tracking-widest">Image Override System</p>
+
+              {/* Add New Category Form */}
+              <div className="flex gap-3 p-4 bg-pink-50 rounded-[2rem] border border-pink-100">
+                <input 
+                  type="text" 
+                  placeholder="New Category Name..." 
+                  className="flex-1 p-4 bg-white rounded-xl font-bold text-sm outline-none border border-transparent focus:border-pink-300"
+                  value={newCatName}
+                  onChange={e => setNewCatName(e.target.value)}
+                />
+                <button 
+                  onClick={handleAddCategory}
+                  disabled={loadingId === 'new_cat'}
+                  className="bg-pink-600 text-white px-6 py-4 rounded-xl font-black uppercase text-[10px] flex items-center gap-2 shadow-lg active:scale-95 transition-all"
+                >
+                  {loadingId === 'new_cat' ? <Loader2 className="animate-spin w-4 h-4" /> : <Plus className="w-4 h-4" />} Add
+                </button>
+              </div>
            </div>
            
            <div className="grid grid-cols-1 gap-5">

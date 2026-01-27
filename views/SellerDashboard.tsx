@@ -44,17 +44,18 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
   // Sync settingsForm with myShop data when it changes
   useEffect(() => {
     if (myShop) {
-      setSettingsForm(prev => ({
-        ...prev,
-        name: myShop.name,
+      setSettingsForm({
+        name: myShop.name || '',
         bio: myShop.bio || '',
         mobile: myShop.mobile || '',
         whatsapp: myShop.whatsapp || '',
-        logoPreview: myShop.logo,
-        bannerPreview: myShop.banner
-      }));
+        logoFile: null,
+        bannerFile: null,
+        logoPreview: myShop.logo || '',
+        bannerPreview: myShop.banner || ''
+      });
     }
-  }, [myShop]);
+  }, [myShop?.id, myShop?.logo, myShop?.banner, myShop?.name, myShop?.whatsapp, myShop?.mobile]);
 
   useEffect(() => {
     if (orders.length > prevOrdersCount.current && myShop) {
@@ -90,8 +91,9 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
     if (!supabase || !myShop) return;
     setLoading(true);
     try {
-      let finalLogoUrl = myShop.logo;
-      let finalBannerUrl = myShop.banner;
+      // Use raw column values to avoid saving placeholders
+      let finalLogoUrl = (myShop as any).logo_url || null;
+      let finalBannerUrl = (myShop as any).banner_url || null;
 
       // Handle logo upload
       if (settingsForm.logoFile) {
@@ -105,7 +107,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         finalBannerUrl = await uploadFile('marketplace', bannerPath, settingsForm.bannerFile);
       }
 
-      // Final update to database
+      // Final update to database using columns matching the Supabase Shop schema
       const { error } = await supabase.from('shops').update({
         name: settingsForm.name,
         bio: settingsForm.bio,
@@ -117,16 +119,16 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
 
       if (error) throw error;
       
-      alert("Shop profile and branding updated successfully!");
+      alert("Shop settings updated!");
       
       // Clear local file state
       setSettingsForm(prev => ({ ...prev, logoFile: null, bannerFile: null }));
       
-      // Force parent state refresh
+      // Refresh parent state to trigger Re-render
       await refreshShop();
     } catch (err: any) {
       console.error("Settings Update Error:", err);
-      alert("Settings Update Error: " + err.message);
+      alert("Error: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -168,7 +170,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
       }
 
       setShowModal(false);
-      addProduct();
+      addProduct(); // This triggers loadMarketplace in App.tsx
       alert(editingProduct ? "Listing Updated!" : "Listing Published!");
     } catch (err: any) {
       alert("Publishing Failed: " + err.message);
@@ -178,12 +180,15 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
   };
 
   const handleDeleteProduct = async (productId: string) => {
-    if (!supabase || !confirm("Are you sure you want to delete this product?")) return;
+    if (!supabase || !confirm("Delete this item permanently?")) return;
     setLoading(true);
     try {
       const { error } = await supabase.from('products').delete().eq('id', productId);
       if (error) throw error;
-      addProduct();
+      
+      // Essential: Refresh the products list in App.tsx state
+      await addProduct();
+      alert("Item removed from bazaar.");
     } catch (err: any) {
       alert("Delete failed: " + err.message);
     } finally {
@@ -316,7 +321,11 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
                 <label className="text-[9px] font-black uppercase text-gray-400 ml-2">WhatsApp (923...)</label>
                 <input required className="w-full p-5 bg-gray-50 rounded-2xl font-bold text-sm text-gray-900 border-none outline-none focus:ring-2 focus:ring-pink-500/20" value={settingsForm.whatsapp} onChange={e => setSettingsForm({...settingsForm, whatsapp: e.target.value})} />
               </div>
-              <div className="md:col-span-2 space-y-1.5">
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black uppercase text-gray-400 ml-2">Mobile Number</label>
+                <input required className="w-full p-5 bg-gray-50 rounded-2xl font-bold text-sm text-gray-900 border-none outline-none focus:ring-2 focus:ring-pink-500/20" value={settingsForm.mobile} onChange={e => setSettingsForm({...settingsForm, mobile: e.target.value})} />
+              </div>
+              <div className="md:col-span-1 space-y-1.5">
                 <label className="text-[9px] font-black uppercase text-gray-400 ml-2">Tagline / Bio</label>
                 <textarea className="w-full p-5 bg-gray-50 rounded-2xl font-bold text-sm text-gray-900 h-24 border-none outline-none focus:ring-2 focus:ring-pink-500/20" value={settingsForm.bio} onChange={e => setSettingsForm({...settingsForm, bio: e.target.value})} />
               </div>

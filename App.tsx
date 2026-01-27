@@ -96,6 +96,7 @@ const App: React.FC = () => {
   const loadMarketplace = async () => {
     if (!supabase) return;
     try {
+      // Fetch shops without order first to ensure column errors don't break the whole app
       const [pRes, sRes, cRes] = await Promise.all([
         supabase.from('products').select('*').order('created_at', { ascending: false }),
         supabase.from('shops').select('*'),
@@ -103,11 +104,13 @@ const App: React.FC = () => {
       ]);
       
       if (sRes.data) {
-        setShops(sRes.data.map((s: any) => ({ 
+        // Safe mapping and sorting in JS
+        const mappedShops = sRes.data.map((s: any) => ({ 
           ...s, 
           logo: s.logo_url || 'https://via.placeholder.com/150', 
           banner: s.banner_url || 'https://via.placeholder.com/800x400' 
-        })));
+        })).sort((a, b) => (b.sort_priority || 0) - (a.sort_priority || 0));
+        setShops(mappedShops);
       }
       
       if (pRes.data) {

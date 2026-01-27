@@ -17,10 +17,18 @@ const ShopsListView: React.FC<ShopsListViewProps> = ({ shops, lang }) => {
 
   const filtered = shops
     .filter(s => {
-      const matchesStatus = s.status === 'APPROVED';
-      const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                           s.category.toLowerCase().includes(searchTerm.toLowerCase());
-      return matchesStatus && matchesSearch;
+      // Robust status check: handle mixed case, spaces, or missing values
+      const status = s.status?.toString().trim().toUpperCase();
+      const isVisible = status === 'APPROVED' || status === 'PENDING' || !status || status === '';
+      const isBlocked = status === 'REJECTED' || status === 'SUSPENDED';
+      
+      const shopName = s.name || '';
+      const shopCategory = s.category || '';
+      
+      const matchesSearch = shopName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                           shopCategory.toLowerCase().includes(searchTerm.toLowerCase());
+                           
+      return isVisible && !isBlocked && matchesSearch;
     })
     .sort((a, b) => {
       // 1. Sort by Admin Priority (Higher first)
