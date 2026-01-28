@@ -2,10 +2,11 @@
 import React, { useState } from 'react';
 import { 
   Store, DollarSign, Shield, TrendingUp, AlertCircle, ShoppingBag, ArrowUpRight, Loader2, Check, Clock, Star, StarOff, 
-  Settings, Image as ImageIcon, Camera, UploadCloud, ArrowUp, ArrowDown, Hash, Plus
+  Settings, Image as ImageIcon, Camera, UploadCloud, ArrowUp, ArrowDown, Hash, Plus, CreditCard, Gem, Crown
 } from 'lucide-react';
-import { Shop, Order, Category } from '../types';
+import { Shop, Order, Category, SubscriptionTier } from '../types';
 import { supabase, uploadFile } from '../services/supabase';
+import { SUBSCRIPTION_PLANS } from '../constants';
 
 interface AdminDashboardProps {
   shops: Shop[];
@@ -29,6 +30,21 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ shops, setShops, orders
       if (refreshData) await refreshData();
     } catch (err: any) {
       alert("Status Update Failed: " + err.message);
+    } finally {
+      setLoadingId(null);
+    }
+  };
+
+  const updatePlan = async (id: string, tier: SubscriptionTier) => {
+    if (!supabase) return;
+    setLoadingId(id);
+    try {
+      const { error } = await supabase.from('shops').update({ subscription_tier: tier }).eq('id', id);
+      if (error) throw error;
+      if (refreshData) await refreshData();
+      alert(`Plan updated to ${tier} successfully!`);
+    } catch (err: any) {
+      alert("Plan Update Failed: " + err.message);
     } finally {
       setLoadingId(null);
     }
@@ -146,13 +162,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ shops, setShops, orders
           </div>
           <div className="space-y-5">
             {shops.map(shop => (
-              <div key={shop.id} className="p-6 bg-gray-50/50 rounded-[2.5rem] flex flex-col gap-6 border border-gray-100 transition-all hover:bg-white hover:shadow-xl">
-                 <div className="flex justify-between items-center">
+              <div key={shop.id} className="p-6 bg-gray-50/50 rounded-[2.5rem] flex flex-col gap-6 border border-gray-100 transition-all hover:bg-white hover:shadow-xl relative overflow-hidden">
+                 {/* Current Plan Indicator Background */}
+                 <div className={`absolute top-0 right-0 h-1.5 w-full ${shop.subscription_tier === 'PREMIUM' ? 'bg-orange-400' : shop.subscription_tier === 'STANDARD' ? 'bg-pink-500' : 'bg-gray-300'}`}></div>
+
+                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div className="flex items-center gap-4">
                        <img src={shop.logo} className="w-16 h-16 rounded-2xl object-cover border-4 border-white shadow-md bg-white" />
                        <div>
                           <p className="font-black text-base text-gray-900 leading-tight mb-1">{shop.name}</p>
-                          <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">{shop.bazaar} • {shop.subscription_tier}</p>
+                          <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">{shop.bazaar}</p>
                        </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -185,6 +204,34 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ shops, setShops, orders
                       </div>
                     </div>
                  </div>
+
+                 {/* Plan Management System */}
+                 <div className="space-y-3 bg-white p-4 rounded-3xl border border-gray-100 shadow-inner">
+                    <div className="flex items-center justify-between px-1">
+                       <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                          <CreditCard className="w-3 h-3" /> Subscription Tier
+                       </p>
+                       <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-md ${shop.subscription_tier === 'PREMIUM' ? 'text-orange-600 bg-orange-50' : shop.subscription_tier === 'STANDARD' ? 'text-pink-600 bg-pink-50' : 'text-gray-500 bg-gray-100'}`}>
+                         Current: {shop.subscription_tier}
+                       </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                       {SUBSCRIPTION_PLANS.map(plan => (
+                          <button 
+                             key={plan.id}
+                             disabled={loadingId === shop.id}
+                             onClick={() => updatePlan(shop.id, plan.id as SubscriptionTier)}
+                             className={`p-3 rounded-2xl border-2 text-[8px] font-black uppercase tracking-widest transition-all flex flex-col items-center gap-1 ${shop.subscription_tier === plan.id ? 'bg-gray-900 text-white border-gray-900 shadow-lg' : 'bg-white text-gray-400 border-gray-50 hover:border-pink-200'}`}
+                          >
+                             {plan.id === 'BASIC' && <Store className="w-4 h-4" />}
+                             {plan.id === 'STANDARD' && <Gem className="w-4 h-4" />}
+                             {plan.id === 'PREMIUM' && <Crown className="w-4 h-4" />}
+                             {plan.label}
+                          </button>
+                       ))}
+                    </div>
+                 </div>
+
                  <button onClick={() => updateStatus(shop.id, shop.status === 'APPROVED' ? 'SUSPENDED' : 'APPROVED')} disabled={loadingId === shop.id} className={`w-full py-5 rounded-3xl text-[10px] font-black uppercase tracking-widest shadow-xl transition-all flex items-center justify-center gap-2 ${shop.status === 'APPROVED' ? 'bg-red-50 text-red-600' : 'bg-green-600 text-white'}`}>
                     {loadingId === shop.id ? <Loader2 className="animate-spin w-4 h-4" /> : (shop.status === 'APPROVED' ? 'Suspend Merchant' : 'Approve & Activate')}
                  </button>
