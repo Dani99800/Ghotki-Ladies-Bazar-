@@ -19,6 +19,16 @@ export interface Category {
   image_url: string;
 }
 
+export interface AppEvent {
+  id: string;
+  name: string;
+  urduName: string;
+  primaryColor: string;
+  accentColor: string;
+  emoji: string;
+  bannerText: string;
+}
+
 export interface Shop {
   id: string;
   name: string;
@@ -43,7 +53,7 @@ export interface Shop {
   pickupEnabled?: boolean;
   deliveryEnabled?: boolean;
   featured?: boolean;
-  sort_priority?: number; // Higher numbers appear first
+  sort_priority?: number; 
 }
 
 export interface Product {
