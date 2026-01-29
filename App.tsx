@@ -250,6 +250,7 @@ const App: React.FC = () => {
     );
   }
 
+  // FORCE THEME CSS INJECTION
   const primary = activeEvent.primaryColor;
   const secondary = activeEvent.accentColor;
   
@@ -260,23 +261,30 @@ const App: React.FC = () => {
       --accent-bg: ${primary}15;
     }
     
-    /* OVERRIDE EVERY PINK VARIANT IN TAILWIND SPECTRUM */
+    /* GLOBAL OVERRIDE OF ALL PINK TAILWIND CLASSES */
     .text-pink-600, .text-pink-500, .text-event-primary { color: var(--primary-event) !important; }
     .bg-pink-600, .bg-pink-500, .bg-event-primary { background-color: var(--primary-event) !important; }
     .border-pink-600, .border-pink-500, .border-event-primary { border-color: var(--primary-event) !important; }
     .fill-pink-600, .fill-pink-500 { fill: var(--primary-event) !important; }
     
     .bg-pink-50, .bg-pink-100, .bg-pink-200 { background-color: var(--accent-bg) !important; }
+    .text-pink-100, .text-pink-200 { color: var(--accent-event) !important; }
+    .border-pink-100, .border-pink-200 { border-color: ${primary}30 !important; }
+    
     .text-pink-900 { color: var(--primary-event) !important; filter: brightness(0.6); }
-    .hover\\:bg-pink-700:hover { background-color: var(--primary-event) !important; filter: brightness(0.9); }
+    .hover\\:bg-pink-700:hover, .hover\\:bg-pink-600:hover { background-color: var(--primary-event) !important; filter: brightness(0.9); }
     .focus\\:ring-pink-500:focus, .focus\\:ring-pink-600:focus { --tw-ring-color: var(--primary-event) !important; }
+    
+    /* Additional high-priority overrides for specific UI elements */
+    .shadow-pink-100, .shadow-pink-200 { --tw-shadow-color: ${primary}30 !important; }
+    h1[style*="color"] { color: var(--primary-event) !important; }
   `;
 
   return (
-    <div className={`min-h-screen bg-gray-50 flex flex-col`}>
+    <div className={`min-h-screen bg-gray-50 flex flex-col event-mode-${activeEvent.id}`}>
       <style>{themeStyles}</style>
       
-      <nav className="fixed top-0 left-0 right-0 h-16 bg-white border-b flex items-center justify-between px-6 z-50">
+      <nav className="fixed top-0 left-0 right-0 h-16 bg-white border-b flex items-center justify-between px-6 z-50 shadow-sm">
         <h1 onClick={() => navigate('/')} className="font-black text-xl italic uppercase cursor-pointer tracking-tighter" style={{ color: activeEvent.primaryColor }}>
           GLB BAZAR {activeEvent.emoji}
         </h1>
