@@ -31,7 +31,6 @@ const App: React.FC = () => {
   const [lang, setLang] = useState<'EN' | 'UR'>('EN');
   const [loading, setLoading] = useState(true);
   
-  // Default to stored event or Normal
   const [activeEvent, setActiveEvent] = useState<AppEvent>(() => {
     const saved = localStorage.getItem('glb_active_event_id');
     return PK_EVENTS.find(e => e.id === saved) || PK_EVENTS[0];
@@ -51,15 +50,34 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!supabase) return;
     
-    // Auth Session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) fetchProfile(session.user.id);
-      else setLoading(false);
-    });
+    // SAFE AUTH INITIALIZATION - Fixes "Refresh Token Not Found"
+    const initAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) {
+          // If token is invalid/not found, clear it and proceed as guest
+          if (error.message.includes('Refresh Token Not Found')) {
+            await supabase.auth.signOut();
+            localStorage.removeItem('supabase.auth.token');
+          }
+          setLoading(false);
+          return;
+        }
+        
+        if (session) {
+          await fetchProfile(session.user.id);
+        } else {
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error("Auth init error:", err);
+        setLoading(false);
+      }
+    };
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session) {
-        fetchProfile(session.user.id);
+        await fetchProfile(session.user.id);
       } else {
         setUser(null);
         setOrders([]);
@@ -67,6 +85,7 @@ const App: React.FC = () => {
       }
     });
 
+    initAuth();
     loadMarketplace();
     fetchActiveEvent();
 
@@ -250,7 +269,7 @@ const App: React.FC = () => {
     );
   }
 
-  // FORCE THEME CSS INJECTION
+  // FORCE THEME CSS INJECTION ENGINE
   const primary = activeEvent.primaryColor;
   const secondary = activeEvent.accentColor;
   
@@ -262,22 +281,26 @@ const App: React.FC = () => {
     }
     
     /* GLOBAL OVERRIDE OF ALL PINK TAILWIND CLASSES */
-    .text-pink-600, .text-pink-500, .text-event-primary { color: var(--primary-event) !important; }
-    .bg-pink-600, .bg-pink-500, .bg-event-primary { background-color: var(--primary-event) !important; }
-    .border-pink-600, .border-pink-500, .border-event-primary { border-color: var(--primary-event) !important; }
+    .text-pink-600, .text-pink-500, .text-event-primary, .text-pink-400 { color: var(--primary-event) !important; }
+    .bg-pink-600, .bg-pink-500, .bg-event-primary, .bg-pink-400 { background-color: var(--primary-event) !important; }
+    .border-pink-600, .border-pink-500, .border-event-primary, .border-pink-400 { border-color: var(--primary-event) !important; }
     .fill-pink-600, .fill-pink-500 { fill: var(--primary-event) !important; }
     
+    /* Light Tones */
     .bg-pink-50, .bg-pink-100, .bg-pink-200 { background-color: var(--accent-bg) !important; }
     .text-pink-100, .text-pink-200 { color: var(--accent-event) !important; }
-    .border-pink-100, .border-pink-200 { border-color: ${primary}30 !important; }
+    .border-pink-50, .border-pink-100, .border-pink-200 { border-color: ${primary}25 !important; }
     
-    .text-pink-900 { color: var(--primary-event) !important; filter: brightness(0.6); }
-    .hover\\:bg-pink-700:hover, .hover\\:bg-pink-600:hover { background-color: var(--primary-event) !important; filter: brightness(0.9); }
+    /* Dark Tones */
+    .text-pink-900, .text-pink-800, .text-pink-700 { color: var(--primary-event) !important; filter: brightness(0.6); }
+    .bg-pink-700, .bg-pink-800, .bg-pink-900 { background-color: var(--primary-event) !important; filter: brightness(0.8); }
+    
+    /* Special Elements */
+    .shadow-pink-100, .shadow-pink-200, .shadow-pink-600 { --tw-shadow-color: ${primary}30 !important; }
     .focus\\:ring-pink-500:focus, .focus\\:ring-pink-600:focus { --tw-ring-color: var(--primary-event) !important; }
     
-    /* Additional high-priority overrides for specific UI elements */
-    .shadow-pink-100, .shadow-pink-200 { --tw-shadow-color: ${primary}30 !important; }
-    h1[style*="color"] { color: var(--primary-event) !important; }
+    /* Nav & Headers */
+    h1.text-pink-600, h1[style*="color"] { color: var(--primary-event) !important; }
   `;
 
   return (

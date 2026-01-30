@@ -90,8 +90,10 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
     if (!supabase || !myShop) return;
     setLoading(true);
     try {
-      let finalLogoUrl = (myShop as any).logo_url || null;
-      let finalBannerUrl = (myShop as any).banner_url || null;
+      // FIX: Ensure we use the existing URL if no new file is selected
+      // In App.tsx, s.logo_url is mapped to s.logo. We need to preserve that.
+      let finalLogoUrl = (myShop as any).logo_url || myShop.logo;
+      let finalBannerUrl = (myShop as any).banner_url || myShop.banner;
 
       if (settingsForm.logoFile) {
         const logoPath = `shops/${myShop.id}/logo_${Date.now()}`;
@@ -114,11 +116,11 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
 
       if (error) throw error;
       
-      alert("Shop settings updated!");
+      alert("Shop settings updated successfully!");
       setSettingsForm(prev => ({ ...prev, logoFile: null, bannerFile: null }));
       await refreshShop();
     } catch (err: any) {
-      alert("Error: " + err.message);
+      alert("Error updating settings: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -205,7 +207,6 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6 pb-32">
-      {/* 24/7 Sales Motivation Banner */}
       <div className="bg-gradient-to-r from-gray-900 to-pink-900 p-6 rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
          <Sparkles className="absolute top-0 right-0 p-6 opacity-20 w-32 h-32 group-hover:scale-110 transition-transform" />
          <div className="relative z-10 space-y-2">
@@ -310,11 +311,19 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
                 <input required className="w-full p-5 bg-gray-50 rounded-2xl font-bold text-sm text-gray-900 border-none outline-none focus:ring-2 focus:ring-pink-500/20" value={settingsForm.name} onChange={e => setSettingsForm({...settingsForm, name: e.target.value})} />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[9px] font-black uppercase text-gray-400 ml-2">WhatsApp (923...)</label>
+                <label className="text-[9px] font-black uppercase text-gray-400 ml-2">WhatsApp (e.g. 03001234567)</label>
                 <input required className="w-full p-5 bg-gray-50 rounded-2xl font-bold text-sm text-gray-900 border-none outline-none focus:ring-2 focus:ring-pink-500/20" value={settingsForm.whatsapp} onChange={e => setSettingsForm({...settingsForm, whatsapp: e.target.value})} />
               </div>
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black uppercase text-gray-400 ml-2">Display Mobile Number</label>
+                <input required className="w-full p-5 bg-gray-50 rounded-2xl font-bold text-sm text-gray-900 border-none outline-none focus:ring-2 focus:ring-pink-500/20" value={settingsForm.mobile} onChange={e => setSettingsForm({...settingsForm, mobile: e.target.value})} />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black uppercase text-gray-400 ml-2">Shop Bio / Description</label>
+                <textarea className="w-full p-5 bg-gray-50 rounded-2xl font-bold text-sm text-gray-900 border-none outline-none focus:ring-2 focus:ring-pink-500/20 h-24" value={settingsForm.bio} onChange={e => setSettingsForm({...settingsForm, bio: e.target.value})} />
+              </div>
             </div>
-            <button disabled={loading} className="w-full py-5 bg-pink-600 text-white font-black rounded-3xl uppercase tracking-widest text-[11px] shadow-2xl shadow-pink-200 flex items-center justify-center gap-3">
+            <button disabled={loading} className="w-full py-5 bg-pink-600 text-white font-black rounded-3xl uppercase tracking-widest text-[11px] shadow-2xl shadow-pink-200 flex items-center justify-center gap-3 active:scale-95 transition-all">
               {loading ? <Loader2 className="animate-spin w-5 h-5" /> : <Save className="w-5 h-5" />} Save All Changes
             </button>
           </form>
@@ -426,7 +435,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
                        </label>
                     </div>
                  </div>
-                 <button disabled={loading} className="w-full py-6 bg-pink-600 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs shadow-2xl shadow-pink-200 flex items-center justify-center gap-3">
+                 <button disabled={loading} className="w-full py-6 bg-pink-600 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs shadow-2xl shadow-pink-200 flex items-center justify-center gap-3 active:scale-95 transition-all">
                     {loading ? <Loader2 className="animate-spin w-5 h-5" /> : (editingProduct ? 'Save Changes' : 'Publish Listing')}
                  </button>
               </form>
