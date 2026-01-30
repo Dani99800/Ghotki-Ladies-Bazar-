@@ -397,7 +397,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
 
       {showModal && (
         <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-md p-4 flex items-end justify-center">
-           <div className="bg-white w-full max-w-lg rounded-t-[3rem] p-8 space-y-7 animate-in slide-in-from-bottom-full overflow-y-auto max-h-[95vh] border-t-8 border-pink-600">
+           <div className="bg-white w-full max-w-lg rounded-t-[3rem] p-8 space-y-7 animate-in slide-in-from-bottom-full overflow-y-auto max-h-[95vh] border-t-8 border-pink-600 no-scrollbar">
               <div className="flex items-center justify-between">
                  <h2 className="text-3xl font-black uppercase italic tracking-tighter text-gray-900 leading-none">
                    {editingProduct ? 'Edit Listing' : 'New Listing'}
@@ -416,17 +416,72 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
                           <input required type="number" className="w-full p-5 bg-gray-50 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-pink-500/20" value={productForm.price} onChange={e => setProductForm({...productForm, price: e.target.value})} />
                        </div>
                     </div>
+
                     <div className="space-y-2">
                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-2">Product Photos</p>
                        <label className="w-full h-32 bg-gray-50 rounded-[2.5rem] border-2 border-dashed border-gray-200 flex flex-col items-center justify-center text-gray-400 cursor-pointer hover:bg-pink-50 transition-all">
-                          <UploadCloud className="w-8 h-8 mb-1" />
+                          {productForm.images.length > 0 ? (
+                            <div className="flex flex-col items-center">
+                              <Check className="w-8 h-8 text-green-500 mb-1" />
+                              <span className="text-[10px] font-bold text-gray-600">{productForm.images.length} new photos selected</span>
+                            </div>
+                          ) : (
+                            <>
+                              <UploadCloud className="w-8 h-8 mb-1" />
+                              <span className="text-[8px] font-black uppercase">Upload Images</span>
+                            </>
+                          )}
                           <input type="file" multiple className="hidden" accept="image/*" onChange={e => {
                              if (e.target.files) setProductForm({...productForm, images: [...productForm.images, ...Array.from(e.target.files)]});
                           }} />
                        </label>
                     </div>
+
+                    {/* NEW: VIDEO REELS UPLOAD SECTION */}
+                    {isReelUnlocked ? (
+                      <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
+                         <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-2 flex items-center gap-2">
+                           <Film className="w-3 h-3 text-pink-600" /> Short Reel / Video
+                         </p>
+                         <label className="w-full h-32 bg-gray-50 rounded-[2.5rem] border-2 border-dashed border-gray-200 flex flex-col items-center justify-center text-gray-400 cursor-pointer hover:bg-pink-50 transition-all">
+                            {productForm.videoFile ? (
+                              <div className="flex flex-col items-center">
+                                <Check className="w-8 h-8 text-green-500 mb-1" />
+                                <span className="text-[10px] font-bold text-gray-600 truncate max-w-[200px]">{productForm.videoFile.name}</span>
+                              </div>
+                            ) : productForm.videoUrl ? (
+                              <div className="flex flex-col items-center">
+                                <PlayCircle className="w-8 h-8 text-pink-500 mb-1" />
+                                <span className="text-[10px] font-bold text-gray-600">Existing Reel Linked</span>
+                              </div>
+                            ) : (
+                              <>
+                                <Video className="w-8 h-8 mb-1" />
+                                <span className="text-[8px] font-black uppercase italic">Standard/Premium Feature</span>
+                                <span className="text-[7px] font-bold text-gray-400 uppercase tracking-widest">Upload short clip</span>
+                              </>
+                            )}
+                            <input type="file" className="hidden" accept="video/*" onChange={e => {
+                               if (e.target.files?.[0]) setProductForm({...productForm, videoFile: e.target.files[0]});
+                            }} />
+                         </label>
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-gray-50 rounded-[2rem] border border-gray-100 flex items-center justify-between group cursor-help" title="Upgrade to Standard plan to unlock video reels">
+                        <div className="flex items-center gap-3">
+                           <div className="p-3 bg-white rounded-xl shadow-sm text-gray-300">
+                             <Lock className="w-4 h-4" />
+                           </div>
+                           <div>
+                             <p className="text-[9px] font-black uppercase text-gray-400">Video Reels Locked</p>
+                             <p className="text-[7px] font-bold text-gray-300 uppercase tracking-tighter">Upgrade to Standard to enable</p>
+                           </div>
+                        </div>
+                        <Sparkles className="w-4 h-4 text-pink-200 group-hover:text-pink-400 transition-colors" />
+                      </div>
+                    )}
                  </div>
-                 <button disabled={loading} className="w-full py-6 bg-pink-600 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs shadow-2xl shadow-pink-200 flex items-center justify-center gap-3">
+                 <button disabled={loading} className="w-full py-6 bg-pink-600 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs shadow-2xl shadow-pink-200 flex items-center justify-center gap-3 active:scale-95 transition-all">
                     {loading ? <Loader2 className="animate-spin w-5 h-5" /> : (editingProduct ? 'Save Changes' : 'Publish Listing')}
                  </button>
               </form>
