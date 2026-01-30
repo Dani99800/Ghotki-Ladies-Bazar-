@@ -1,7 +1,7 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { Home, ShoppingBag, User as UserIcon, Search, ShoppingCart, LayoutDashboard, ShieldAlert, PlayCircle, Bookmark } from 'lucide-react';
+import { Home, ShoppingBag, User as UserIcon, ShoppingCart, LayoutDashboard, ShieldAlert, PlayCircle, Bookmark } from 'lucide-react';
 import { supabase } from './services/supabase';
 import { User as UserType, Shop, Product, CartItem, Order, Category, AppEvent } from './types';
 import { PK_EVENTS } from './constants';
@@ -28,7 +28,6 @@ const App: React.FC = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [savedProductIds, setSavedProductIds] = useState<string[]>([]);
-  const [lang, setLang] = useState<'EN' | 'UR'>('EN');
   const [loading, setLoading] = useState(true);
   
   const [activeEvent, setActiveEvent] = useState<AppEvent>(() => {
@@ -36,105 +35,56 @@ const App: React.FC = () => {
     return PK_EVENTS.find(e => e.id === saved) || PK_EVENTS[0];
   });
 
-  useEffect(() => {
-    const saved = localStorage.getItem('glb_saved_products');
-    if (saved) {
-      try { setSavedProductIds(JSON.parse(saved)); } catch(e) {}
+  // Parallel Data Loading
+  const loadMarketplaceData = useCallback(async () => {
+    if (!supabase) {
+      setLoading(false);
+      return;
     }
-  }, []);
 
-  useEffect(() => {
-    localStorage.setItem('glb_saved_products', JSON.stringify(savedProductIds));
-  }, [savedProductIds]);
-
-  useEffect(() => {
-    if (!supabase) return;
-    
-    // SAFE AUTH INITIALIZATION - Fixes "Refresh Token Not Found"
-    const initAuth = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) {
-          // If token is invalid/not found, clear it and proceed as guest
-          if (error.message.includes('Refresh Token Not Found')) {
-            await supabase.auth.signOut();
-            localStorage.removeItem('supabase.auth.token');
-          }
-          setLoading(false);
-          return;
-        }
-        
-        if (session) {
-          await fetchProfile(session.user.id);
-        } else {
-          setLoading(false);
-        }
-      } catch (err) {
-        console.error("Auth init error:", err);
-        setLoading(false);
-      }
-    };
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session) {
-        await fetchProfile(session.user.id);
-      } else {
-        setUser(null);
-        setOrders([]);
-        setLoading(false);
-      }
-    });
-
-    initAuth();
-    loadMarketplace();
-    fetchActiveEvent();
-
-    // REAL-TIME THEME LISTENER
-    const settingsChannel = supabase
-      .channel('app_settings_changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'app_settings' },
-        (payload) => {
-          if (payload.new && (payload.new as any).key === 'active_event_id') {
-            const newEventId = (payload.new as any).value;
-            const found = PK_EVENTS.find(e => e.id === newEventId);
-            if (found) {
-              setActiveEvent(found);
-              localStorage.setItem('glb_active_event_id', found.id);
-            }
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      authListener.subscription.unsubscribe();
-      supabase.removeChannel(settingsChannel);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (user && shops.length > 0) {
-      fetchOrders();
-    }
-  }, [user, shops]);
-
-  const fetchActiveEvent = async () => {
-    if (!supabase) return;
     try {
-      const { data } = await supabase.from('app_settings').select('value').eq('key', 'active_event_id').maybeSingle();
-      if (data?.value) {
-        const found = PK_EVENTS.find(e => e.id === data.value);
+      const [pRes, sRes, cRes, eRes] = await Promise.allSettled([
+        supabase.from('products').select('*').order('created_at', { ascending: false }).limit(100),
+        supabase.from('shops').select('*'),
+        supabase.from('categories').select('*'),
+        supabase.from('app_settings').select('value').eq('key', 'active_event_id').maybeSingle()
+      ]);
+
+      if (sRes.status === 'fulfilled' && sRes.value.data) {
+        setShops(sRes.value.data.map((s: any) => ({ 
+          ...s, 
+          logo: s.logo_url || 'https://via.placeholder.com/150', 
+          banner: s.banner_url || 'https://via.placeholder.com/800x400' 
+        })).sort((a, b) => (b.sort_priority || 0) - (a.sort_priority || 0)));
+      }
+      
+      if (pRes.status === 'fulfilled' && pRes.value.data) {
+        setProducts(pRes.value.data.map((p: any) => ({ 
+          ...p, 
+          images: p.image_urls || [], 
+          shopId: p.shop_id, 
+          videoUrl: p.video_url 
+        })));
+      }
+
+      if (cRes.status === 'fulfilled' && cRes.value.data) {
+        setCategories(cRes.value.data);
+      }
+
+      if (eRes.status === 'fulfilled' && eRes.value.data?.value) {
+        const found = PK_EVENTS.find(e => e.id === eRes.value.data.value);
         if (found) {
           setActiveEvent(found);
           localStorage.setItem('glb_active_event_id', found.id);
         }
       }
-    } catch (e) {
-      console.warn("Event fetch failed.");
+    } catch (err) {
+      console.error("Marketplace loading failed, continuing as guest:", err);
+    } finally {
+      // Ensure we stop loading even if data fails
+      setLoading(false);
     }
-  };
+  }, []);
 
   const fetchProfile = async (id: string) => {
     if (!supabase) return;
@@ -143,79 +93,106 @@ const App: React.FC = () => {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (authUser) {
         const meta = authUser.user_metadata || {};
-        const userData = {
+        setUser({
           id,
           name: profile?.name || meta.full_name || 'Bazar User',
           role: profile?.role || meta.role || 'BUYER',
           subscription_tier: profile?.subscription_tier || meta.tier || 'NONE',
           mobile: profile?.mobile || meta.mobile || '',
           address: profile?.address || meta.address || ''
-        };
-        setUser(userData as UserType);
+        } as UserType);
       }
-    } catch (e) { 
-      console.error("Profile Fetch Error:", e); 
+    } catch (e) {
+      console.error("Profile error:", e);
     } finally {
       setLoading(false);
     }
   };
 
-  const loadMarketplace = async () => {
-    if (!supabase) return;
-    try {
-      const [pRes, sRes, cRes] = await Promise.all([
-        supabase.from('products').select('*').order('created_at', { ascending: false }),
-        supabase.from('shops').select('*'),
-        supabase.from('categories').select('*')
-      ]);
-      
-      if (sRes.data) {
-        setShops(sRes.data.map((s: any) => ({ 
-          ...s, 
-          logo: s.logo_url || 'https://via.placeholder.com/150', 
-          banner: s.banner_url || 'https://via.placeholder.com/800x400' 
-        })).sort((a, b) => (b.sort_priority || 0) - (a.sort_priority || 0)));
-      }
-      
-      if (pRes.data) {
-        setProducts(pRes.data.map((p: any) => ({ 
-          ...p, 
-          images: p.image_urls || [], 
-          shopId: p.shop_id, 
-          videoUrl: p.video_url 
-        })));
-      }
+  useEffect(() => {
+    // 1. Load data in background immediately
+    loadMarketplaceData();
 
-      if (cRes.data) {
-        setCategories(cRes.data);
-      }
-    } catch (err) { 
-      console.error("Marketplace Load Error:", err); 
+    // 2. Load saved products from local storage
+    const saved = localStorage.getItem('glb_saved_products');
+    if (saved) {
+      try { setSavedProductIds(JSON.parse(saved)); } catch(e) {}
     }
-  };
 
-  const fetchOrders = async () => {
-    if (!supabase || !user) return;
-    const myShop = shops.find(s => s.owner_id === user.id);
-    let query = supabase.from('orders').select('*');
-    if (myShop) {
-      query = query.or(`buyer_id.eq.${user.id},seller_id.eq.${myShop.id}`);
-    } else {
-      query = query.eq('buyer_id', user.id);
+    if (!supabase) {
+      setLoading(false);
+      return;
     }
-    const { data } = await query.order('created_at', { ascending: false });
-    if (data) {
-      setOrders(data.map(o => ({ 
-        ...o, 
-        buyerId: o.buyer_id || `guest_${o.id}`, 
-        sellerId: o.seller_id, 
-        createdAt: o.created_at,
-        buyerName: o.buyer_name,
-        buyerMobile: o.buyer_mobile,
-        buyerAddress: o.buyer_address
-      })));
+
+    // 3. Setup Auth with a fail-safe timeout
+    const authTimeout = setTimeout(() => setLoading(false), 4000);
+
+    const initAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error || !session) {
+          if (error?.message?.includes('Refresh Token Not Found')) {
+            await supabase.auth.signOut();
+            localStorage.removeItem('supabase.auth.token');
+          }
+          setLoading(false);
+          clearTimeout(authTimeout);
+          return;
+        }
+        await fetchProfile(session.user.id);
+        clearTimeout(authTimeout);
+      } catch (err) {
+        setLoading(false);
+        clearTimeout(authTimeout);
+      }
+    };
+
+    initAuth();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session) {
+        fetchProfile(session.user.id);
+      } else {
+        setUser(null);
+        setOrders([]);
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+      clearTimeout(authTimeout);
+    };
+  }, [loadMarketplaceData]);
+
+  useEffect(() => {
+    localStorage.setItem('glb_saved_products', JSON.stringify(savedProductIds));
+  }, [savedProductIds]);
+
+  // Fetch orders only when user is available
+  useEffect(() => {
+    if (user && shops.length > 0 && supabase) {
+      const fetchOrders = async () => {
+        const myShop = shops.find(s => s.owner_id === user.id);
+        let query = supabase.from('orders').select('*');
+        if (myShop) query = query.or(`buyer_id.eq.${user.id},seller_id.eq.${myShop.id}`);
+        else query = query.eq('buyer_id', user.id);
+        const { data } = await query.order('created_at', { ascending: false });
+        if (data) {
+          setOrders(data.map(o => ({ 
+            ...o, 
+            buyerId: o.buyer_id || `guest_${o.id}`, 
+            sellerId: o.seller_id, 
+            createdAt: o.created_at,
+            buyerName: o.buyer_name,
+            buyerMobile: o.buyer_mobile,
+            buyerAddress: o.buyer_address
+          })));
+        }
+      };
+      fetchOrders();
     }
-  };
+  }, [user, shops]);
 
   const addToCart = (p: Product) => {
     setCart(prev => {
@@ -225,10 +202,8 @@ const App: React.FC = () => {
     });
   };
 
-  const toggleSaveProduct = (productId: string) => {
-    setSavedProductIds(prev => 
-      prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId]
-    );
+  const toggleSaveProduct = (id: string) => {
+    setSavedProductIds(prev => prev.includes(id) ? prev.filter(pid => pid !== id) : [...prev, id]);
   };
 
   const handlePlaceOrder = async (order: Order) => {
@@ -249,7 +224,7 @@ const App: React.FC = () => {
       buyer_address: order.buyerAddress
     });
     if (error) throw error;
-    fetchOrders();
+    loadMarketplaceData();
   };
 
   const navItems = [
@@ -262,93 +237,74 @@ const App: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="h-screen w-full flex flex-col items-center justify-center bg-white space-y-4">
-        <div className="w-12 h-12 border-4 border-pink-100 border-t-pink-600 rounded-full animate-spin"></div>
-        <p className="font-black uppercase tracking-widest text-[10px] text-gray-400">Ghotki Bazar Loading...</p>
+      <div className="h-screen w-full flex flex-col items-center justify-center bg-white space-y-6">
+        <div className="relative">
+          <div className="w-16 h-16 border-4 border-pink-50 border-t-pink-600 rounded-full animate-spin"></div>
+          <div className="absolute inset-0 flex items-center justify-center text-pink-600 font-black text-xs">GLB</div>
+        </div>
+        <div className="text-center animate-pulse">
+           <p className="font-black uppercase tracking-[0.3em] text-[10px] text-gray-900">Ghotki Ladies Bazar</p>
+           <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest mt-1 italic">Digitizing Local Legacy...</p>
+        </div>
       </div>
     );
   }
 
-  // FORCE THEME CSS INJECTION ENGINE
   const primary = activeEvent.primaryColor;
-  const secondary = activeEvent.accentColor;
-  
   const themeStyles = `
-    :root {
-      --primary-event: ${primary};
-      --accent-event: ${secondary};
-      --accent-bg: ${primary}15;
-    }
-    
-    /* GLOBAL OVERRIDE OF ALL PINK TAILWIND CLASSES */
-    .text-pink-600, .text-pink-500, .text-event-primary, .text-pink-400 { color: var(--primary-event) !important; }
-    .bg-pink-600, .bg-pink-500, .bg-event-primary, .bg-pink-400 { background-color: var(--primary-event) !important; }
-    .border-pink-600, .border-pink-500, .border-event-primary, .border-pink-400 { border-color: var(--primary-event) !important; }
-    .fill-pink-600, .fill-pink-500 { fill: var(--primary-event) !important; }
-    
-    /* Light Tones */
-    .bg-pink-50, .bg-pink-100, .bg-pink-200 { background-color: var(--accent-bg) !important; }
-    .text-pink-100, .text-pink-200 { color: var(--accent-event) !important; }
-    .border-pink-50, .border-pink-100, .border-pink-200 { border-color: ${primary}25 !important; }
-    
-    /* Dark Tones */
-    .text-pink-900, .text-pink-800, .text-pink-700 { color: var(--primary-event) !important; filter: brightness(0.6); }
-    .bg-pink-700, .bg-pink-800, .bg-pink-900 { background-color: var(--primary-event) !important; filter: brightness(0.8); }
-    
-    /* Special Elements */
-    .shadow-pink-100, .shadow-pink-200, .shadow-pink-600 { --tw-shadow-color: ${primary}30 !important; }
-    .focus\\:ring-pink-500:focus, .focus\\:ring-pink-600:focus { --tw-ring-color: var(--primary-event) !important; }
-    
-    /* Nav & Headers */
-    h1.text-pink-600, h1[style*="color"] { color: var(--primary-event) !important; }
+    :root { --primary-event: ${primary}; --accent-bg: ${primary}15; }
+    .text-pink-600, .text-event-primary { color: var(--primary-event) !important; }
+    .bg-pink-600, .bg-event-primary { background-color: var(--primary-event) !important; }
+    .border-pink-600 { border-color: var(--primary-event) !important; }
+    .bg-pink-50 { background-color: var(--accent-bg) !important; }
   `;
 
   return (
-    <div className={`min-h-screen bg-gray-50 flex flex-col event-mode-${activeEvent.id}`}>
+    <div className="min-h-screen bg-gray-50 flex flex-col transition-opacity duration-300">
       <style>{themeStyles}</style>
       
-      <nav className="fixed top-0 left-0 right-0 h-16 bg-white border-b flex items-center justify-between px-6 z-50 shadow-sm">
+      <nav className="fixed top-0 left-0 right-0 h-16 bg-white/80 backdrop-blur-md border-b flex items-center justify-between px-6 z-50">
         <h1 onClick={() => navigate('/')} className="font-black text-xl italic uppercase cursor-pointer tracking-tighter" style={{ color: activeEvent.primaryColor }}>
           GLB BAZAR {activeEvent.emoji}
         </h1>
         <div className="hidden md:flex items-center gap-8">
           {navItems.map(item => (
-            <button key={item.path} onClick={() => navigate(item.path)} className={`text-xs font-black uppercase tracking-widest transition-colors ${location.pathname === item.path ? 'text-pink-600' : 'text-gray-500 hover:text-pink-600'}`}>
+            <button key={item.path} onClick={() => navigate(item.path)} className={`text-[10px] font-black uppercase tracking-widest transition-colors ${location.pathname === item.path ? 'text-pink-600' : 'text-gray-400 hover:text-pink-600'}`}>
               {item.label}
             </button>
           ))}
         </div>
         <div className="flex items-center gap-4">
           {user?.role === 'ADMIN' && <ShieldAlert onClick={() => navigate('/admin')} className="w-5 h-5 text-orange-500 cursor-pointer animate-pulse" />}
-          <UserIcon onClick={() => navigate('/profile')} className="w-6 h-6 text-gray-400 cursor-pointer hover:text-pink-600 transition-colors" />
+          <UserIcon onClick={() => navigate('/profile')} className="w-6 h-6 text-gray-300 cursor-pointer hover:text-pink-600 transition-colors" />
         </div>
       </nav>
 
       <main className="flex-1 pt-16 pb-24 md:pb-0">
         <Routes>
-          <Route path="/" element={<BuyerHome shops={shops} products={products} categories={categories} addToCart={addToCart} lang={lang} user={user} onPlaceOrder={handlePlaceOrder} activeEvent={activeEvent} />} />
+          <Route path="/" element={<BuyerHome shops={shops} products={products} categories={categories} addToCart={addToCart} lang="EN" user={user} onPlaceOrder={handlePlaceOrder} activeEvent={activeEvent} />} />
           <Route path="/explore" element={<ExploreView products={products} addToCart={addToCart} onPlaceOrder={handlePlaceOrder} user={user} savedProductIds={savedProductIds} onToggleSave={toggleSaveProduct} />} />
           <Route path="/saved" element={<ExploreView products={products} addToCart={addToCart} onPlaceOrder={handlePlaceOrder} user={user} savedProductIds={savedProductIds} onToggleSave={toggleSaveProduct} isSavedOnly />} />
-          <Route path="/shops" element={<ShopsListView shops={shops} lang={lang} />} />
-          <Route path="/shop/:id" element={<ShopView shops={shops} products={products} addToCart={addToCart} lang={lang} user={user} onPlaceOrder={handlePlaceOrder} />} />
-          <Route path="/product/:id" element={<ProductView products={products} addToCart={addToCart} lang={lang} />} />
-          <Route path="/cart" element={<CartView cart={cart} removeFromCart={id => setCart(cart.filter(c => c.id !== id))} updateQuantity={(id, d) => setCart(cart.map(c => c.id === id ? {...c, quantity: Math.max(1, c.quantity+d)} : c))} lang={lang} />} />
-          <Route path="/login" element={<LoginView setUser={setUser} lang={lang} />} />
-          <Route path="/profile" element={user ? <ProfileView user={user} onLogout={() => { supabase?.auth.signOut(); setUser(null); navigate('/login'); }} lang={lang} /> : <Navigate to="/login" />} />
-          <Route path="/admin" element={user?.role === 'ADMIN' ? <AdminDashboard shops={shops} setShops={setShops} orders={orders} categories={categories} refreshData={() => { loadMarketplace(); fetchActiveEvent(); return Promise.resolve(); }} activeEvent={activeEvent} /> : <Navigate to="/" />} />
-          <Route path="/seller/*" element={user?.role === 'SELLER' ? <SellerDashboard products={products} user={user} addProduct={loadMarketplace} orders={orders} shops={shops} refreshShop={loadMarketplace} /> : <Navigate to="/login" />} />
-          <Route path="/checkout" element={<CheckoutView cart={cart} clearCart={() => setCart([])} user={user} lang={lang} onPlaceOrder={handlePlaceOrder} shops={shops} />} />
+          <Route path="/shops" element={<ShopsListView shops={shops} lang="EN" />} />
+          <Route path="/shop/:id" element={<ShopView shops={shops} products={products} addToCart={addToCart} lang="EN" user={user} onPlaceOrder={handlePlaceOrder} />} />
+          <Route path="/product/:id" element={<ProductView products={products} addToCart={addToCart} lang="EN" />} />
+          <Route path="/cart" element={<CartView cart={cart} removeFromCart={id => setCart(cart.filter(c => c.id !== id))} updateQuantity={(id, d) => setCart(cart.map(c => c.id === id ? {...c, quantity: Math.max(1, c.quantity+d)} : c))} lang="EN" />} />
+          <Route path="/login" element={<LoginView setUser={setUser} lang="EN" />} />
+          <Route path="/profile" element={user ? <ProfileView user={user} onLogout={() => { supabase?.auth.signOut(); setUser(null); navigate('/login'); }} lang="EN" /> : <Navigate to="/login" />} />
+          <Route path="/admin" element={user?.role === 'ADMIN' ? <AdminDashboard shops={shops} setShops={setShops} orders={orders} categories={categories} refreshData={loadMarketplaceData} activeEvent={activeEvent} /> : <Navigate to="/" />} />
+          <Route path="/seller/*" element={user?.role === 'SELLER' ? <SellerDashboard products={products} user={user} addProduct={loadMarketplaceData} orders={orders} shops={shops} refreshShop={loadMarketplaceData} /> : <Navigate to="/login" />} />
+          <Route path="/checkout" element={<CheckoutView cart={cart} clearCart={() => setCart([])} user={user} lang="EN" onPlaceOrder={handlePlaceOrder} shops={shops} />} />
           <Route path="/orders" element={user ? <OrdersView orders={orders} user={user} shops={shops} /> : <Navigate to="/login" />} />
         </Routes>
       </main>
 
-      <div className="fixed bottom-0 left-0 right-0 h-20 bg-white/80 backdrop-blur-xl border-t flex items-center justify-around z-50 px-2 shadow-2xl md:hidden">
+      <div className="fixed bottom-0 left-0 right-0 h-20 bg-white/90 backdrop-blur-xl border-t flex items-center justify-around z-50 px-2 shadow-2xl md:hidden">
         {navItems.map(item => (
           <button key={item.path} onClick={() => navigate(item.path)} className="flex flex-col items-center gap-1 group">
-            <div className={`p-2 rounded-2xl transition-all ${location.pathname === item.path ? 'bg-pink-600 text-white shadow-lg' : 'text-gray-400 group-hover:text-pink-600'}`}>
-              <item.icon className="w-6 h-6" />
+            <div className={`p-2.5 rounded-2xl transition-all ${location.pathname === item.path ? 'bg-pink-600 text-white shadow-lg' : 'text-gray-300'}`}>
+              <item.icon className="w-5 h-5" />
             </div>
-            <span className={`text-[8px] font-black uppercase tracking-widest ${location.pathname === item.path ? 'text-pink-600' : 'text-gray-400'}`}>{item.label}</span>
+            <span className={`text-[7px] font-black uppercase tracking-widest ${location.pathname === item.path ? 'text-pink-600' : 'text-gray-300'}`}>{item.label}</span>
           </button>
         ))}
       </div>
