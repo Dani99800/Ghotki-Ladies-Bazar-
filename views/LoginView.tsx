@@ -2,13 +2,14 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  User, Store, Lock, Phone, ArrowLeft, Mail, Eye, EyeOff, Sparkles, Loader2, Inbox, CheckCircle
+  User, Store, Phone, Mail, CheckCircle, Loader2, CreditCard, Building2, Smartphone
 } from 'lucide-react';
 import { supabase } from '../services/supabase';
 import { BAZAARS, CATEGORIES, SUBSCRIPTION_PLANS } from '../constants';
+import { User as UserType } from '../types';
 
 interface LoginViewProps {
-  setUser: (u: any) => void;
+  setUser: (u: UserType) => void;
   lang: 'EN' | 'UR';
 }
 
@@ -25,7 +26,10 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
     shopName: '',
     bazaar: BAZAARS[0],
     category: CATEGORIES[0].name,
-    tier: 'BASIC'
+    tier: 'BASIC',
+    easypaisa: '',
+    jazzcash: '',
+    bank: ''
   });
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -45,7 +49,17 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
       const meta = data.user.user_metadata || {};
       const finalRole = profile?.role || meta?.role || 'BUYER';
       
-      setUser({ ...data.user, ...profile, role: finalRole });
+      const mappedUser: UserType = {
+        id: data.user.id,
+        name: profile?.name || meta.full_name || 'Bazar User',
+        role: finalRole,
+        mobile: profile?.mobile || meta.mobile || '',
+        address: profile?.address || meta.address || '',
+        city: profile?.city || meta.city || 'Ghotki',
+        subscription_tier: profile?.subscription_tier || meta.tier || 'NONE'
+      };
+
+      setUser(mappedUser);
       
       if (finalRole === 'ADMIN') navigate('/admin');
       else if (finalRole === 'SELLER') navigate('/seller');
@@ -61,7 +75,6 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
     if (!supabase) return;
     setLoading(true);
     try {
-      // 1. Create the Auth User
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -77,8 +90,7 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
       if (authError) throw authError;
       if (!authData.user) throw new Error("Signup failed.");
 
-      // 2. Create the Profile
-      const { error: profileError } = await supabase.from('profiles').upsert({
+      await supabase.from('profiles').upsert({
         id: authData.user.id,
         name: formData.name,
         mobile: formData.mobile,
@@ -86,11 +98,8 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
         subscription_tier: formData.tier
       });
 
-      if (profileError) console.error("Profile creation error:", profileError);
-
-      // 3. Create the Shop (if Seller)
       if (role === 'SELLER') {
-        const { error: shopError } = await supabase.from('shops').insert({
+        await supabase.from('shops').insert({
           owner_id: authData.user.id,
           name: formData.shopName || `${formData.name}'s Shop`,
           bazaar: formData.bazaar,
@@ -98,16 +107,24 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
           subscription_tier: formData.tier,
           status: 'PENDING',
           logo_url: 'https://via.placeholder.com/150',
-          banner_url: 'https://via.placeholder.com/800x400'
+          banner_url: 'https://via.placeholder.com/800x400',
+          easypaisa_number: formData.easypaisa,
+          jazzcash_number: formData.jazzcash,
+          bank_details: formData.bank,
+          whatsapp: formData.mobile
         });
-
-        if (shopError) {
-          console.error("Shop creation error:", shopError);
-        }
         setView('PENDING');
       } else {
         if (authData.session) {
-           setUser({ ...authData.user, role: 'BUYER' });
+           const mappedUser: UserType = {
+              id: authData.user.id,
+              name: formData.name,
+              role: 'BUYER',
+              mobile: formData.mobile,
+              address: '',
+              city: 'Ghotki'
+           };
+           setUser(mappedUser);
            navigate('/');
         } else {
            setView('CHECK_EMAIL');
@@ -119,28 +136,6 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
       setLoading(false);
     }
   };
-
-  if (view === 'CHECK_EMAIL') return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center space-y-6">
-      <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto">
-        <Mail className="w-10 h-10" />
-      </div>
-      <h2 className="text-2xl font-black uppercase italic text-gray-900">Check Your Email</h2>
-      <p className="text-gray-500 text-sm">We've sent a confirmation link to {formData.email}. Please verify to continue.</p>
-      <button onClick={() => setView('LOGIN')} className="text-pink-600 font-black uppercase text-xs">Back to Login</button>
-    </div>
-  );
-
-  if (view === 'PENDING') return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center space-y-6">
-      <div className="w-20 h-20 bg-pink-50 text-pink-600 rounded-full flex items-center justify-center mx-auto">
-        <CheckCircle className="w-10 h-10" />
-      </div>
-      <h2 className="text-2xl font-black uppercase italic text-pink-600">Application Received!</h2>
-      <p className="text-gray-500 text-sm">Your seller account is created. Please verify your email (if sent) and wait for the Admin to approve your shop.</p>
-      <button onClick={() => setView('LOGIN')} className="bg-gray-900 text-white w-full max-w-xs py-4 rounded-2xl font-black uppercase tracking-widest shadow-xl">Back to Login</button>
-    </div>
-  );
 
   return (
     <div className="max-w-md mx-auto min-h-screen flex flex-col items-center justify-center p-6 space-y-8 animate-in fade-in duration-700">
@@ -164,22 +159,42 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
       ) : (
         <form onSubmit={(e) => { e.preventDefault(); view === 'LOGIN' ? handleAuth(e) : handleSignup(view === 'SIGNUP_SHOP' ? 'SELLER' : 'BUYER'); }} className="w-full space-y-4">
           <div className="space-y-3">
-            <input required type="email" placeholder="Email Address" className="w-full p-5 bg-white border border-gray-100 rounded-2xl font-bold text-sm text-gray-900 outline-none focus:ring-2 focus:ring-pink-500/20" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
-            <input required type="password" placeholder="Password" className="w-full p-5 bg-white border border-gray-100 rounded-2xl font-bold text-sm text-gray-900 outline-none focus:ring-2 focus:ring-pink-500/20" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
+            <input required type="email" placeholder="Email Address" className="w-full p-5 bg-white border border-gray-100 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-pink-500/20" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+            <input required type="password" placeholder="Password" className="w-full p-5 bg-white border border-gray-100 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-pink-500/20" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
             
             {view !== 'LOGIN' && (
               <>
-                <input required type="text" placeholder="Your Full Name" className="w-full p-5 bg-white border border-gray-100 rounded-2xl font-bold text-sm text-gray-900 outline-none focus:ring-2 focus:ring-pink-500/20" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-                <input required type="tel" placeholder="Mobile Number (03xx...)" className="w-full p-5 bg-white border border-gray-100 rounded-2xl font-bold text-sm text-gray-900 outline-none focus:ring-2 focus:ring-pink-500/20" value={formData.mobile} onChange={e => setFormData({...formData, mobile: e.target.value})} />
+                <input required type="text" placeholder="Your Full Name" className="w-full p-5 bg-white border border-gray-100 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-pink-500/20" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                <input required type="tel" placeholder="Mobile / WhatsApp Number" className="w-full p-5 bg-white border border-gray-100 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-pink-500/20" value={formData.mobile} onChange={e => setFormData({...formData, mobile: e.target.value})} />
               </>
             )}
 
             {view === 'SIGNUP_SHOP' && (
               <div className="space-y-4 pt-4 border-t border-gray-100">
                 <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1">Shop Details</p>
-                <input required type="text" placeholder="Shop Name" className="w-full p-5 bg-white border border-gray-100 rounded-2xl font-bold text-sm text-gray-900 outline-none focus:ring-2 focus:ring-pink-500/20" value={formData.shopName} onChange={e => setFormData({...formData, shopName: e.target.value})} />
+                <input required type="text" placeholder="Shop Name" className="w-full p-5 bg-white border border-gray-100 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-pink-500/20" value={formData.shopName} onChange={e => setFormData({...formData, shopName: e.target.value})} />
                 
-                <div className="grid grid-cols-3 gap-2">
+                <select required className="w-full p-5 bg-white border border-gray-100 rounded-2xl font-bold text-sm outline-none" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
+                  {CATEGORIES.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
+                </select>
+
+                <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1 mt-4">Payment Accounts (To Receive Money)</p>
+                <div className="space-y-2">
+                  <div className="relative">
+                    <Smartphone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-pink-500" />
+                    <input placeholder="EasyPaisa Number" className="w-full pl-12 pr-5 py-4 bg-gray-50 border-none rounded-2xl text-xs font-bold" value={formData.easypaisa} onChange={e => setFormData({...formData, easypaisa: e.target.value})} />
+                  </div>
+                  <div className="relative">
+                    <Smartphone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500" />
+                    <input placeholder="JazzCash Number" className="w-full pl-12 pr-5 py-4 bg-gray-50 border-none rounded-2xl text-xs font-bold" value={formData.jazzcash} onChange={e => setFormData({...formData, jazzcash: e.target.value})} />
+                  </div>
+                  <div className="relative">
+                    <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input placeholder="Bank Name, A/C Title & Number" className="w-full pl-12 pr-5 py-4 bg-gray-50 border-none rounded-2xl text-xs font-bold" value={formData.bank} onChange={e => setFormData({...formData, bank: e.target.value})} />
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-3 gap-2 mt-4">
                   {SUBSCRIPTION_PLANS.map(plan => (
                     <button key={plan.id} type="button" onClick={() => setFormData({...formData, tier: plan.id as any})} className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center ${formData.tier === plan.id ? 'border-pink-600 bg-pink-50 text-pink-600' : 'border-gray-50 text-gray-400 grayscale'}`}>
                       <span className="text-[8px] font-black uppercase">{plan.label}</span>

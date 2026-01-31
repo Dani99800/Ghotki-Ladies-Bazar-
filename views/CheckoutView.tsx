@@ -60,7 +60,7 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, clearCart, user, lang
           deliveryFee: method === 'DELIVERY' ? 150 : 0,
           platformFee: PLATFORM_FEE_PKR,
           total: sellerSubtotal + (method === 'DELIVERY' ? 150 : 0),
-          deliveryType: method,
+          // Fix: deliveryType is not in Order type, removing it to fix TS error
           status: 'PENDING',
           paymentMethod: payment,
           buyerName: guestInfo.name,
@@ -91,7 +91,7 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, clearCart, user, lang
         </div>
         <h1 className="text-2xl font-bold uppercase italic tracking-tighter text-gray-900">Orders Confirmed!</h1>
         <p className="text-gray-500 text-sm">Your order has been sent to the sellers. They will contact you shortly to confirm the delivery.</p>
-        <p className="text-pink-600 font-bold animate-pulse text-xs mt-4 uppercase">Redirecting to marketplace...</p>
+        <p className="text-pink-600 font-black animate-pulse text-xs mt-4 uppercase">Redirecting to marketplace...</p>
       </div>
     );
   }

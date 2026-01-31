@@ -46,12 +46,9 @@ export interface Shop {
   whatsapp?: string;
   address?: string;
   bio?: string;
-  isRegistrationPaid?: boolean;
-  registrationFee?: number;
-  payoutMethods?: string[];
-  deliveryFee?: number;
-  pickupEnabled?: boolean;
-  deliveryEnabled?: boolean;
+  easypaisa_number?: string;
+  jazzcash_number?: string;
+  bank_details?: string;
   featured?: boolean;
   sort_priority?: number; 
 }
@@ -89,6 +86,4 @@ export interface Order {
   buyerMobile: string;
   buyerAddress: string;
   createdAt: string;
-  deliveryType?: 'DELIVERY' | 'PICKUP';
-  isDeliveryPaidAdvance?: boolean;
 }

@@ -18,12 +18,8 @@ export const MOCK_SHOPS: Shop[] = [
     banner: 'https://images.unsplash.com/photo-1583391733956-6c78276477e2?auto=format&fit=crop&q=80&w=800',
     bio: 'Premium traditional wear for the modern woman of Ghotki.',
     status: 'APPROVED',
-    isRegistrationPaid: true,
-    registrationFee: 2500,
-    payoutMethods: ['EasyPaisa'],
-    deliveryFee: 150,
-    pickupEnabled: true,
-    deliveryEnabled: true,
+    // Fix: renamed isRegistrationPaid to registration_paid as per Shop type
+    registration_paid: true,
     featured: true,
   },
   {
@@ -42,12 +38,8 @@ export const MOCK_SHOPS: Shop[] = [
     banner: 'https://images.unsplash.com/photo-1441984904996-e0b6ba687e12?auto=format&fit=crop&q=80&w=800',
     bio: 'Soully East - Premium unstitched and ready-to-wear collections.',
     status: 'PENDING',
-    isRegistrationPaid: true,
-    registrationFee: 2500,
-    payoutMethods: ['Bank Transfer'],
-    deliveryFee: 100,
-    pickupEnabled: true,
-    deliveryEnabled: true,
+    // Fix: renamed isRegistrationPaid to registration_paid as per Shop type
+    registration_paid: true,
     featured: false,
   },
   {
@@ -66,12 +58,8 @@ export const MOCK_SHOPS: Shop[] = [
     banner: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&q=80&w=800',
     bio: 'Authentic handcrafted Sindhi sandals and mojris.',
     status: 'APPROVED',
-    isRegistrationPaid: true,
-    registrationFee: 2500,
-    payoutMethods: ['Bank Transfer'],
-    deliveryFee: 100,
-    pickupEnabled: true,
-    deliveryEnabled: true,
+    // Fix: renamed isRegistrationPaid to registration_paid as per Shop type
+    registration_paid: true,
     featured: true,
   }
 ];
