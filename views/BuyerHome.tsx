@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, MapPin, Sparkles, TrendingUp, LayoutGrid, Store, ChevronRight, FilterX, Clock, Star } from 'lucide-react';
+import { Search, MapPin, Sparkles, TrendingUp, LayoutGrid, Store, ChevronRight, FilterX, Clock, Star, Flame } from 'lucide-react';
 import { Shop, Product, Order, User as UserType, Category, AppEvent } from '../types';
 import { BAZAARS } from '../constants';
 import InstantCheckout from '../components/InstantCheckout';
@@ -26,6 +26,11 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
 
   const isNormalDay = activeEvent.id === 'NORMAL';
 
+  // Filter for Trending Shops
+  const trendingShops = useMemo(() => {
+    return shops.filter(s => s.featured || s.status === 'APPROVED').slice(0, 6);
+  }, [shops]);
+
   // Sort products by date for New Arrivals (Top 10)
   const newArrivals = useMemo(() => {
     return [...products].sort((a, b) => {
@@ -44,7 +49,7 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
   });
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6 space-y-8 pb-32">
+    <div className="max-w-4xl mx-auto px-4 py-6 space-y-10 pb-32">
       {/* Dynamic Hero Banner */}
       <div 
         className={`relative overflow-hidden rounded-[3rem] p-8 text-white shadow-2xl transition-all duration-700 ${isNormalDay ? 'bg-gray-900' : ''}`} 
@@ -101,7 +106,57 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
         />
       </div>
 
-      {/* New Arrivals Horizontal Scroll */}
+      {/* Categories */}
+      <section>
+        <div className="flex items-center justify-between mb-4 px-2">
+          <h2 className="font-black text-lg text-gray-900 uppercase italic tracking-tight">Categories</h2>
+          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{categories.length} Styles</span>
+        </div>
+        <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar -mx-4 px-4 snap-x">
+          {categories.map(cat => (
+            <div 
+              key={cat.id} 
+              onClick={() => setSelectedCategory(selectedCategory === cat.name ? 'All' : cat.name)} 
+              className={`flex-shrink-0 w-32 aspect-square rounded-[2rem] overflow-hidden cursor-pointer border-4 transition-all snap-start relative ${selectedCategory === cat.name ? 'border-pink-600 scale-95 shadow-xl shadow-pink-100' : 'border-transparent shadow-sm'}`}
+            >
+              <img src={cat.image_url} className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex items-end p-4">
+                <span className="text-white font-black text-[10px] uppercase tracking-tighter leading-none">{cat.name}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Trending Section */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between px-2">
+          <h2 className="font-black text-lg text-gray-900 uppercase italic tracking-tight flex items-center gap-2">
+            <Flame className="w-5 h-5 text-orange-500 fill-orange-500" /> Trending Now
+          </h2>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          {trendingShops.map(shop => (
+             <div 
+               key={shop.id} 
+               onClick={() => navigate(`/shop/${shop.id}`)}
+               className="bg-white p-4 rounded-[2.5rem] border border-gray-50 shadow-sm flex items-center gap-3 active:scale-95 transition-all cursor-pointer group"
+             >
+                <div className="relative">
+                  <img src={shop.logo} className="w-12 h-12 rounded-xl object-cover bg-gray-50 border border-gray-100" />
+                  <div className="absolute -top-1 -right-1 bg-orange-500 text-white p-0.5 rounded-full"><TrendingUp className="w-2.5 h-2.5" /></div>
+                </div>
+                <div className="flex-1 overflow-hidden">
+                   <p className="font-black text-[10px] text-gray-900 uppercase italic truncate leading-tight">{shop.name}</p>
+                   <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">{shop.bazaar}</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-gray-200 group-hover:text-pink-600 transition-colors" />
+             </div>
+          ))}
+        </div>
+      </section>
+
+      {/* New Arrivals Section */}
       {newArrivals.length > 0 && (
         <section className="space-y-4">
           <div className="flex items-center justify-between px-2">
@@ -117,15 +172,15 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
               <div 
                 key={product.id} 
                 onClick={() => navigate(`/product/${product.id}`)}
-                className="flex-shrink-0 w-40 bg-white rounded-[2rem] overflow-hidden border border-gray-50 shadow-sm snap-start group"
+                className="flex-shrink-0 w-44 bg-white rounded-[2rem] overflow-hidden border border-gray-50 shadow-sm snap-start group"
               >
                 <div className="relative aspect-[3/4] overflow-hidden">
                    <img src={product.images[0]} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                   <div className="absolute top-2 right-2 bg-pink-600 text-white text-[7px] font-black px-2 py-1 rounded-full shadow-lg">NEW</div>
+                   <div className="absolute top-3 right-3 bg-pink-600 text-white text-[8px] font-black px-2 py-1 rounded-full shadow-lg">NEW</div>
                 </div>
-                <div className="p-3 space-y-1">
-                  <h3 className="font-bold text-[10px] text-gray-900 truncate">{product.name}</h3>
-                  <p className="text-pink-600 font-black text-xs italic">PKR {product.price.toLocaleString()}</p>
+                <div className="p-4 space-y-1">
+                  <h3 className="font-black text-[11px] text-gray-900 uppercase italic truncate leading-tight">{product.name}</h3>
+                  <p className="text-pink-600 font-black text-sm italic">PKR {product.price.toLocaleString()}</p>
                 </div>
               </div>
             ))}
@@ -133,35 +188,13 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
         </section>
       )}
 
-      {/* Categories */}
-      <section>
-        <div className="flex items-center justify-between mb-4 px-2">
-          <h2 className="font-black text-lg text-gray-900 uppercase italic tracking-tight">Categories</h2>
-          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{categories.length} Styles</span>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          {categories.map(cat => (
-            <div 
-              key={cat.id} 
-              onClick={() => setSelectedCategory(selectedCategory === cat.name ? 'All' : cat.name)} 
-              className={`relative aspect-square rounded-[2rem] overflow-hidden cursor-pointer border-4 transition-all ${selectedCategory === cat.name ? 'border-pink-600 scale-95 shadow-xl shadow-pink-100' : 'border-transparent shadow-sm'}`}
-            >
-              <img src={cat.image_url} className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex items-end p-4">
-                <span className="text-white font-black text-[10px] uppercase tracking-tighter">{cat.name}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
       {/* Main Products Grid */}
       <section className="space-y-4">
         <div className="flex items-center justify-between px-2">
           <div className="flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-pink-600" />
+            <LayoutGrid className="w-5 h-5 text-pink-600" />
             <h2 className="font-black text-lg text-gray-900 uppercase italic tracking-tight">
-              {searchTerm ? 'Search Results' : 'Featured Collection'}
+              {searchTerm ? 'Search Results' : 'Full Catalog'}
             </h2>
           </div>
           {selectedCategory !== 'All' && (
@@ -199,7 +232,6 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
                     <div className="flex items-center gap-1 mt-2">
                        <Store className="w-3 h-3 text-gray-300" />
                        <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
-                         {/* Fix: changed 'p' to 'product' to correctly reference the current item in the map */}
                          {shops.find(s => s.id === product.shopId)?.name || 'Merchant'}
                        </span>
                     </div>
