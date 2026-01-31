@@ -47,12 +47,14 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
       
       const { data: profile } = await supabase.from('profiles').select('*').eq('id', data.user.id).maybeSingle();
       const meta = data.user.user_metadata || {};
+      
+      // FIX: Robust role priority
       const finalRole = profile?.role || meta?.role || 'BUYER';
       
       const mappedUser: UserType = {
         id: data.user.id,
         name: profile?.name || meta.full_name || 'Bazar User',
-        role: finalRole,
+        role: finalRole as any,
         mobile: profile?.mobile || meta.mobile || '',
         address: profile?.address || meta.address || '',
         city: profile?.city || meta.city || 'Ghotki',
@@ -113,7 +115,7 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
           bank_details: formData.bank,
           whatsapp: formData.mobile
         });
-        setView('CHECK_EMAIL'); // Always check email first for account security
+        setView('CHECK_EMAIL');
       } else {
         if (authData.session) {
            const mappedUser: UserType = {
@@ -138,21 +140,24 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
   };
 
   if (view === 'CHECK_EMAIL') return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center space-y-6">
-      <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
-        <Mail className="w-10 h-10" />
+    <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center space-y-6 bg-white">
+      <div className="w-24 h-24 bg-blue-50 text-blue-600 rounded-[2rem] flex items-center justify-center mx-auto shadow-inner">
+        <Mail className="w-12 h-12" />
       </div>
-      <div className="space-y-2">
-        <h2 className="text-2xl font-black uppercase italic tracking-tighter text-gray-900">Check Your Email</h2>
-        <p className="text-gray-500 text-sm max-w-xs mx-auto">
-          We've sent a confirmation link to <span className="text-pink-600 font-bold">{formData.email}</span>. 
-          <br /><br />
-          <span className="bg-pink-50 text-pink-700 px-3 py-1 rounded-lg font-black uppercase text-[10px]">Important:</span> 
-          <br />
-          Must check your <span className="font-black italic">Spam folder</span> in your Gmail box if you don't see it in Inbox.
-        </p>
+      <div className="space-y-4 max-w-sm mx-auto">
+        <h2 className="text-3xl font-black uppercase italic tracking-tighter text-gray-900 leading-tight">Confirm Your Email</h2>
+        <div className="space-y-3">
+          <p className="text-gray-500 text-sm font-medium">
+            We've sent a link to <span className="text-pink-600 font-bold">{formData.email}</span>. 
+          </p>
+          <div className="bg-pink-50 p-6 rounded-[2rem] border-2 border-pink-100 animate-pulse">
+            <p className="text-pink-700 font-black uppercase text-xs leading-relaxed">
+              Must check your <span className="underline italic">Spam folder</span> in your Gmail box if it's not in your Inbox!
+            </p>
+          </div>
+        </div>
       </div>
-      <button onClick={() => setView('LOGIN')} className="bg-gray-900 text-white w-full max-w-xs py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-2xl">Return to Login</button>
+      <button onClick={() => setView('LOGIN')} className="bg-gray-900 text-white w-full max-w-xs py-5 rounded-[2rem] font-black uppercase tracking-widest text-[11px] shadow-2xl">Return to Login</button>
     </div>
   );
 
@@ -165,13 +170,13 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
       
       {view === 'SIGNUP_CHOICE' ? (
         <div className="w-full space-y-4">
-          <button onClick={() => setView('SIGNUP_BUYER')} className="w-full p-8 bg-white border-2 border-gray-100 rounded-[2.5rem] font-black uppercase italic text-gray-900 shadow-sm hover:border-pink-200 transition-all flex items-center justify-between">
+          <button onClick={() => setView('SIGNUP_BUYER')} className="w-full p-8 bg-white border-2 border-gray-100 rounded-[2.5rem] font-black uppercase italic text-gray-900 shadow-sm hover:border-pink-200 transition-all flex items-center justify-between group">
             <span>I am a Buyer</span>
-            <User className="text-pink-500" />
+            <User className="text-pink-500 group-hover:scale-110 transition-transform" />
           </button>
-          <button onClick={() => setView('SIGNUP_SHOP')} className="w-full p-8 bg-gray-900 text-white rounded-[2.5rem] font-black uppercase italic shadow-2xl flex items-center justify-between">
+          <button onClick={() => setView('SIGNUP_SHOP')} className="w-full p-8 bg-gray-900 text-white rounded-[2.5rem] font-black uppercase italic shadow-2xl flex items-center justify-between group">
             <span>I am a Seller</span>
-            <Store className="text-pink-400" />
+            <Store className="text-pink-400 group-hover:scale-110 transition-transform" />
           </button>
           <button onClick={() => setView('LOGIN')} className="w-full text-center text-gray-400 font-black uppercase text-[10px] pt-4">Back to Login</button>
         </div>
@@ -184,7 +189,7 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
             {view !== 'LOGIN' && (
               <>
                 <input required type="text" placeholder="Your Full Name" className="w-full p-5 bg-white border border-gray-100 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-pink-500/20" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-                <input required type="tel" placeholder="Mobile / WhatsApp Number" className="w-full p-5 bg-white border border-gray-100 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-pink-500/20" value={formData.mobile} onChange={e => setFormData({...formData, mobile: e.target.value})} />
+                <input required type="tel" placeholder="Mobile / WhatsApp (03xx...)" className="w-full p-5 bg-white border border-gray-100 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-pink-500/20" value={formData.mobile} onChange={e => setFormData({...formData, mobile: e.target.value})} />
               </>
             )}
 
@@ -193,27 +198,8 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
                 <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1">Shop Details</p>
                 <input required type="text" placeholder="Shop Name" className="w-full p-5 bg-white border border-gray-100 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-pink-500/20" value={formData.shopName} onChange={e => setFormData({...formData, shopName: e.target.value})} />
                 
-                <select required className="w-full p-5 bg-white border border-gray-100 rounded-2xl font-bold text-sm outline-none" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
-                  {CATEGORIES.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
-                </select>
-
-                <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1 mt-4">Payment Accounts (To Receive Money)</p>
-                <div className="space-y-2">
-                  <div className="relative">
-                    <Smartphone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-pink-500" />
-                    <input placeholder="EasyPaisa Number" className="w-full pl-12 pr-5 py-4 bg-gray-50 border-none rounded-2xl text-xs font-bold" value={formData.easypaisa} onChange={e => setFormData({...formData, easypaisa: e.target.value})} />
-                  </div>
-                  <div className="relative">
-                    <Smartphone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500" />
-                    <input placeholder="JazzCash Number" className="w-full pl-12 pr-5 py-4 bg-gray-50 border-none rounded-2xl text-xs font-bold" value={formData.jazzcash} onChange={e => setFormData({...formData, jazzcash: e.target.value})} />
-                  </div>
-                  <div className="relative">
-                    <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input placeholder="Bank Name, A/C Title & Number" className="w-full pl-12 pr-5 py-4 bg-gray-50 border-none rounded-2xl text-xs font-bold" value={formData.bank} onChange={e => setFormData({...formData, bank: e.target.value})} />
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-3 gap-2 mt-4">
+                <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1 mt-4">Subscription Plan</p>
+                <div className="grid grid-cols-3 gap-2">
                   {SUBSCRIPTION_PLANS.map(plan => (
                     <button key={plan.id} type="button" onClick={() => setFormData({...formData, tier: plan.id as any})} className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center ${formData.tier === plan.id ? 'border-pink-600 bg-pink-50 text-pink-600' : 'border-gray-50 text-gray-400 grayscale'}`}>
                       <span className="text-[8px] font-black uppercase">{plan.label}</span>

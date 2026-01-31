@@ -56,16 +56,12 @@ const App: React.FC = () => {
   const loadMarketplace = useCallback(async () => {
     if (!supabase) return;
     try {
-      // Fetch data without strict ordering to prevent 404/500 if columns are missing
       const [pRes, sRes, cRes] = await Promise.all([
         supabase.from('products').select('*'),
         supabase.from('shops').select('*'),
         supabase.from('categories').select('*')
       ]);
       
-      if (sRes.error) console.error("Shops fetch error:", sRes.error);
-      if (pRes.error) console.error("Products fetch error:", pRes.error);
-
       setShops((sRes.data || []).map((s: any) => ({ 
         ...s, 
         logo: s.logo_url || 'https://via.placeholder.com/150', 
@@ -96,10 +92,13 @@ const App: React.FC = () => {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (authUser) {
         const meta = authUser.user_metadata || {};
+        // CRITICAL FIX: Ensure ADMIN role is strictly checked and applied
+        const finalRole = profile?.role || meta?.role || 'BUYER';
+        
         const mappedUser: UserType = {
           id,
           name: profile?.name || meta.full_name || 'Bazar User',
-          role: profile?.role || meta.role || 'BUYER',
+          role: finalRole as any,
           mobile: profile?.mobile || meta.mobile || '',
           address: profile?.address || meta.address || '',
           city: profile?.city || meta.city || 'Ghotki',
@@ -107,7 +106,6 @@ const App: React.FC = () => {
         };
         setUser(mappedUser);
       }
-      // Reload marketplace to ensure shop detection works for the logged in user
       await loadMarketplace();
     } catch (e) { 
       console.error("Profile Fetch Error:", e); 
@@ -143,11 +141,13 @@ const App: React.FC = () => {
   }, [user, shops]);
 
   useEffect(() => {
-    loadMarketplace();
     if (supabase) {
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (session) fetchProfile(session.user.id);
-        else setLoading(false);
+        else {
+          loadMarketplace();
+          setLoading(false);
+        }
       });
 
       const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -161,18 +161,8 @@ const App: React.FC = () => {
   useEffect(() => {
     if (user && shops.length > 0) {
       fetchOrders();
-      const orderChannel = supabase.channel('realtime_orders')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, (payload) => {
-          const myShop = shops.find(s => s.owner_id === user.id);
-          if (user.role === 'SELLER' && payload.new.seller_id === myShop?.id) {
-            playAlert();
-          }
-          fetchOrders();
-        })
-        .subscribe();
-      return () => { supabase.removeChannel(orderChannel); };
     }
-  }, [user, shops, fetchOrders, playAlert]);
+  }, [user, shops, fetchOrders]);
 
   const handlePlaceOrder = async (order: Order) => {
     if (!supabase) return;

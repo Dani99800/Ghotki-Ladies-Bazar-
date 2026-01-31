@@ -184,6 +184,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
     }
   };
 
+  // 1. Loading State
   if (!myShop && !isDataChecked) {
     return (
       <div className="h-screen flex flex-col items-center justify-center space-y-6 bg-white p-10 text-center">
@@ -197,49 +198,51 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
     );
   }
 
-  // PENDING APPROVAL SCREEN
+  // 2. Pending Approval State
   if (myShop && myShop.status === 'PENDING') {
     return (
-      <div className="h-screen flex flex-col items-center justify-center space-y-8 bg-white p-10 text-center animate-in fade-in duration-500">
+      <div className="h-screen flex flex-col items-center justify-center space-y-8 bg-white p-10 text-center animate-in fade-in duration-700">
         <div className="w-32 h-32 bg-pink-50 rounded-[2.5rem] flex items-center justify-center text-pink-600 shadow-inner relative overflow-hidden">
            <Clock className="w-16 h-16 animate-pulse" />
            <div className="absolute top-0 right-0 p-3 bg-pink-100/50 rounded-bl-3xl">
               <ShieldCheck className="w-5 h-5" />
            </div>
         </div>
-        <div className="space-y-3">
-          <h2 className="text-3xl font-black uppercase italic text-gray-900 tracking-tighter leading-tight">Application Under Review</h2>
-          <p className="text-gray-400 text-sm font-bold uppercase tracking-widest max-w-xs mx-auto">
-            Your shop "<span className="text-pink-600 italic">{myShop.name}</span>" has been registered and is currently being verified by our administration team.
+        <div className="space-y-4 max-w-sm">
+          <h2 className="text-3xl font-black uppercase italic text-gray-900 tracking-tighter leading-tight">Store Under Review</h2>
+          <p className="text-gray-400 text-sm font-bold uppercase tracking-widest leading-relaxed">
+            Your shop "<span className="text-pink-600 italic">{myShop.name}</span>" is currently being verified by our administration team.
           </p>
         </div>
-        <div className="bg-gray-50 p-6 rounded-[2rem] border border-gray-100 w-full max-w-xs space-y-4">
+        <div className="bg-gray-50 p-6 rounded-[2rem] border-2 border-dashed border-gray-100 w-full max-w-xs space-y-4">
            <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
               <span>Status</span>
-              <span className="text-pink-600 animate-pulse">Pending Approval</span>
+              <span className="text-pink-600 animate-pulse">Pending Review</span>
            </div>
-           <p className="text-[9px] text-gray-400 italic">You will get full dashboard access once approved. Usually takes 12-24 hours.</p>
+           <p className="text-[9px] text-gray-400 italic font-medium">You will unlock full dashboard access and the mobile marketplace listing once approved.</p>
         </div>
-        <button onClick={refreshShop} className="px-10 py-5 bg-pink-600 text-white font-black rounded-3xl uppercase tracking-widest text-[11px] shadow-2xl flex items-center gap-3 transition-transform active:scale-95">
+        <button onClick={refreshShop} className="px-10 py-5 bg-pink-600 text-white font-black rounded-[2rem] uppercase tracking-widest text-[11px] shadow-2xl flex items-center gap-3 transition-transform active:scale-95">
           <RefreshCw className="w-5 h-5" /> Refresh Status
         </button>
       </div>
     );
   }
 
+  // 3. Shop Not Found State
   if (!myShop && isDataChecked) {
     return (
       <div className="h-screen flex flex-col items-center justify-center space-y-8 bg-white p-10 text-center animate-in fade-in duration-500">
         <AlertCircle className="w-12 h-12 text-pink-500" />
-        <h2 className="text-2xl font-black uppercase italic text-gray-900">Shop Not Found</h2>
+        <h2 className="text-2xl font-black uppercase italic text-gray-900">Account Not Activated</h2>
+        <p className="text-gray-400 text-xs font-black uppercase tracking-widest">We couldn't find a linked shop for this account.</p>
         <button onClick={refreshShop} className="px-10 py-5 bg-pink-600 text-white font-black rounded-3xl uppercase tracking-widest text-[11px] shadow-2xl flex items-center gap-3"><RefreshCw className="w-5 h-5" /> Retry Sync</button>
       </div>
     );
   }
 
+  // 4. Main Dashboard (Approved)
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6 pb-32 animate-in fade-in duration-500">
-      {/* Header Banner Section - Instant Click to Upload */}
       <div className="relative h-48 rounded-[3rem] overflow-hidden shadow-2xl group/banner cursor-pointer">
         {uploadingBanner && (
           <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-sm">
@@ -274,7 +277,6 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
                 </div>
               </label>
               <img src={myShop?.logo} className="w-20 h-20 rounded-3xl border-4 border-white object-cover bg-white shadow-xl transition-transform group-hover/logo:scale-110" />
-              {myShop?.featured && <div className="absolute -top-2 -right-2 bg-yellow-400 p-1.5 rounded-xl shadow-lg border-2 border-white"><Sparkles className="w-3 h-3 text-white" /></div>}
            </div>
            <div className="text-white drop-shadow-md">
               <h2 className="text-2xl font-black italic uppercase tracking-tighter leading-none">{myShop?.name}</h2>
@@ -324,12 +326,12 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
                 </div>
                 <div className="relative">
                   <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input placeholder="Bank Account Details (Bank, Title, A/C Number)" className="w-full pl-12 pr-5 py-4 bg-gray-50 rounded-2xl font-bold text-sm" value={settingsForm.bank} onChange={e => setSettingsForm({...settingsForm, bank: e.target.value})} />
+                  <input placeholder="Bank Details" className="w-full pl-12 pr-5 py-4 bg-gray-50 rounded-2xl font-bold text-sm" value={settingsForm.bank} onChange={e => setSettingsForm({...settingsForm, bank: e.target.value})} />
                 </div>
               </div>
 
-              <button disabled={loading} className="w-full py-5 bg-pink-600 text-white font-black rounded-[2rem] uppercase tracking-widest text-[11px] shadow-2xl flex items-center justify-center gap-3">
-                {loading ? <Loader2 className="animate-spin" /> : <><Save className="w-5 h-5" /> Save Store Changes</>}
+              <button disabled={loading} className="w-full py-5 bg-pink-600 text-white font-black rounded-[2rem] uppercase tracking-widest text-[11px] shadow-2xl flex items-center justify-center gap-3 transition-all active:scale-95">
+                {loading ? <Loader2 className="animate-spin" /> : <><Save className="w-5 h-5" /> Save Changes</>}
               </button>
             </form>
           </div>
@@ -364,26 +366,24 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
       {activeTab === 'Inventory' && (
         <div className="space-y-4 animate-in slide-in-from-bottom-4">
           <div className="flex justify-between items-center px-4">
-             <h3 className="font-black uppercase text-sm tracking-tighter text-gray-900 leading-none">Your Inventory</h3>
-             <button onClick={() => { setEditingProduct(null); setShowModal(true); }} className="bg-pink-600 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl flex items-center gap-2"><PlusCircle className="w-4 h-4" /> New Item</button>
+             <h3 className="font-black uppercase text-sm tracking-tighter text-gray-900 leading-none">Inventory</h3>
+             <button onClick={() => { setEditingProduct(null); setShowModal(true); }} className="bg-pink-600 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl flex items-center gap-2 transition-transform active:scale-95"><PlusCircle className="w-4 h-4" /> New Item</button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {myProducts.length === 0 ? (
                <div className="col-span-full py-32 bg-white rounded-[3rem] text-center border border-dashed border-gray-200">
                   <ImageIcon className="w-16 h-16 text-gray-100 mx-auto" />
+                  <p className="text-gray-300 font-black uppercase text-[10px] mt-2">No products listed</p>
                </div>
             ) : myProducts.map(p => (
               <div key={p.id} className="bg-white p-5 rounded-[2.5rem] border flex items-center gap-5 shadow-sm">
-                <div className="relative">
-                  <img src={p.images?.[0]} className="w-20 h-20 rounded-[1.5rem] object-cover bg-gray-50" />
-                  {p.videoUrl && <PlayCircle className="absolute bottom-1 right-1 w-4 h-4 text-white fill-pink-600" />}
-                </div>
+                <img src={p.images?.[0]} className="w-20 h-20 rounded-[1.5rem] object-cover bg-gray-50" />
                 <div className="flex-1">
                   <h4 className="font-black text-sm uppercase truncate italic text-gray-900">{p.name}</h4>
                   <p className="text-pink-600 font-black text-base italic">PKR {p.price.toLocaleString()}</p>
                 </div>
                 <div className="flex flex-col gap-2">
-                  <button onClick={() => { setEditingProduct(p); setProductForm({ ...productForm, name: p.name, price: p.price.toString(), category: p.category, description: p.description, existingImageUrls: p.images, videoUrl: p.videoUrl || '', videoFile: null }); setShowModal(true); }} className="p-2.5 text-gray-300 hover:text-pink-600 hover:bg-pink-50 rounded-xl transition-all"><Edit3 className="w-4 h-4" /></button>
+                  <button onClick={() => { setEditingProduct(p); setShowModal(true); }} className="p-2.5 text-gray-300 hover:text-pink-600 hover:bg-pink-50 rounded-xl transition-all"><Edit3 className="w-4 h-4" /></button>
                   <button onClick={() => { if(confirm("Delete item?")) supabase?.from('products').delete().eq('id', p.id).then(() => addProduct()); }} className="p-2.5 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"><Trash2 className="w-4 h-4" /></button>
                 </div>
               </div>
@@ -396,25 +396,15 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-end md:items-center justify-center p-4">
           <div className="bg-white w-full max-w-xl rounded-[3rem] p-8 space-y-8 animate-in slide-in-from-bottom-8 shadow-2xl relative">
              <button onClick={() => setShowModal(false)} className="absolute top-6 right-6 p-3 bg-gray-50 rounded-full"><X className="w-5 h-5 text-gray-400" /></button>
-             <h2 className="text-2xl font-black italic uppercase tracking-tighter text-gray-900">{editingProduct ? 'Edit Item' : 'List New Item'}</h2>
-
+             <h2 className="text-2xl font-black italic uppercase tracking-tighter text-gray-900">{editingProduct ? 'Edit Item' : 'New Item'}</h2>
              <form onSubmit={handleSubmitProduct} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <input required placeholder="Product Name" className="w-full p-4 bg-gray-50 rounded-2xl font-bold border-none outline-none" value={productForm.name} onChange={e => setProductForm({...productForm, name: e.target.value})} />
                   <input required type="number" placeholder="Price (PKR)" className="w-full p-4 bg-gray-50 rounded-2xl font-bold border-none outline-none" value={productForm.price} onChange={e => setProductForm({...productForm, price: e.target.value})} />
                 </div>
                 <textarea required placeholder="Description" className="w-full p-4 bg-gray-50 rounded-2xl font-bold h-24 border-none outline-none resize-none" value={productForm.description} onChange={e => setProductForm({...productForm, description: e.target.value})} />
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   <select className="w-full p-4 bg-gray-50 rounded-2xl font-bold outline-none" value={productForm.category} onChange={e => setProductForm({...productForm, category: e.target.value})}>
-                      {CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                   </select>
-                   <label className="w-full p-4 bg-pink-50 text-pink-600 rounded-2xl font-black text-[10px] uppercase flex items-center justify-center gap-2 cursor-pointer">
-                      <Camera className="w-4 h-4" /> Photos
-                      <input type="file" multiple className="hidden" accept="image/*" onChange={e => e.target.files && setProductForm({...productForm, images: Array.from(e.target.files)})} />
-                   </label>
-                </div>
-                <button disabled={loading} className="w-full py-5 bg-pink-600 text-white font-black rounded-3xl uppercase tracking-widest text-[11px] shadow-2xl active:scale-95 transition-all">
-                   {loading ? <Loader2 className="animate-spin" /> : <><Sparkles className="w-5 h-5" /> {editingProduct ? 'Update Product' : 'List Product'}</>}
+                <button disabled={loading} className="w-full py-5 bg-pink-600 text-white font-black rounded-[2rem] uppercase tracking-widest text-[11px] shadow-2xl transition-all active:scale-95">
+                   {loading ? <Loader2 className="animate-spin" /> : <><Sparkles className="w-5 h-5" /> {editingProduct ? 'Update Item' : 'Post Item'}</>}
                 </button>
              </form>
           </div>
