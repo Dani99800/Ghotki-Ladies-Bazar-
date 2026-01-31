@@ -59,8 +59,10 @@ const App: React.FC = () => {
       if (sRes.error) console.error("Shops Fetch Error:", sRes.error);
       if (pRes.error) console.error("Products Fetch Error:", pRes.error);
 
+      // Map shops with safety for property casing
       const mappedShops = (sRes.data || []).map((s: any) => ({ 
         ...s, 
+        owner_id: s.owner_id || s.ownerId,
         logo: s.logo_url || s.logo || 'https://via.placeholder.com/150', 
         banner: s.banner_url || s.banner || 'https://via.placeholder.com/800x400' 
       }));
@@ -69,7 +71,6 @@ const App: React.FC = () => {
       const mappedProducts = (pRes.data || []).map((p: any) => ({ 
         ...p, 
         shopId: p.shop_id || p.shopId, 
-        // Handle both image_url (string) and image_urls (array)
         images: Array.isArray(p.image_urls) ? p.image_urls : (p.image_url ? [p.image_url] : (p.images || [])),
         videoUrl: p.video_url || p.videoUrl,
         createdAt: p.created_at || p.createdAt,

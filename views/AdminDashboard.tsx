@@ -106,7 +106,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div className="bg-white p-8 rounded-[3rem] border border-gray-100 shadow-sm space-y-8 animate-in slide-in-from-bottom-4">
           <div className="flex items-center justify-between px-2">
             <h2 className="font-black text-sm uppercase tracking-widest flex items-center gap-3 text-gray-900">
-              <Store className="w-5 h-5 text-pink-500" /> Active Merchants
+              <Store className="w-5 h-5 text-pink-500" /> Merchant Queue
             </h2>
             <button 
               onClick={() => refreshData?.()} 
@@ -125,8 +125,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             ) : sortedShops.map(shop => (
               <div key={shop.id} className={`p-6 rounded-[2.5rem] border transition-all flex flex-col gap-6 relative overflow-hidden group ${shop.status === 'PENDING' ? 'bg-pink-50/50 border-pink-100 shadow-inner' : 'bg-gray-50/50 border-gray-100 shadow-sm'}`}>
                 {shop.status === 'PENDING' && (
-                  <div className="absolute top-0 right-0 p-3 bg-pink-600 text-white text-[7px] font-black uppercase tracking-widest rounded-bl-3xl flex items-center gap-1.5 animate-pulse z-10">
-                    <Clock className="w-2.5 h-2.5" /> New Registration
+                  <div className="absolute top-0 right-0 p-3 bg-pink-600 text-white text-[7px] font-black uppercase tracking-widest rounded-bl-3xl flex items-center gap-1.5 animate-pulse z-10 shadow-lg">
+                    <Clock className="w-2.5 h-2.5" /> NEEDS APPROVAL
                   </div>
                 )}
                 
@@ -137,7 +137,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         {shop.featured && <div className="absolute -top-2 -right-2 bg-yellow-400 p-1.5 rounded-xl border-2 border-white shadow-md"><Flame className="w-3 h-3 text-white fill-white" /></div>}
                       </div>
                       <div>
-                          <p className="font-black text-lg text-gray-900 leading-tight mb-1">{shop.name}</p>
+                          <p className="font-black text-lg text-gray-900 leading-tight mb-1 italic uppercase tracking-tight">{shop.name}</p>
                           <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.2em]">{shop.category} • {shop.bazaar}</p>
                           <div className="flex items-center gap-3 mt-3">
                             <span className={`text-[8px] font-black px-3 py-1 rounded-full uppercase tracking-widest ${shop.status === 'APPROVED' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{shop.status}</span>
