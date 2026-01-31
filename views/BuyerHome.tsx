@@ -26,9 +26,12 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
 
   const isNormalDay = activeEvent.id === 'NORMAL';
 
-  // Filter for Trending Shops
+  // Filter for Trending Shops based on priority and featured status
   const trendingShops = useMemo(() => {
-    return shops.filter(s => s.featured || s.status === 'APPROVED').slice(0, 6);
+    return [...shops]
+      .filter(s => s.status === 'APPROVED' && (s.featured || (s.sort_priority || 0) > 0))
+      .sort((a, b) => (b.sort_priority || 0) - (a.sort_priority || 0))
+      .slice(0, 6);
   }, [shops]);
 
   // Sort products by date for New Arrivals (Top 10)
@@ -78,17 +81,6 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
            <p className="text-sm font-bold uppercase tracking-widest pt-2 opacity-80">
              {isNormalDay ? 'Discover the best local fashion from Ghotki' : activeEvent.bannerText}
            </p>
-           
-           {isNormalDay && (
-             <div className="flex items-center gap-4 pt-4">
-               <div className="flex -space-x-3">
-                 {shops.slice(0, 4).map((s, i) => (
-                   <img key={i} src={s.logo} className="w-8 h-8 rounded-full border-2 border-gray-900 object-cover" />
-                 ))}
-               </div>
-               <p className="text-[10px] font-black uppercase tracking-widest text-white/60">{shops.length}+ Verified Merchants</p>
-             </div>
-           )}
         </div>
       </div>
 
@@ -106,7 +98,7 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
         />
       </div>
 
-      {/* Categories */}
+      {/* Categories block */}
       <section>
         <div className="flex items-center justify-between mb-4 px-2">
           <h2 className="font-black text-lg text-gray-900 uppercase italic tracking-tight">Categories</h2>
@@ -129,32 +121,34 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
       </section>
 
       {/* Trending Section */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between px-2">
-          <h2 className="font-black text-lg text-gray-900 uppercase italic tracking-tight flex items-center gap-2">
-            <Flame className="w-5 h-5 text-orange-500 fill-orange-500" /> Trending Now
-          </h2>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          {trendingShops.map(shop => (
-             <div 
-               key={shop.id} 
-               onClick={() => navigate(`/shop/${shop.id}`)}
-               className="bg-white p-4 rounded-[2.5rem] border border-gray-50 shadow-sm flex items-center gap-3 active:scale-95 transition-all cursor-pointer group"
-             >
-                <div className="relative">
-                  <img src={shop.logo} className="w-12 h-12 rounded-xl object-cover bg-gray-50 border border-gray-100" />
-                  <div className="absolute -top-1 -right-1 bg-orange-500 text-white p-0.5 rounded-full"><TrendingUp className="w-2.5 h-2.5" /></div>
-                </div>
-                <div className="flex-1 overflow-hidden">
-                   <p className="font-black text-[10px] text-gray-900 uppercase italic truncate leading-tight">{shop.name}</p>
-                   <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">{shop.bazaar}</p>
-                </div>
-                <ChevronRight className="w-4 h-4 text-gray-200 group-hover:text-pink-600 transition-colors" />
-             </div>
-          ))}
-        </div>
-      </section>
+      {trendingShops.length > 0 && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between px-2">
+            <h2 className="font-black text-lg text-gray-900 uppercase italic tracking-tight flex items-center gap-2">
+              <Flame className="w-5 h-5 text-orange-500 fill-orange-500" /> Trending Now
+            </h2>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {trendingShops.map(shop => (
+              <div 
+                key={shop.id} 
+                onClick={() => navigate(`/shop/${shop.id}`)}
+                className="bg-white p-4 rounded-[2.5rem] border border-gray-50 shadow-sm flex items-center gap-3 active:scale-95 transition-all cursor-pointer group"
+              >
+                  <div className="relative">
+                    <img src={shop.logo} className="w-12 h-12 rounded-xl object-cover bg-gray-50 border border-gray-100" />
+                    <div className="absolute -top-1 -right-1 bg-orange-500 text-white p-0.5 rounded-full shadow-sm"><TrendingUp className="w-2.5 h-2.5" /></div>
+                  </div>
+                  <div className="flex-1 overflow-hidden">
+                    <p className="font-black text-[10px] text-gray-900 uppercase italic truncate leading-tight">{shop.name}</p>
+                    <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">{shop.bazaar}</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-gray-200 group-hover:text-pink-600 transition-colors" />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* New Arrivals Section */}
       {newArrivals.length > 0 && (
@@ -175,8 +169,8 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
                 className="flex-shrink-0 w-44 bg-white rounded-[2rem] overflow-hidden border border-gray-50 shadow-sm snap-start group"
               >
                 <div className="relative aspect-[3/4] overflow-hidden">
-                   <img src={product.images[0]} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                   <div className="absolute top-3 right-3 bg-pink-600 text-white text-[8px] font-black px-2 py-1 rounded-full shadow-lg">NEW</div>
+                  <img src={product.images[0]} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                  <div className="absolute top-3 right-3 bg-pink-600 text-white text-[8px] font-black px-2 py-1 rounded-full shadow-lg">NEW</div>
                 </div>
                 <div className="p-4 space-y-1">
                   <h3 className="font-black text-[11px] text-gray-900 uppercase italic truncate leading-tight">{product.name}</h3>

@@ -49,7 +49,7 @@ const App: React.FC = () => {
   const loadMarketplace = useCallback(async () => {
     if (!supabase) return;
     try {
-      console.log("Fetching Marketplace Data...");
+      console.log("Fetching Marketplace Data from Supabase...");
       const [pRes, sRes, cRes] = await Promise.all([
         supabase.from('products').select('*'),
         supabase.from('shops').select('*'),
@@ -61,24 +61,25 @@ const App: React.FC = () => {
 
       const mappedShops = (sRes.data || []).map((s: any) => ({ 
         ...s, 
-        logo: s.logo_url || 'https://via.placeholder.com/150', 
-        banner: s.banner_url || 'https://via.placeholder.com/800x400' 
+        logo: s.logo_url || s.logo || 'https://via.placeholder.com/150', 
+        banner: s.banner_url || s.banner || 'https://via.placeholder.com/800x400' 
       }));
       setShops(mappedShops);
       
       const mappedProducts = (pRes.data || []).map((p: any) => ({ 
         ...p, 
-        shopId: p.shop_id, 
-        // Resilient mapping for image columns
-        images: Array.isArray(p.image_urls) ? p.image_urls : (p.image_url ? [p.image_url] : []),
-        videoUrl: p.video_url,
-        createdAt: p.created_at,
+        shopId: p.shop_id || p.shopId, 
+        // Handle both image_url (string) and image_urls (array)
+        images: Array.isArray(p.image_urls) ? p.image_urls : (p.image_url ? [p.image_url] : (p.images || [])),
+        videoUrl: p.video_url || p.videoUrl,
+        createdAt: p.created_at || p.createdAt,
         tags: p.tags || []
       })).sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-      setProducts(mappedProducts);
       
+      setProducts(mappedProducts);
       setCategories(cRes.data && cRes.data.length > 0 ? cRes.data : FALLBACK_CATEGORIES);
-      console.log(`Loaded ${mappedShops.length} shops and ${mappedProducts.length} products.`);
+      
+      console.log(`Sync Complete: ${mappedShops.length} shops, ${mappedProducts.length} products found.`);
     } catch (err) { 
       console.error("Critical Marketplace Fetch Error:", err); 
     }
@@ -92,7 +93,6 @@ const App: React.FC = () => {
       
       if (authUser) {
         const meta = authUser.user_metadata || {};
-        // CRITICAL: Database role takes absolute precedence
         const finalRole = profile?.role || meta?.role || 'BUYER';
         
         setUser({
@@ -115,7 +115,6 @@ const App: React.FC = () => {
       setLoading(true);
       try {
         if (!supabase) {
-          console.error("Supabase not initialized");
           setLoading(false);
           return;
         }
