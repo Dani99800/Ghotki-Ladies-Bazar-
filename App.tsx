@@ -27,7 +27,6 @@ const App: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [lang, setLang] = useState<'EN' | 'UR'>('EN');
   const [loading, setLoading] = useState(true);
   const [activeEvent, setActiveEvent] = useState<AppEvent>(PK_EVENTS[0]);
   
@@ -56,24 +55,26 @@ const App: React.FC = () => {
         supabase.from('categories').select('*')
       ]);
       
-      setShops((sRes.data || []).map((s: any) => ({ 
+      const mappedShops = (sRes.data || []).map((s: any) => ({ 
         ...s, 
         logo: s.logo_url || 'https://via.placeholder.com/150', 
         banner: s.banner_url || 'https://via.placeholder.com/800x400' 
-      })));
+      }));
+      setShops(mappedShops);
       
-      setProducts((pRes.data || []).map((p: any) => ({ 
+      const mappedProducts = (pRes.data || []).map((p: any) => ({ 
         ...p, 
         shopId: p.shop_id, 
         images: p.image_urls || [],
         videoUrl: p.video_url,
         createdAt: p.created_at,
         tags: p.tags || []
-      })).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()));
+      })).sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      setProducts(mappedProducts);
       
       setCategories(cRes.data && cRes.data.length > 0 ? cRes.data : FALLBACK_CATEGORIES);
     } catch (err) { 
-      console.error("Marketplace Load Error:", err); 
+      console.error("Critical Marketplace Fetch Error:", err); 
     }
   }, []);
 
@@ -85,12 +86,13 @@ const App: React.FC = () => {
       
       if (authUser) {
         const meta = authUser.user_metadata || {};
+        // CRITICAL: Database role takes absolute precedence for Admin access
         const finalRole = profile?.role || meta?.role || 'BUYER';
         
         setUser({
           id,
           name: profile?.name || meta.full_name || 'Bazar User',
-          role: finalRole as UserType['role'],
+          role: finalRole as any,
           mobile: profile?.mobile || meta.mobile || '',
           address: profile?.address || meta.address || '',
           city: profile?.city || meta.city || 'Ghotki',
@@ -99,26 +101,26 @@ const App: React.FC = () => {
       }
     } catch (e) { 
       console.error("Profile Fetch Error:", e); 
-    } finally {
-      // Ensure loading is stopped even if profile fetch fails
-      setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     const init = async () => {
+      setLoading(true);
       try {
         if (!supabase) {
           setLoading(false);
           return;
         }
+        
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
           await fetchProfile(session.user.id);
         }
+        
         await loadMarketplace();
       } catch (e) {
-        console.error("App Init Error:", e);
+        console.error("App Initialization Sequence Failed:", e);
       } finally {
         setLoading(false);
       }
@@ -202,20 +204,23 @@ const App: React.FC = () => {
   ];
 
   if (loading) return (
-    <div className="h-screen w-full flex flex-col items-center justify-center bg-white space-y-4">
+    <div className="h-screen w-full flex flex-col items-center justify-center bg-white space-y-6">
       <div className="relative">
         <div className="w-16 h-16 border-4 border-pink-50 border-t-pink-600 rounded-full animate-spin"></div>
         <ShoppingBag className="absolute inset-0 m-auto w-6 h-6 text-pink-600" />
       </div>
-      <p className="font-black uppercase tracking-widest text-[10px] text-gray-400">Loading Ghotki Bazar...</p>
+      <div className="text-center space-y-1">
+        <p className="font-black uppercase tracking-widest text-[11px] text-gray-900 italic">GLB BAZAR</p>
+        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Digitizing Ghotki Legacy</p>
+      </div>
     </div>
   );
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col" style={{ '--primary-event': activeEvent.primaryColor, '--accent-event': activeEvent.accentColor } as React.CSSProperties}>
-      <nav className={`fixed top-0 left-0 right-0 h-16 bg-white/80 backdrop-blur-xl border-b flex items-center justify-between px-6 z-50 shadow-sm`}>
+      <nav className="fixed top-0 left-0 right-0 h-16 bg-white/80 backdrop-blur-xl border-b flex items-center justify-between px-6 z-50 shadow-sm">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-lg transition-colors duration-500" style={{ background: activeEvent.primaryColor }}>
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-lg" style={{ background: activeEvent.primaryColor }}>
             <ShoppingBag className="w-5 h-5" />
           </div>
           <h1 className="text-gray-900 font-black text-xl italic uppercase tracking-tighter">GLB BAZAR</h1>
@@ -228,17 +233,17 @@ const App: React.FC = () => {
 
       <main className="flex-1 pt-16 pb-24 md:pb-0">
         <Routes>
-          <Route path="/" element={<BuyerHome shops={shops} products={products} categories={categories} addToCart={addToCart} lang={lang} user={user} onPlaceOrder={handlePlaceOrder} activeEvent={activeEvent} />} />
+          <Route path="/" element={<BuyerHome shops={shops} products={products} categories={categories} addToCart={addToCart} lang="EN" user={user} onPlaceOrder={handlePlaceOrder} activeEvent={activeEvent} />} />
           <Route path="/explore" element={<ExploreView products={products} addToCart={addToCart} onPlaceOrder={handlePlaceOrder} user={user} savedProductIds={[]} onToggleSave={() => {}} />} />
-          <Route path="/shops" element={<ShopsListView shops={shops} lang={lang} />} />
-          <Route path="/shop/:id" element={<ShopView shops={shops} products={products} addToCart={addToCart} lang={lang} user={user} onPlaceOrder={handlePlaceOrder} />} />
-          <Route path="/product/:id" element={<ProductView products={products} addToCart={addToCart} lang={lang} />} />
-          <Route path="/cart" element={<CartView cart={cart} removeFromCart={id => setCart(cart.filter(c => c.id !== id))} updateQuantity={(id, d) => setCart(cart.map(c => c.id === id ? {...c, quantity: Math.max(1, c.quantity+d)} : c))} lang={lang} />} />
-          <Route path="/login" element={<LoginView setUser={setUser} lang={lang} />} />
-          <Route path="/profile" element={user ? <ProfileView user={user} onLogout={() => { supabase?.auth.signOut(); setUser(null); navigate('/login'); }} lang={lang} /> : <Navigate to="/login" />} />
+          <Route path="/shops" element={<ShopsListView shops={shops} lang="EN" />} />
+          <Route path="/shop/:id" element={<ShopView shops={shops} products={products} addToCart={addToCart} lang="EN" user={user} onPlaceOrder={handlePlaceOrder} />} />
+          <Route path="/product/:id" element={<ProductView products={products} addToCart={addToCart} lang="EN" />} />
+          <Route path="/cart" element={<CartView cart={cart} removeFromCart={id => setCart(cart.filter(c => c.id !== id))} updateQuantity={(id, d) => setCart(cart.map(c => c.id === id ? {...c, quantity: Math.max(1, c.quantity+d)} : c))} lang="EN" />} />
+          <Route path="/login" element={<LoginView setUser={setUser} lang="EN" />} />
+          <Route path="/profile" element={user ? <ProfileView user={user} onLogout={() => { supabase?.auth.signOut(); setUser(null); navigate('/login'); }} lang="EN" /> : <Navigate to="/login" />} />
           <Route path="/admin" element={user?.role === 'ADMIN' ? <AdminDashboard shops={shops} setShops={setShops} orders={orders} refreshData={loadMarketplace} categories={categories} activeEvent={activeEvent} onUpdateEvent={handleUpdateEvent} /> : <Navigate to="/" />} />
           <Route path="/seller/*" element={user?.role === 'SELLER' ? <SellerDashboard products={products} user={user} addProduct={loadMarketplace} orders={orders} shops={shops} refreshShop={loadMarketplace} /> : <Navigate to="/login" />} />
-          <Route path="/checkout" element={<CheckoutView cart={cart} clearCart={() => setCart([])} user={user} lang={lang} onPlaceOrder={handlePlaceOrder} shops={shops} />} />
+          <Route path="/checkout" element={<CheckoutView cart={cart} clearCart={() => setCart([])} user={user} lang="EN" onPlaceOrder={handlePlaceOrder} shops={shops} />} />
           <Route path="/orders" element={user ? <OrdersView orders={orders} user={user} shops={shops} /> : <Navigate to="/login" />} />
         </Routes>
       </main>

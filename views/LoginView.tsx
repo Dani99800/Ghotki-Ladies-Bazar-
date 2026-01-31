@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  User, Store, Phone, Mail, CheckCircle, Loader2, CreditCard, Building2, Smartphone
+  User, Store, Phone, Mail, CheckCircle, Loader2
 } from 'lucide-react';
 import { supabase } from '../services/supabase';
 import { BAZAARS, CATEGORIES, SUBSCRIPTION_PLANS } from '../constants';
@@ -26,10 +26,7 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
     shopName: '',
     bazaar: BAZAARS[0],
     category: CATEGORIES[0].name,
-    tier: 'BASIC',
-    easypaisa: '',
-    jazzcash: '',
-    bank: ''
+    tier: 'BASIC'
   });
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -45,7 +42,7 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
       if (error) throw error;
       if (!data.user) throw new Error("User not found.");
       
-      // CRITICAL: Fetch database profile to confirm role (ADMIN/SELLER/BUYER)
+      // CRITICAL: Force fetch from profiles to ensure we have the absolute latest role (especially for ADMIN)
       const { data: profile } = await supabase.from('profiles').select('*').eq('id', data.user.id).maybeSingle();
       const meta = data.user.user_metadata || {};
       const finalRole = profile?.role || meta?.role || 'BUYER';
@@ -53,7 +50,7 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
       const mappedUser: UserType = {
         id: data.user.id,
         name: profile?.name || meta.full_name || 'Bazar User',
-        role: finalRole as UserType['role'],
+        role: finalRole as any,
         mobile: profile?.mobile || meta.mobile || '',
         address: profile?.address || meta.address || '',
         city: profile?.city || meta.city || 'Ghotki',
@@ -108,11 +105,7 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
           subscription_tier: formData.tier,
           status: 'PENDING',
           logo_url: 'https://via.placeholder.com/150',
-          banner_url: 'https://via.placeholder.com/800x400',
-          easypaisa_number: formData.easypaisa,
-          jazzcash_number: formData.jazzcash,
-          bank_details: formData.bank,
-          whatsapp: formData.mobile
+          banner_url: 'https://via.placeholder.com/800x400'
         });
       }
       setView('CHECK_EMAIL');
@@ -132,11 +125,11 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
         <h2 className="text-3xl font-black uppercase italic tracking-tighter text-gray-900 leading-tight">Confirm Your Email</h2>
         <div className="space-y-3">
           <p className="text-gray-500 text-sm font-medium">
-            We've sent a verification link to <span className="text-pink-600 font-bold">{formData.email}</span>. 
+            We've sent a link to <span className="text-pink-600 font-bold">{formData.email}</span>. 
           </p>
           <div className="bg-pink-50 p-6 rounded-[2rem] border-2 border-pink-100 animate-pulse">
-            <p className="text-pink-700 font-black uppercase text-xs leading-relaxed">
-              MUST CHECK YOUR <span className="underline italic">SPAM FOLDER</span> IN YOUR GMAIL BOX IF YOU DON'T SEE IT IN INBOX!
+            <p className="text-pink-700 font-black uppercase text-[10px] leading-relaxed tracking-wider">
+              Must check your <span className="underline italic">Spam folder</span> in your Gmail box if you don't see it in Inbox!
             </p>
           </div>
         </div>
@@ -173,7 +166,7 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
             {view !== 'LOGIN' && (
               <>
                 <input required type="text" placeholder="Your Full Name" className="w-full p-5 bg-white border border-gray-100 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-pink-500/20" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-                <input required type="tel" placeholder="Mobile Number" className="w-full p-5 bg-white border border-gray-100 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-pink-500/20" value={formData.mobile} onChange={e => setFormData({...formData, mobile: e.target.value})} />
+                <input required type="tel" placeholder="Mobile Number (03xx...)" className="w-full p-5 bg-white border border-gray-100 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-pink-500/20" value={formData.mobile} onChange={e => setFormData({...formData, mobile: e.target.value})} />
               </>
             )}
 
