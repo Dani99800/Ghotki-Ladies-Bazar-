@@ -68,7 +68,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  // Sort: Pending first, then by priority descending
+  // Sort: Pending always comes first to catch Admin's attention
   const sortedShops = [...shops].sort((a, b) => {
     if (a.status === 'PENDING' && b.status !== 'PENDING') return -1;
     if (a.status !== 'PENDING' && b.status === 'PENDING') return 1;
@@ -108,14 +108,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <h2 className="font-black text-sm uppercase tracking-widest flex items-center gap-3 text-gray-900">
               <Store className="w-5 h-5 text-pink-500" /> Active Merchants
             </h2>
-            <button onClick={() => refreshData?.()} className="p-2 bg-gray-50 rounded-xl hover:bg-gray-100 transition-all active:rotate-180">
-               <RefreshCw className="w-4 h-4 text-gray-400" />
+            <button 
+              onClick={() => refreshData?.()} 
+              className="p-3 bg-gray-50 rounded-2xl hover:bg-gray-100 transition-all active:scale-90"
+              title="Refresh Data"
+            >
+               <RefreshCw className="w-5 h-5 text-gray-400" />
             </button>
           </div>
           
           <div className="space-y-6">
-            {sortedShops.map(shop => (
-              <div key={shop.id} className={`p-6 rounded-[2.5rem] border transition-all flex flex-col gap-6 relative overflow-hidden group ${shop.status === 'PENDING' ? 'bg-pink-50/30 border-pink-200 shadow-inner' : 'bg-gray-50/50 border-gray-100 shadow-sm'}`}>
+            {sortedShops.length === 0 ? (
+              <div className="py-20 text-center border-4 border-dashed border-gray-50 rounded-[3rem]">
+                <p className="text-gray-300 font-black uppercase tracking-widest text-xs">No merchants found</p>
+              </div>
+            ) : sortedShops.map(shop => (
+              <div key={shop.id} className={`p-6 rounded-[2.5rem] border transition-all flex flex-col gap-6 relative overflow-hidden group ${shop.status === 'PENDING' ? 'bg-pink-50/50 border-pink-100 shadow-inner' : 'bg-gray-50/50 border-gray-100 shadow-sm'}`}>
                 {shop.status === 'PENDING' && (
                   <div className="absolute top-0 right-0 p-3 bg-pink-600 text-white text-[7px] font-black uppercase tracking-widest rounded-bl-3xl flex items-center gap-1.5 animate-pulse z-10">
                     <Clock className="w-2.5 h-2.5" /> New Registration
@@ -166,7 +174,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div className="bg-white p-8 rounded-[3rem] border border-gray-100 shadow-sm space-y-10 animate-in slide-in-from-bottom-4">
           <div className="flex items-center justify-between">
             <h2 className="font-black text-sm uppercase tracking-widest flex items-center gap-3 text-gray-900">
-              <LayoutGrid className="w-5 h-5 text-pink-500" /> Global Categories
+              <LayoutGrid className="w-5 h-5 text-pink-500" /> Catalog Categories
             </h2>
             <button className="bg-gray-900 text-white px-8 py-4 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-2xl active:scale-95 transition-all">
                <Plus className="w-4 h-4" /> New Category
