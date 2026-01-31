@@ -44,7 +44,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
   const myShop = shops.find(s => s.owner_id === user.id || (s as any).ownerId === user.id);
   
   const [settingsForm, setSettingsForm] = useState({
-    name: user.name || '',
+    name: '',
     email: user.email || '',
     mobile: user.mobile || '',
     whatsapp: '',
@@ -67,9 +67,9 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
   useEffect(() => {
     if (myShop) {
       setSettingsForm({
-        name: user.name || myShop.name || '',
+        name: myShop.name || user.name || '',
         email: user.email || '',
-        mobile: user.mobile || myShop.mobile || myShop.whatsapp || '', 
+        mobile: myShop.mobile || user.mobile || '', 
         whatsapp: myShop.whatsapp || '',
         logo: myShop.logo || '', 
         banner: myShop.banner || '',
@@ -78,7 +78,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         bank: myShop.bank_details || ''
       });
     }
-  }, [myShop?.id, user.id]);
+  }, [myShop?.id, user.id, user.name, user.email, user.mobile]);
 
   const handleFileUpload = async (file: File, bucket: string = 'marketplace') => {
     if (!supabase) return null;
@@ -202,8 +202,9 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
       }).eq('id', user.id);
       if (profileError) throw profileError;
 
-      // 3. Update Shop Details (Payouts + WhatsApp)
+      // 3. Update Shop Details (Synchronize name + Payouts + WhatsApp)
       const { error: shopError } = await supabase.from('shops').update({
+        name: settingsForm.name, // Ensure shop name is updated
         easypaisa_number: settingsForm.easypaisa,
         jazzcash_number: settingsForm.jazzcash,
         bank_details: settingsForm.bank,
@@ -402,8 +403,8 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
            <form className="space-y-6" onSubmit={e => { e.preventDefault(); handleSaveSettings(); }}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                  <div className="space-y-2">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-2"><UserIcon className="w-3 h-3" /> Full Name</p>
-                    <input required placeholder="Your Name" className="w-full p-5 bg-gray-50 rounded-2xl font-bold border-none outline-none focus:ring-4 focus:ring-pink-500/10" value={settingsForm.name} onChange={e => setSettingsForm({...settingsForm, name: e.target.value})} />
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-2"><UserIcon className="w-3 h-3" /> Display Name</p>
+                    <input required placeholder="Merchant Name" className="w-full p-5 bg-gray-50 rounded-2xl font-bold border-none outline-none focus:ring-4 focus:ring-pink-500/10" value={settingsForm.name} onChange={e => setSettingsForm({...settingsForm, name: e.target.value})} />
                  </div>
                  <div className="space-y-2">
                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-2"><Mail className="w-3 h-3" /> Email Address</p>

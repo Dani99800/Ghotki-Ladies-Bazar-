@@ -52,6 +52,7 @@ export interface Shop {
   bank_details?: string;
   featured?: boolean;
   sort_priority?: number; 
+  is_top_seller?: boolean;
 }
 
 export interface Product {

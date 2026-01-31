@@ -29,8 +29,8 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
   // Filter for Trending Shops based on priority and featured status
   const trendingShops = useMemo(() => {
     return [...shops]
-      .filter(s => s.status === 'APPROVED' && (s.featured || (s.sort_priority || 0) > 0))
-      .sort((a, b) => (b.sort_priority || 0) - (a.sort_priority || 0))
+      .filter(s => s.status === 'APPROVED' && (s.featured || (Number(s.sort_priority) || 0) > 0))
+      .sort((a, b) => (Number(b.sort_priority) || 0) - (Number(a.sort_priority) || 0))
       .slice(0, 6);
   }, [shops]);
 
