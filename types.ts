@@ -5,6 +5,7 @@ export type SubscriptionTier = 'BASIC' | 'STANDARD' | 'PREMIUM' | 'NONE';
 export interface User {
   id: string;
   name: string;
+  email?: string;
   mobile: string;
   role: UserRole;
   subscription_tier?: SubscriptionTier;

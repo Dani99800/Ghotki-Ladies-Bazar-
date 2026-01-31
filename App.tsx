@@ -59,7 +59,6 @@ const App: React.FC = () => {
       if (sRes.error) console.error("Shops Fetch Error:", sRes.error);
       if (pRes.error) console.error("Products Fetch Error:", pRes.error);
 
-      // Map shops with safety for property casing and preferring _url suffix columns
       const mappedShops = (sRes.data || []).map((s: any) => ({ 
         ...s, 
         owner_id: s.owner_id || s.ownerId,
@@ -70,7 +69,8 @@ const App: React.FC = () => {
       
       const mappedProducts = (pRes.data || []).map((p: any) => ({ 
         ...p, 
-        shopId: p.shop_id || p.shopId, 
+        id: p.id.toString(),
+        shopId: (p.shop_id || p.shopId).toString(), 
         images: Array.isArray(p.image_urls) ? p.image_urls : (p.image_url ? [p.image_url] : (p.images || [])),
         videoUrl: p.video_url || p.videoUrl,
         createdAt: p.created_at || p.createdAt,
@@ -99,6 +99,7 @@ const App: React.FC = () => {
         setUser({
           id,
           name: profile?.name || meta.full_name || 'Bazar User',
+          email: authUser.email,
           role: finalRole as any,
           mobile: profile?.mobile || meta.mobile || '',
           address: profile?.address || meta.address || '',
@@ -232,13 +233,28 @@ const App: React.FC = () => {
           </div>
           <h1 className="text-gray-900 font-black text-xl italic uppercase tracking-tighter">GLB BAZAR</h1>
         </div>
+
+        {/* Desktop Navigation */}
+        <div className="hidden md:flex items-center gap-8">
+          {navItems.map(item => (
+            <button 
+              key={item.path} 
+              onClick={() => navigate(item.path)} 
+              className={`flex items-center gap-2 font-black uppercase text-[10px] tracking-widest transition-all ${location.pathname === item.path ? 'text-pink-600' : 'text-gray-400 hover:text-gray-900'}`}
+            >
+              <item.icon className="w-4 h-4" />
+              {item.label}
+            </button>
+          ))}
+        </div>
+
         <div className="flex items-center gap-4">
           {user?.role === 'ADMIN' && <ShieldAlert onClick={() => navigate('/admin')} className="w-5 h-5 text-orange-500 cursor-pointer animate-pulse" />}
           <UserIcon onClick={() => navigate('/profile')} className="w-6 h-6 text-gray-400 cursor-pointer hover:text-pink-600 transition-colors" />
         </div>
       </nav>
 
-      <main className="flex-1 pt-16 pb-24 md:pb-0">
+      <main className="flex-1 pt-16 pb-24 md:pb-10">
         <Routes>
           <Route path="/" element={<BuyerHome shops={shops} products={products} categories={categories} addToCart={addToCart} lang="EN" user={user} onPlaceOrder={handlePlaceOrder} activeEvent={activeEvent} />} />
           <Route path="/explore" element={<ExploreView products={products} addToCart={addToCart} onPlaceOrder={handlePlaceOrder} user={user} savedProductIds={[]} onToggleSave={() => {}} />} />
@@ -255,6 +271,7 @@ const App: React.FC = () => {
         </Routes>
       </main>
 
+      {/* Mobile Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 h-20 bg-white/80 backdrop-blur-xl border-t flex items-center justify-around z-50 px-2 shadow-2xl md:hidden">
         {navItems.map(item => (
           <button key={item.path} onClick={() => navigate(item.path)} className="flex flex-col items-center gap-1 group">

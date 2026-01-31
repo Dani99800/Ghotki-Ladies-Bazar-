@@ -5,11 +5,11 @@ import {
   Loader2, Settings, Camera, PlayCircle, Trash2, 
   Package, Check, MessageCircle, Edit3, Save, UploadCloud, BellRing,
   Lock, Film, Sparkles, AlertCircle, Phone, RefreshCw, Store, CreditCard, Building2, Smartphone, ShieldCheck, Clock, Plus,
-  ChevronRight, DollarSign, Tag, FileText
+  ChevronRight, DollarSign, Tag, FileText, Mail, User as UserIcon
 } from 'lucide-react';
 import { Product, Order, User as UserType, Shop } from '../types';
 import { CATEGORIES, BAZAARS } from '../constants';
-import { supabase, uploadFile } from '../services/supabase';
+import { supabase } from '../services/supabase';
 
 interface SellerDashboardProps {
   products: Product[];
@@ -44,9 +44,15 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
   const myShop = shops.find(s => s.owner_id === user.id || (s as any).ownerId === user.id);
   
   const [settingsForm, setSettingsForm] = useState({
-    name: '', bio: '', mobile: '', whatsapp: '',
-    logo: '', banner: '',
-    easypaisa: '', jazzcash: '', bank: ''
+    name: user.name || '',
+    email: user.email || '',
+    mobile: user.mobile || '',
+    whatsapp: '',
+    logo: '', 
+    banner: '',
+    easypaisa: '', 
+    jazzcash: '', 
+    bank: ''
   });
 
   const [setupForm, setSetupForm] = useState({
@@ -61,9 +67,9 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
   useEffect(() => {
     if (myShop) {
       setSettingsForm({
-        name: myShop.name || '', 
-        bio: myShop.bio || '',
-        mobile: myShop.mobile || myShop.whatsapp || '', 
+        name: user.name || myShop.name || '',
+        email: user.email || '',
+        mobile: user.mobile || myShop.mobile || myShop.whatsapp || '', 
         whatsapp: myShop.whatsapp || '',
         logo: myShop.logo || '', 
         banner: myShop.banner || '',
@@ -72,7 +78,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         bank: myShop.bank_details || ''
       });
     }
-  }, [myShop?.id]);
+  }, [myShop?.id, user.id]);
 
   const handleFileUpload = async (file: File, bucket: string = 'marketplace') => {
     if (!supabase) return null;
@@ -105,10 +111,8 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
       const { error } = await supabase.from('shops').update({ logo_url: url }).eq('id', myShop.id);
       if (!error) {
         setSettingsForm(prev => ({ ...prev, logo: url }));
-        alert("Logo updated successfully!");
+        alert("Logo updated!");
         refreshShop();
-      } else {
-        alert("Database update failed: " + error.message);
       }
     }
     setUploadingMedia(false);
@@ -123,10 +127,8 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
       const { error } = await supabase.from('shops').update({ banner_url: url }).eq('id', myShop.id);
       if (!error) {
         setSettingsForm(prev => ({ ...prev, banner: url }));
-        alert("Banner updated successfully!");
+        alert("Banner updated!");
         refreshShop();
-      } else {
-        alert("Database update failed: " + error.message);
       }
     }
     setUploadingMedia(false);
@@ -150,7 +152,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
 
       if (error) throw error;
       
-      addProduct(); // Refresh global products
+      addProduct(); 
       setShowModal(false);
       setProductForm({ name: '', price: '', category: CATEGORIES[0].name, description: '', images: [], videoUrl: '' });
       alert("Product listed successfully!");
@@ -187,9 +189,21 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
     if (!myShop) return;
     setLoading(true);
     try {
-      const { error } = await supabase.from('shops').update({
+      // 1. Update Auth Email if changed
+      if (settingsForm.email !== user.email) {
+        const { error: authError } = await supabase.auth.updateUser({ email: settingsForm.email });
+        if (authError) throw authError;
+      }
+
+      // 2. Update Profile Name and Mobile
+      const { error: profileError } = await supabase.from('profiles').update({
         name: settingsForm.name,
-        bio: settingsForm.bio,
+        mobile: settingsForm.mobile
+      }).eq('id', user.id);
+      if (profileError) throw profileError;
+
+      // 3. Update Shop Details (Payouts + WhatsApp)
+      const { error: shopError } = await supabase.from('shops').update({
         easypaisa_number: settingsForm.easypaisa,
         jazzcash_number: settingsForm.jazzcash,
         bank_details: settingsForm.bank,
@@ -197,9 +211,10 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         mobile: settingsForm.mobile
       }).eq('id', myShop.id);
       
-      if (error) throw error;
+      if (shopError) throw shopError;
+      
       refreshShop();
-      alert("Settings updated!");
+      alert("All settings saved successfully!");
     } catch (err: any) {
       alert("Save failed: " + err.message);
     } finally {
@@ -289,7 +304,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
     <div className="max-w-4xl mx-auto p-4 space-y-6 pb-32 animate-in fade-in duration-500">
       {/* Header Banner */}
       <div className="relative h-64 rounded-[3rem] overflow-hidden shadow-2xl group/banner border-4 border-white">
-        <img src={settingsForm.banner} className="w-full h-full object-cover transition-transform group-hover/banner:scale-105 duration-700" />
+        <img src={settingsForm.banner} className="w-full h-full object-cover transition-transform group-hover/banner:scale-105 duration-700" alt="Banner" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
         <div className="absolute top-4 right-4 z-10">
            <button onClick={() => bannerInputRef.current?.click()} className="p-3 bg-white/20 backdrop-blur-md text-white rounded-full hover:bg-white/40 transition-all">
@@ -299,7 +314,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         </div>
         <div className="absolute bottom-8 left-8 flex items-center gap-6">
            <div className="relative group/logo">
-             <img src={settingsForm.logo} className="w-24 h-24 rounded-3xl border-4 border-white object-cover bg-white shadow-xl" />
+             <img src={settingsForm.logo} className="w-24 h-24 rounded-3xl border-4 border-white object-cover bg-white shadow-xl" alt="Logo" />
              <button onClick={() => logoInputRef.current?.click()} className="absolute inset-0 bg-black/40 opacity-0 group-hover/logo:opacity-100 transition-opacity rounded-3xl flex items-center justify-center text-white">
                {uploadingMedia ? <Loader2 className="w-6 h-6 animate-spin" /> : <Camera className="w-6 h-6" />}
              </button>
@@ -332,7 +347,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {myProducts.map(p => (
               <div key={p.id} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 flex items-center gap-5 shadow-sm hover:shadow-xl transition-all">
-                <img src={p.images?.[0]} className="w-16 h-16 rounded-2xl object-cover bg-gray-50 shadow-inner" />
+                <img src={p.images?.[0]} className="w-16 h-16 rounded-2xl object-cover bg-gray-50 shadow-inner" alt={p.name} />
                 <div className="flex-1 overflow-hidden">
                   <h4 className="font-black text-xs uppercase truncate italic text-gray-900">{p.name}</h4>
                   <p className="text-pink-600 font-black text-sm italic">PKR {p.price.toLocaleString()}</p>
@@ -385,23 +400,48 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
       {activeTab === 'Settings' && (
          <div className="bg-white p-8 rounded-[3rem] border border-gray-100 shadow-sm space-y-8 animate-in slide-in-from-bottom-4">
            <form className="space-y-6" onSubmit={e => { e.preventDefault(); handleSaveSettings(); }}>
-              <div className="space-y-2">
-                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Store Information</p>
-                 <input placeholder="Store Name" className="w-full p-5 bg-gray-50 rounded-2xl font-bold border-none outline-none focus:ring-4 focus:ring-pink-500/10" value={settingsForm.name} onChange={e => setSettingsForm({...settingsForm, name: e.target.value})} />
-                 <textarea placeholder="Store Bio" className="w-full p-5 bg-gray-50 rounded-2xl font-bold border-none outline-none focus:ring-4 focus:ring-pink-500/10 h-32 resize-none" value={settingsForm.bio} onChange={e => setSettingsForm({...settingsForm, bio: e.target.value})} />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                  <div className="space-y-2">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Payment: EasyPaisa</p>
-                    <input placeholder="EasyPaisa Number" className="w-full p-5 bg-gray-50 rounded-2xl font-bold border-none outline-none" value={settingsForm.easypaisa} onChange={e => setSettingsForm({...settingsForm, easypaisa: e.target.value})} />
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-2"><UserIcon className="w-3 h-3" /> Full Name</p>
+                    <input required placeholder="Your Name" className="w-full p-5 bg-gray-50 rounded-2xl font-bold border-none outline-none focus:ring-4 focus:ring-pink-500/10" value={settingsForm.name} onChange={e => setSettingsForm({...settingsForm, name: e.target.value})} />
                  </div>
                  <div className="space-y-2">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Payment: JazzCash</p>
-                    <input placeholder="JazzCash Number" className="w-full p-5 bg-gray-50 rounded-2xl font-bold border-none outline-none" value={settingsForm.jazzcash} onChange={e => setSettingsForm({...settingsForm, jazzcash: e.target.value})} />
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-2"><Mail className="w-3 h-3" /> Email Address</p>
+                    <input required type="email" placeholder="Email" className="w-full p-5 bg-gray-50 rounded-2xl font-bold border-none outline-none focus:ring-4 focus:ring-pink-500/10" value={settingsForm.email} onChange={e => setSettingsForm({...settingsForm, email: e.target.value})} />
                  </div>
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <div className="space-y-2">
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-2"><Smartphone className="w-3 h-3" /> WhatsApp Number</p>
+                    <input required placeholder="923xx..." className="w-full p-5 bg-gray-50 rounded-2xl font-bold border-none outline-none focus:ring-4 focus:ring-pink-500/10" value={settingsForm.whatsapp} onChange={e => setSettingsForm({...settingsForm, whatsapp: e.target.value})} />
+                 </div>
+                 <div className="space-y-2">
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-2"><Phone className="w-3 h-3" /> Mobile Number</p>
+                    <input required placeholder="03xx..." className="w-full p-5 bg-gray-50 rounded-2xl font-bold border-none outline-none focus:ring-4 focus:ring-pink-500/10" value={settingsForm.mobile} onChange={e => setSettingsForm({...settingsForm, mobile: e.target.value})} />
+                 </div>
+              </div>
+
+              <div className="space-y-4 pt-4 border-t border-gray-50">
+                <p className="text-[11px] font-black text-gray-900 uppercase tracking-[0.2em] italic">Payout Accounts</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                   <div className="space-y-2">
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-2"><Smartphone className="w-3 h-3 text-pink-600" /> EasyPaisa</p>
+                      <input placeholder="EasyPaisa Number" className="w-full p-5 bg-gray-50 rounded-2xl font-bold border-none outline-none focus:ring-4 focus:ring-pink-500/10" value={settingsForm.easypaisa} onChange={e => setSettingsForm({...settingsForm, easypaisa: e.target.value})} />
+                   </div>
+                   <div className="space-y-2">
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-2"><Smartphone className="w-3 h-3 text-blue-600" /> JazzCash</p>
+                      <input placeholder="JazzCash Number" className="w-full p-5 bg-gray-50 rounded-2xl font-bold border-none outline-none focus:ring-4 focus:ring-pink-500/10" value={settingsForm.jazzcash} onChange={e => setSettingsForm({...settingsForm, jazzcash: e.target.value})} />
+                   </div>
+                </div>
+                <div className="space-y-2">
+                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-2"><Building2 className="w-3 h-3" /> Bank Account Details</p>
+                   <textarea placeholder="Bank Name, IBAN, Account Title" className="w-full p-5 bg-gray-50 rounded-2xl font-bold border-none outline-none focus:ring-4 focus:ring-pink-500/10 h-24 resize-none" value={settingsForm.bank} onChange={e => setSettingsForm({...settingsForm, bank: e.target.value})} />
+                </div>
+              </div>
+
               <button disabled={loading} className="w-full py-5 bg-pink-600 text-white font-black rounded-3xl uppercase tracking-widest text-[11px] shadow-2xl active:scale-95 transition-all">
-                {loading ? <Loader2 className="animate-spin mx-auto" /> : 'Save Store Changes'}
+                {loading ? <Loader2 className="animate-spin mx-auto" /> : 'Update Account & Store'}
               </button>
            </form>
          </div>
@@ -455,7 +495,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
 
                        {productForm.images.map((url, i) => (
                           <div key={i} className="relative flex-shrink-0 w-24 h-24 rounded-3xl overflow-hidden shadow-sm">
-                             <img src={url} className="w-full h-full object-cover" />
+                             <img src={url} className="w-full h-full object-cover" alt="Product" />
                              <button type="button" onClick={() => setProductForm(p => ({ ...p, images: p.images.filter((_, idx) => idx !== i) }))} className="absolute top-1 right-1 p-1 bg-black/50 text-white rounded-full"><X className="w-3 h-3" /></button>
                           </div>
                        ))}
