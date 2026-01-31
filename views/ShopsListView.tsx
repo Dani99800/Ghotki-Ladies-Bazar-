@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, MapPin, Star, ChevronRight, Sparkles, AlertCircle, ShoppingBag } from 'lucide-react';
+import { Search, MapPin, Star, ChevronRight, AlertCircle, ShoppingBag } from 'lucide-react';
 import { Shop } from '../types';
 
 interface ShopsListViewProps {
@@ -74,7 +74,7 @@ const ShopsListView: React.FC<ShopsListViewProps> = ({ shops, lang }) => {
                 <div className="relative flex-shrink-0">
                   <img src={shop.logo} className="w-20 h-20 rounded-[1.8rem] object-cover border-2 border-gray-50 group-hover:scale-105 transition-transform bg-white shadow-inner" alt={shop.name} />
                   <div className="absolute -bottom-2 -right-2 bg-gray-900 text-white w-8 h-8 rounded-full flex items-center justify-center font-black text-[10px] border-2 border-white shadow-lg">
-                    {index + 1}
+                    #{index + 1}
                   </div>
                 </div>
 
