@@ -17,10 +17,9 @@ const ShopsListView: React.FC<ShopsListViewProps> = ({ shops, lang }) => {
 
   const filtered = shops
     .filter(s => {
-      // Robust status check: handle mixed case, spaces, or missing values
+      // STRICT FILTERING: Only show shops that are explicitly APPROVED by an admin
       const status = s.status?.toString().trim().toUpperCase();
-      const isVisible = status === 'APPROVED' || status === 'PENDING' || !status || status === '';
-      const isBlocked = status === 'REJECTED' || status === 'SUSPENDED';
+      const isApproved = status === 'APPROVED';
       
       const shopName = s.name || '';
       const shopCategory = s.category || '';
@@ -28,7 +27,7 @@ const ShopsListView: React.FC<ShopsListViewProps> = ({ shops, lang }) => {
       const matchesSearch = shopName.toLowerCase().includes(searchTerm.toLowerCase()) || 
                            shopCategory.toLowerCase().includes(searchTerm.toLowerCase());
                            
-      return isVisible && !isBlocked && matchesSearch;
+      return isApproved && matchesSearch;
     })
     .sort((a, b) => {
       // 1. Sort by Admin Priority (Higher first)
@@ -63,8 +62,8 @@ const ShopsListView: React.FC<ShopsListViewProps> = ({ shops, lang }) => {
         <div className="py-20 text-center space-y-4 bg-white rounded-[3rem] border border-dashed border-gray-200">
            <AlertCircle className="w-12 h-12 text-gray-200 mx-auto" />
            <div className="space-y-1">
-             <p className="font-black uppercase text-xs text-gray-400">No matching shops found</p>
-             <p className="text-[10px] text-gray-300 font-bold px-10">Try searching for a different name or category.</p>
+             <p className="font-black uppercase text-xs text-gray-400">No approved shops found</p>
+             <p className="text-[10px] text-gray-300 font-bold px-10">Only verified and approved merchants are displayed here.</p>
            </div>
         </div>
       ) : (

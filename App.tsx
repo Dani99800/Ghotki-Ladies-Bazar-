@@ -59,7 +59,7 @@ const App: React.FC = () => {
       if (sRes.error) console.error("Shops Fetch Error:", sRes.error);
       if (pRes.error) console.error("Products Fetch Error:", pRes.error);
 
-      // Map shops with safety for property casing
+      // Map shops with safety for property casing and preferring _url suffix columns
       const mappedShops = (sRes.data || []).map((s: any) => ({ 
         ...s, 
         owner_id: s.owner_id || s.ownerId,
