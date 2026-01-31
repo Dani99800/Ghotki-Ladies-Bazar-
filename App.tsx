@@ -49,12 +49,16 @@ const App: React.FC = () => {
   const loadMarketplace = useCallback(async () => {
     if (!supabase) return;
     try {
+      console.log("Fetching Marketplace Data...");
       const [pRes, sRes, cRes] = await Promise.all([
         supabase.from('products').select('*'),
         supabase.from('shops').select('*'),
         supabase.from('categories').select('*')
       ]);
       
+      if (sRes.error) console.error("Shops Fetch Error:", sRes.error);
+      if (pRes.error) console.error("Products Fetch Error:", pRes.error);
+
       const mappedShops = (sRes.data || []).map((s: any) => ({ 
         ...s, 
         logo: s.logo_url || 'https://via.placeholder.com/150', 
@@ -65,7 +69,8 @@ const App: React.FC = () => {
       const mappedProducts = (pRes.data || []).map((p: any) => ({ 
         ...p, 
         shopId: p.shop_id, 
-        images: p.image_urls || [],
+        // Resilient mapping for image columns
+        images: Array.isArray(p.image_urls) ? p.image_urls : (p.image_url ? [p.image_url] : []),
         videoUrl: p.video_url,
         createdAt: p.created_at,
         tags: p.tags || []
@@ -73,6 +78,7 @@ const App: React.FC = () => {
       setProducts(mappedProducts);
       
       setCategories(cRes.data && cRes.data.length > 0 ? cRes.data : FALLBACK_CATEGORIES);
+      console.log(`Loaded ${mappedShops.length} shops and ${mappedProducts.length} products.`);
     } catch (err) { 
       console.error("Critical Marketplace Fetch Error:", err); 
     }
@@ -86,7 +92,7 @@ const App: React.FC = () => {
       
       if (authUser) {
         const meta = authUser.user_metadata || {};
-        // CRITICAL: Database role takes absolute precedence for Admin access
+        // CRITICAL: Database role takes absolute precedence
         const finalRole = profile?.role || meta?.role || 'BUYER';
         
         setUser({
@@ -109,6 +115,7 @@ const App: React.FC = () => {
       setLoading(true);
       try {
         if (!supabase) {
+          console.error("Supabase not initialized");
           setLoading(false);
           return;
         }
@@ -120,7 +127,7 @@ const App: React.FC = () => {
         
         await loadMarketplace();
       } catch (e) {
-        console.error("App Initialization Sequence Failed:", e);
+        console.error("App Initialization Failed:", e);
       } finally {
         setLoading(false);
       }
