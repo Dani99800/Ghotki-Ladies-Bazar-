@@ -1,39 +1,22 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.48.1';
 
-/**
- * Supabase Configuration
- * Checks environment variables injected by Vite
- */
-const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://fiubihnroqvwaaeglcnd.supabase.co';
-const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_P7Yj4EYFqtFuyXjyyU_RUg_gzCWbkhA';
+import { createClient } from '@supabase/supabase-js';
 
-// Initialize the Supabase client
-export const supabase = (
-  supabaseUrl && 
-  supabaseUrl !== 'YOUR_PROJECT_URL_HERE' && 
-  supabaseAnonKey && 
-  supabaseAnonKey !== 'YOUR_ANON_KEY_HERE'
-) ? createClient(supabaseUrl, supabaseAnonKey) : null;
+// Using provided credentials directly to ensure connection
+const supabaseUrl = 'https://fiubihnroqvwaaeglcnd.supabase.co';
+const supabaseAnonKey = 'sb_publishable_P7Yj4EYFqtFuyXjyyU_RUg_gzCWbkhA';
 
-/**
- * Utility function to upload files to Supabase Storage
- */
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error("SUPABASE CONFIG ERROR: Missing URL or Anon Key.");
+}
+
+// Create the Supabase client
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
 export const uploadFile = async (bucket: string, path: string, file: File) => {
-  if (!supabase) {
-    console.error("Supabase not initialized.");
-    throw new Error("Supabase connection missing.");
-  }
-
-  // Ensure the bucket exists manually in the dashboard or via SQL
-  const { data, error } = await supabase.storage.from(bucket).upload(path, file, {
-    cacheControl: '3600',
-    upsert: true
-  });
+  if (!supabase) throw new Error("Database connection not established.");
   
-  if (error) {
-    console.error("Storage Upload Error:", error);
-    throw error;
-  }
+  const { data, error } = await supabase.storage.from(bucket).upload(path, file, { upsert: true });
+  if (error) throw error;
   
   const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(data.path);
   return publicUrl;

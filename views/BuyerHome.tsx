@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, MapPin, Sparkles, TrendingUp, LayoutGrid, ShoppingCart, FilterX, Store, ChevronRight, Gift } from 'lucide-react';
+import { Search, MapPin, Sparkles, TrendingUp, LayoutGrid, Store, ChevronRight, FilterX, Clock, Star } from 'lucide-react';
 import { Shop, Product, Order, User as UserType, Category, AppEvent } from '../types';
 import { BAZAARS } from '../constants';
 import InstantCheckout from '../components/InstantCheckout';
@@ -14,174 +14,199 @@ interface BuyerHomeProps {
   lang: 'EN' | 'UR';
   user?: UserType | null;
   onPlaceOrder?: (o: Order) => void;
-  activeEvent?: AppEvent;
+  activeEvent: AppEvent;
 }
 
-const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories, addToCart, lang, user, onPlaceOrder, activeEvent }) => {
+const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [], addToCart, lang, user, onPlaceOrder, activeEvent }) => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBazaar, setSelectedBazaar] = useState<string>('All');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [checkoutProduct, setCheckoutProduct] = useState<Product | null>(null);
 
-  const filteredShops = searchTerm.length > 0 
-    ? shops.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()))
-    : [];
+  const isNormalDay = activeEvent.id === 'NORMAL';
+
+  // Sort products by date for New Arrivals (Top 10)
+  const newArrivals = useMemo(() => {
+    return [...products].sort((a, b) => {
+      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return dateB - dateA;
+    }).slice(0, 10);
+  }, [products]);
 
   const filteredProducts = products.filter(p => {
     const shop = shops.find(s => s.id === p.shopId);
     const bazaarMatch = selectedBazaar === 'All' || (shop && shop.bazaar === selectedBazaar);
     const categoryMatch = selectedCategory === 'All' || p.category === selectedCategory;
-    const searchMatch = searchTerm === '' || 
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      p.description.toLowerCase().includes(searchTerm.toLowerCase());
-    
+    const searchMatch = searchTerm === '' || p.name.toLowerCase().includes(searchTerm.toLowerCase());
     return bazaarMatch && categoryMatch && searchMatch;
   });
 
-  const trendingProducts = filteredProducts.filter(p => {
-    const shop = shops.find(s => s.id === p.shopId);
-    return shop?.featured;
-  });
-
-  const newArrivals = filteredProducts.filter(p => p.tags.includes('New'));
-
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-32">
-      {/* Event Special Banner */}
-      {activeEvent && activeEvent.id !== 'NORMAL' && (
-        <div 
-          className="p-6 rounded-[2.5rem] shadow-xl relative overflow-hidden text-white animate-in slide-in-from-top-4"
-          style={{ backgroundColor: activeEvent.primaryColor }}
-        >
-          <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none text-6xl">
-            {activeEvent.emoji}
-          </div>
-          <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="text-center md:text-left">
-               <p className="text-[10px] font-black uppercase tracking-[0.4em] text-white/60 mb-1">{activeEvent.name}</p>
-               <h2 className="text-3xl font-black italic urdu-font leading-normal mb-2 tracking-tighter">{activeEvent.urduName}</h2>
-               <p className="text-[11px] font-bold uppercase tracking-widest">{activeEvent.bannerText}</p>
-            </div>
-            <button 
-              className="bg-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-2xl active:scale-95 transition-all"
-              style={{ color: activeEvent.primaryColor }}
-            >
-              Explore Sale
-            </button>
-          </div>
+    <div className="max-w-4xl mx-auto px-4 py-6 space-y-8 pb-32">
+      {/* Dynamic Hero Banner */}
+      <div 
+        className={`relative overflow-hidden rounded-[3rem] p-8 text-white shadow-2xl transition-all duration-700 ${isNormalDay ? 'bg-gray-900' : ''}`} 
+        style={!isNormalDay ? { background: `linear-gradient(135deg, ${activeEvent.primaryColor}, ${activeEvent.accentColor})` } : {}}
+      >
+        <div className="absolute top-0 right-0 p-10 opacity-10 rotate-12 scale-150 pointer-events-none">
+           <span className="text-9xl">{activeEvent.emoji}</span>
         </div>
-      )}
+        
+        <div className="relative z-10 space-y-3">
+           {!isNormalDay && (
+             <div className="flex items-center gap-2">
+               <span className="bg-white/20 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest backdrop-blur-md">Featured Event</span>
+               <Sparkles className="w-4 h-4 text-yellow-300 animate-pulse" />
+             </div>
+           )}
+           
+           <div className="space-y-1">
+             <h2 className="text-4xl font-black italic tracking-tighter uppercase leading-none">
+               {isNormalDay ? 'Premium Boutique Marketplace' : activeEvent.name}
+             </h2>
+             {!isNormalDay && <p className="urdu-font text-2xl font-medium opacity-90">{activeEvent.urduName}</p>}
+             {isNormalDay && <p className="text-pink-500 font-black text-xs uppercase tracking-[0.3em]">Digitizing Ghotki Legacy</p>}
+           </div>
+
+           <p className="text-sm font-bold uppercase tracking-widest pt-2 opacity-80">
+             {isNormalDay ? 'Discover the best local fashion from Ghotki' : activeEvent.bannerText}
+           </p>
+           
+           {isNormalDay && (
+             <div className="flex items-center gap-4 pt-4">
+               <div className="flex -space-x-3">
+                 {shops.slice(0, 4).map((s, i) => (
+                   <img key={i} src={s.logo} className="w-8 h-8 rounded-full border-2 border-gray-900 object-cover" />
+                 ))}
+               </div>
+               <p className="text-[10px] font-black uppercase tracking-widest text-white/60">{shops.length}+ Verified Merchants</p>
+             </div>
+           )}
+        </div>
+      </div>
 
       {/* Search Bar */}
-      <div className="relative">
-        <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-          <Search className="h-5 w-5 text-gray-400" />
+      <div className="relative group">
+        <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none">
+          <Search className="h-5 w-5 text-gray-400 group-focus-within:text-pink-600 transition-colors" />
         </div>
         <input
           type="text"
-          placeholder="Search items or shops (e.g. J., Edinrobe)..."
-          className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-event-primary focus:border-transparent outline-none transition-all text-gray-900 font-medium"
+          placeholder="Search items, categories or shops..."
+          className="w-full pl-14 pr-6 py-5 bg-white border border-gray-100 rounded-[2.2rem] shadow-sm focus:ring-4 focus:ring-pink-600/10 focus:border-pink-600/30 outline-none font-bold text-gray-800 transition-all"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
 
-      {/* Matching Shops Search Results */}
-      {searchTerm.length > 0 && filteredShops.length > 0 && (
-        <section className="animate-in slide-in-from-top-2">
-          <div className="flex items-center gap-2 mb-4">
-            <Store className="w-4 h-4 text-event-primary" />
-            <h2 className="font-black text-[10px] uppercase tracking-widest text-gray-400">Matching Shops</h2>
+      {/* New Arrivals Horizontal Scroll */}
+      {newArrivals.length > 0 && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between px-2">
+            <h2 className="font-black text-lg text-gray-900 uppercase italic tracking-tight flex items-center gap-2">
+              <Clock className="w-5 h-5 text-pink-600" /> New Arrivals
+            </h2>
+            <button onClick={() => navigate('/shops')} className="text-[10px] font-black text-pink-600 uppercase tracking-widest flex items-center gap-1">
+              View All <ChevronRight className="w-3 h-3" />
+            </button>
           </div>
-          <div className="flex overflow-x-auto gap-3 pb-2 no-scrollbar">
-            {filteredShops.map(shop => (
+          <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar -mx-4 px-4 snap-x">
+            {newArrivals.map(product => (
               <div 
-                key={shop.id} 
-                onClick={() => navigate(`/shop/${shop.id}`)}
-                className="flex-shrink-0 w-64 bg-white p-4 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-4 cursor-pointer hover:shadow-md transition-all active:scale-95"
+                key={product.id} 
+                onClick={() => navigate(`/product/${product.id}`)}
+                className="flex-shrink-0 w-40 bg-white rounded-[2rem] overflow-hidden border border-gray-50 shadow-sm snap-start group"
               >
-                <img src={shop.logo} className="w-12 h-12 rounded-xl object-cover border shadow-sm" alt={shop.name} />
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-black text-xs text-gray-900 truncate uppercase italic">{shop.name}</h4>
-                  <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest truncate">{shop.bazaar}</p>
+                <div className="relative aspect-[3/4] overflow-hidden">
+                   <img src={product.images[0]} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                   <div className="absolute top-2 right-2 bg-pink-600 text-white text-[7px] font-black px-2 py-1 rounded-full shadow-lg">NEW</div>
                 </div>
-                <ChevronRight className="w-4 h-4 text-gray-300" />
+                <div className="p-3 space-y-1">
+                  <h3 className="font-bold text-[10px] text-gray-900 truncate">{product.name}</h3>
+                  <p className="text-pink-600 font-black text-xs italic">PKR {product.price.toLocaleString()}</p>
+                </div>
               </div>
             ))}
           </div>
         </section>
       )}
 
-      {/* Bazaar Filter */}
-      <section className="space-y-4">
-        <div className="flex items-center gap-2 mb-1">
-          <MapPin className="w-4 h-4 text-event-primary" />
-          <h2 className="font-black text-[10px] uppercase tracking-widest text-gray-400">Filter by Bazaar</h2>
+      {/* Categories */}
+      <section>
+        <div className="flex items-center justify-between mb-4 px-2">
+          <h2 className="font-black text-lg text-gray-900 uppercase italic tracking-tight">Categories</h2>
+          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{categories.length} Styles</span>
         </div>
-        <div className="flex overflow-x-auto gap-2 pb-2 no-scrollbar">
-          <button onClick={() => setSelectedBazaar('All')} className={`whitespace-nowrap px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${selectedBazaar === 'All' ? 'bg-event-primary text-white shadow-lg' : 'bg-white text-gray-500 border'}`}>All Shops</button>
-          {BAZAARS.map(b => (
-            <button key={b} onClick={() => setSelectedBazaar(b)} className={`whitespace-nowrap px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${selectedBazaar === b ? 'bg-event-primary text-white shadow-lg' : 'bg-white text-gray-500 border'}`}>{b}</button>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          {categories.map(cat => (
+            <div 
+              key={cat.id} 
+              onClick={() => setSelectedCategory(selectedCategory === cat.name ? 'All' : cat.name)} 
+              className={`relative aspect-square rounded-[2rem] overflow-hidden cursor-pointer border-4 transition-all ${selectedCategory === cat.name ? 'border-pink-600 scale-95 shadow-xl shadow-pink-100' : 'border-transparent shadow-sm'}`}
+            >
+              <img src={cat.image_url} className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex items-end p-4">
+                <span className="text-white font-black text-[10px] uppercase tracking-tighter">{cat.name}</span>
+              </div>
+            </div>
           ))}
         </div>
       </section>
 
-      {/* Dynamic Categories */}
-      <section>
-        <div className="flex items-center justify-between mb-4">
+      {/* Main Products Grid */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between px-2">
           <div className="flex items-center gap-2">
-            <LayoutGrid className="w-5 h-5 text-event-primary" />
-            <h2 className="font-bold text-lg text-gray-900">Categories</h2>
+            <TrendingUp className="w-5 h-5 text-pink-600" />
+            <h2 className="font-black text-lg text-gray-900 uppercase italic tracking-tight">
+              {searchTerm ? 'Search Results' : 'Featured Collection'}
+            </h2>
           </div>
           {selectedCategory !== 'All' && (
-            <button onClick={() => setSelectedCategory('All')} className="text-[10px] font-black uppercase text-event-primary flex items-center gap-1">
-              <FilterX className="w-3 h-3" /> Clear Filters
-            </button>
+             <button onClick={() => setSelectedCategory('All')} className="text-[9px] font-black text-gray-400 uppercase bg-gray-100 px-3 py-1 rounded-full flex items-center gap-1">
+               Clear Filter <FilterX className="w-3 h-3" />
+             </button>
           )}
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          {categories.length > 0 ? categories.map(cat => (
-            <div 
-              key={cat.id}
-              onClick={() => setSelectedCategory(cat.name)}
-              className={`relative aspect-square rounded-[2rem] overflow-hidden cursor-pointer group border-2 transition-all ${selectedCategory === cat.name ? 'border-event-primary scale-95 shadow-inner' : 'border-transparent'}`}
-            >
-              <img src={cat.image_url} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={cat.name} />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent flex items-end p-4">
-                <span className="text-white font-black text-[11px] uppercase tracking-tighter leading-tight">{cat.name}</span>
-              </div>
-            </div>
-          )) : (
-            <div className="col-span-full h-24 bg-gray-50 rounded-[2rem] flex items-center justify-center text-[10px] font-black uppercase text-gray-300 tracking-widest">
-              Initializing Catalog...
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Trending Section */}
-      {trendingProducts.length > 0 && (
-        <section>
-          <div className="flex items-center gap-2 mb-4">
-            <TrendingUp className="w-5 h-5 text-event-primary" />
-            <h2 className="font-bold text-lg text-gray-900">Featured Trends</h2>
+        
+        {filteredProducts.length === 0 ? (
+          <div className="py-20 text-center space-y-4 bg-white rounded-[3rem] border-2 border-dashed border-gray-100">
+             <FilterX className="w-12 h-12 text-gray-200 mx-auto" />
+             <div className="space-y-1">
+               <p className="font-black uppercase text-xs text-gray-400 tracking-widest">No matching items found</p>
+               <p className="text-[9px] text-gray-300 font-bold px-10">Try changing your search keywords or filters.</p>
+             </div>
           </div>
+        ) : (
           <div className="grid grid-cols-2 gap-4">
-            {trendingProducts.map(product => (
-              <div key={product.id} className="bg-white rounded-[2rem] overflow-hidden shadow-sm border border-gray-100 group flex flex-col">
+            {filteredProducts.map(product => (
+              <div key={product.id} className="bg-white rounded-[2.5rem] overflow-hidden shadow-sm border border-gray-100 flex flex-col group">
                 <div className="relative aspect-[3/4] overflow-hidden cursor-pointer" onClick={() => navigate(`/product/${product.id}`)}>
-                  <img src={product.images[0]} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                  <div className="absolute top-2 right-2 bg-event-primary text-white text-[7px] font-black px-2 py-1 rounded-full uppercase shadow-lg">Featured</div>
+                  <img src={product.images[0]} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                  {product.tags.includes('Sale') && (
+                    <div className="absolute top-4 left-4 bg-red-600 text-white text-[9px] font-black px-3 py-1 rounded-lg shadow-lg">SALE</div>
+                  )}
+                  <div className="absolute bottom-4 right-4 p-2 bg-white/20 backdrop-blur-md rounded-xl text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Star className="w-4 h-4 fill-white" />
+                  </div>
                 </div>
-                <div className="p-4 flex-1 flex flex-col justify-between">
-                  <div>
-                    <h3 className="font-bold text-sm text-gray-900 truncate mb-1">{product.name}</h3>
-                    <p className="text-event-primary font-black text-sm">PKR {product.price.toLocaleString()}</p>
+                <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                  <div onClick={() => navigate(`/product/${product.id}`)} className="cursor-pointer">
+                    <h3 className="font-black text-sm text-gray-900 truncate leading-tight italic">{product.name}</h3>
+                    <p className="text-pink-600 font-black text-lg italic mt-1">PKR {product.price.toLocaleString()}</p>
+                    <div className="flex items-center gap-1 mt-2">
+                       <Store className="w-3 h-3 text-gray-300" />
+                       <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                         {/* Fix: changed 'p' to 'product' to correctly reference the current item in the map */}
+                         {shops.find(s => s.id === product.shopId)?.name || 'Merchant'}
+                       </span>
+                    </div>
                   </div>
                   <button 
                     onClick={() => setCheckoutProduct(product)} 
-                    className="mt-3 w-full bg-event-primary text-white font-black py-3 rounded-xl text-[10px] uppercase tracking-widest shadow-lg shadow-pink-100 active:scale-95 transition-all"
+                    className="w-full bg-gray-900 text-white font-black py-4 rounded-[1.5rem] text-[10px] uppercase tracking-widest shadow-xl shadow-gray-200 active:scale-95 transition-all hover:bg-pink-600"
                   >
                     Buy Now
                   </button>
@@ -189,45 +214,8 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories, addT
               </div>
             ))}
           </div>
-        </section>
-      )}
-
-      {/* Arrivals List */}
-      {newArrivals.length > 0 && (
-        <section className="pb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <Sparkles className="w-5 h-5 text-event-primary" />
-            <h2 className="font-bold text-lg text-gray-900">New Arrivals</h2>
-          </div>
-          <div className="space-y-4">
-            {newArrivals.map(product => (
-              <div key={product.id} className="flex items-center gap-4 bg-white p-4 rounded-[2rem] border border-gray-100 shadow-sm group">
-                <div className="relative shrink-0 cursor-pointer" onClick={() => navigate(`/product/${product.id}`)}>
-                  <img src={product.images[0]} className="w-24 h-24 object-cover rounded-2xl group-hover:scale-95 transition-transform" />
-                </div>
-                <div className="flex-1 cursor-pointer" onClick={() => navigate(`/product/${product.id}`)}>
-                  <h4 className="font-bold text-sm text-gray-900 leading-tight mb-1">{product.name}</h4>
-                  <p className="text-[10px] text-gray-400 font-bold uppercase mb-2">{shops.find(s => s.id === product.shopId)?.name}</p>
-                  <span className="text-event-primary font-black text-sm">PKR {product.price.toLocaleString()}</span>
-                </div>
-                <button 
-                  onClick={() => setCheckoutProduct(product)} 
-                  className="bg-event-primary text-white px-6 py-4 rounded-2xl text-[10px] font-black shadow-xl active:scale-90 transition-transform uppercase tracking-widest"
-                >
-                  Buy
-                </button>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Empty State */}
-      {filteredProducts.length === 0 && filteredShops.length === 0 && (
-        <div className="py-20 text-center space-y-4 bg-white rounded-[3rem] border-2 border-dashed border-gray-100">
-           <p className="text-gray-400 font-black uppercase text-[10px] tracking-widest">No matching items or shops found</p>
-        </div>
-      )}
+        )}
+      </section>
 
       {checkoutProduct && (
         <InstantCheckout 

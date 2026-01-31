@@ -2,13 +2,14 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  User, Store, Lock, Phone, ArrowLeft, Mail, Eye, EyeOff, Sparkles, Loader2, Inbox, CheckCircle
+  User, Store, Phone, Mail, CheckCircle, Loader2
 } from 'lucide-react';
 import { supabase } from '../services/supabase';
 import { BAZAARS, CATEGORIES, SUBSCRIPTION_PLANS } from '../constants';
+import { User as UserType } from '../types';
 
 interface LoginViewProps {
-  setUser: (u: any) => void;
+  setUser: (u: UserType) => void;
   lang: 'EN' | 'UR';
 }
 
@@ -45,7 +46,17 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
       const meta = data.user.user_metadata || {};
       const finalRole = profile?.role || meta?.role || 'BUYER';
       
-      setUser({ ...data.user, ...profile, role: finalRole });
+      const mappedUser: UserType = {
+        id: data.user.id,
+        name: profile?.name || meta.full_name || 'Bazar User',
+        role: finalRole,
+        mobile: profile?.mobile || meta.mobile || '',
+        address: profile?.address || meta.address || '',
+        city: profile?.city || meta.city || 'Ghotki',
+        subscription_tier: profile?.subscription_tier || meta.tier || 'NONE'
+      };
+
+      setUser(mappedUser);
       
       if (finalRole === 'ADMIN') navigate('/admin');
       else if (finalRole === 'SELLER') navigate('/seller');
@@ -61,7 +72,6 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
     if (!supabase) return;
     setLoading(true);
     try {
-      // 1. Create the Auth User
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -77,8 +87,7 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
       if (authError) throw authError;
       if (!authData.user) throw new Error("Signup failed.");
 
-      // 2. Create the Profile
-      const { error: profileError } = await supabase.from('profiles').upsert({
+      await supabase.from('profiles').upsert({
         id: authData.user.id,
         name: formData.name,
         mobile: formData.mobile,
@@ -86,11 +95,8 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
         subscription_tier: formData.tier
       });
 
-      if (profileError) console.error("Profile creation error:", profileError);
-
-      // 3. Create the Shop (if Seller)
       if (role === 'SELLER') {
-        const { error: shopError } = await supabase.from('shops').insert({
+        await supabase.from('shops').insert({
           owner_id: authData.user.id,
           name: formData.shopName || `${formData.name}'s Shop`,
           bazaar: formData.bazaar,
@@ -100,16 +106,18 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
           logo_url: 'https://via.placeholder.com/150',
           banner_url: 'https://via.placeholder.com/800x400'
         });
-
-        if (shopError) {
-          console.error("Shop creation error:", shopError);
-          // If this fails, the seller can still finish setup in their dashboard
-        }
         setView('PENDING');
       } else {
-        // For buyers, check if session is active or if email confirmation is needed
         if (authData.session) {
-           setUser({ ...authData.user, role: 'BUYER' });
+           const mappedUser: UserType = {
+              id: authData.user.id,
+              name: formData.name,
+              role: 'BUYER',
+              mobile: formData.mobile,
+              address: '',
+              city: 'Ghotki'
+           };
+           setUser(mappedUser);
            navigate('/');
         } else {
            setView('CHECK_EMAIL');

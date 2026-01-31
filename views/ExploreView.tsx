@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -21,7 +22,7 @@ const ExploreView: React.FC<ExploreViewProps> = ({
   addToCart, 
   onPlaceOrder, 
   user, 
-  savedProductIds, 
+  savedProductIds = [], 
   onToggleSave,
   isSavedOnly = false
 }) => {
@@ -32,10 +33,10 @@ const ExploreView: React.FC<ExploreViewProps> = ({
   // Filter products that have a valid video URL
   let allReels = products.filter(p => {
     const url = p.videoUrl || (p as any).video_url;
-    return url && url.length > 5;
+    return url && typeof url === 'string' && url.length > 5;
   });
 
-  if (isSavedOnly) {
+  if (isSavedOnly && savedProductIds) {
     allReels = allReels.filter(p => savedProductIds.includes(p.id));
   }
 
@@ -86,7 +87,7 @@ const ExploreView: React.FC<ExploreViewProps> = ({
           muted={muted} 
           onBuy={() => setCheckoutProduct(product)} 
           onShop={() => navigate(`/shop/${product.shopId}`)}
-          isSaved={savedProductIds.includes(product.id)}
+          isSaved={savedProductIds ? savedProductIds.includes(product.id) : false}
           onSave={() => handleToggleSave(product.id)}
         />
       ))}
