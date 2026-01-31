@@ -45,16 +45,15 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
       if (error) throw error;
       if (!data.user) throw new Error("User not found.");
       
+      // CRITICAL: Fetch database profile to confirm role (ADMIN/SELLER/BUYER)
       const { data: profile } = await supabase.from('profiles').select('*').eq('id', data.user.id).maybeSingle();
       const meta = data.user.user_metadata || {};
-      
-      // FIX: Robust role priority
       const finalRole = profile?.role || meta?.role || 'BUYER';
       
       const mappedUser: UserType = {
         id: data.user.id,
         name: profile?.name || meta.full_name || 'Bazar User',
-        role: finalRole as any,
+        role: finalRole as UserType['role'],
         mobile: profile?.mobile || meta.mobile || '',
         address: profile?.address || meta.address || '',
         city: profile?.city || meta.city || 'Ghotki',
@@ -115,23 +114,8 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
           bank_details: formData.bank,
           whatsapp: formData.mobile
         });
-        setView('CHECK_EMAIL');
-      } else {
-        if (authData.session) {
-           const mappedUser: UserType = {
-              id: authData.user.id,
-              name: formData.name,
-              role: 'BUYER',
-              mobile: formData.mobile,
-              address: '',
-              city: 'Ghotki'
-           };
-           setUser(mappedUser);
-           navigate('/');
-        } else {
-           setView('CHECK_EMAIL');
-        }
       }
+      setView('CHECK_EMAIL');
     } catch (err: any) {
       alert("Signup Error: " + err.message);
     } finally {
@@ -141,18 +125,18 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
 
   if (view === 'CHECK_EMAIL') return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center space-y-6 bg-white">
-      <div className="w-24 h-24 bg-blue-50 text-blue-600 rounded-[2rem] flex items-center justify-center mx-auto shadow-inner">
+      <div className="w-24 h-24 bg-blue-50 text-blue-600 rounded-[2.5rem] flex items-center justify-center mx-auto shadow-inner">
         <Mail className="w-12 h-12" />
       </div>
       <div className="space-y-4 max-w-sm mx-auto">
         <h2 className="text-3xl font-black uppercase italic tracking-tighter text-gray-900 leading-tight">Confirm Your Email</h2>
         <div className="space-y-3">
           <p className="text-gray-500 text-sm font-medium">
-            We've sent a link to <span className="text-pink-600 font-bold">{formData.email}</span>. 
+            We've sent a verification link to <span className="text-pink-600 font-bold">{formData.email}</span>. 
           </p>
           <div className="bg-pink-50 p-6 rounded-[2rem] border-2 border-pink-100 animate-pulse">
             <p className="text-pink-700 font-black uppercase text-xs leading-relaxed">
-              Must check your <span className="underline italic">Spam folder</span> in your Gmail box if it's not in your Inbox!
+              MUST CHECK YOUR <span className="underline italic">SPAM FOLDER</span> IN YOUR GMAIL BOX IF YOU DON'T SEE IT IN INBOX!
             </p>
           </div>
         </div>
@@ -189,16 +173,13 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
             {view !== 'LOGIN' && (
               <>
                 <input required type="text" placeholder="Your Full Name" className="w-full p-5 bg-white border border-gray-100 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-pink-500/20" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-                <input required type="tel" placeholder="Mobile / WhatsApp (03xx...)" className="w-full p-5 bg-white border border-gray-100 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-pink-500/20" value={formData.mobile} onChange={e => setFormData({...formData, mobile: e.target.value})} />
+                <input required type="tel" placeholder="Mobile Number" className="w-full p-5 bg-white border border-gray-100 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-pink-500/20" value={formData.mobile} onChange={e => setFormData({...formData, mobile: e.target.value})} />
               </>
             )}
 
             {view === 'SIGNUP_SHOP' && (
               <div className="space-y-4 pt-4 border-t border-gray-100">
-                <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1">Shop Details</p>
                 <input required type="text" placeholder="Shop Name" className="w-full p-5 bg-white border border-gray-100 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-pink-500/20" value={formData.shopName} onChange={e => setFormData({...formData, shopName: e.target.value})} />
-                
-                <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1 mt-4">Subscription Plan</p>
                 <div className="grid grid-cols-3 gap-2">
                   {SUBSCRIPTION_PLANS.map(plan => (
                     <button key={plan.id} type="button" onClick={() => setFormData({...formData, tier: plan.id as any})} className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center ${formData.tier === plan.id ? 'border-pink-600 bg-pink-50 text-pink-600' : 'border-gray-50 text-gray-400 grayscale'}`}>

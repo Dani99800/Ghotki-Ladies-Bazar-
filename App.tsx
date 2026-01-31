@@ -47,12 +47,6 @@ const App: React.FC = () => {
     localStorage.setItem('glb_active_event', event.id);
   };
 
-  const playAlert = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.play().catch(e => console.log("Sound play blocked", e));
-    }
-  }, []);
-
   const loadMarketplace = useCallback(async () => {
     if (!supabase) return;
     try {
@@ -79,9 +73,7 @@ const App: React.FC = () => {
       
       setCategories(cRes.data && cRes.data.length > 0 ? cRes.data : FALLBACK_CATEGORIES);
     } catch (err) { 
-      console.error("Critical Marketplace Error:", err); 
-    } finally { 
-      setLoading(false); 
+      console.error("Marketplace Load Error:", err); 
     }
   }, []);
 
@@ -90,28 +82,55 @@ const App: React.FC = () => {
     try {
       const { data: profile } = await supabase.from('profiles').select('*').eq('id', id).maybeSingle();
       const { data: { user: authUser } } = await supabase.auth.getUser();
+      
       if (authUser) {
         const meta = authUser.user_metadata || {};
-        // CRITICAL FIX: Ensure ADMIN role is strictly checked and applied
         const finalRole = profile?.role || meta?.role || 'BUYER';
         
-        const mappedUser: UserType = {
+        setUser({
           id,
           name: profile?.name || meta.full_name || 'Bazar User',
-          role: finalRole as any,
+          role: finalRole as UserType['role'],
           mobile: profile?.mobile || meta.mobile || '',
           address: profile?.address || meta.address || '',
           city: profile?.city || meta.city || 'Ghotki',
           subscription_tier: profile?.subscription_tier || meta.tier || 'NONE'
-        };
-        setUser(mappedUser);
+        });
       }
-      await loadMarketplace();
     } catch (e) { 
       console.error("Profile Fetch Error:", e); 
+    } finally {
+      // Ensure loading is stopped even if profile fetch fails
       setLoading(false);
     }
-  }, [loadMarketplace]);
+  }, []);
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+        if (!supabase) {
+          setLoading(false);
+          return;
+        }
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          await fetchProfile(session.user.id);
+        }
+        await loadMarketplace();
+      } catch (e) {
+        console.error("App Init Error:", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    init();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) fetchProfile(session.user.id);
+      else { setUser(null); }
+    });
+    return () => authListener.subscription.unsubscribe();
+  }, [loadMarketplace, fetchProfile]);
 
   const fetchOrders = useCallback(async () => {
     if (!supabase || !user) return;
@@ -139,24 +158,6 @@ const App: React.FC = () => {
       })));
     }
   }, [user, shops]);
-
-  useEffect(() => {
-    if (supabase) {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session) fetchProfile(session.user.id);
-        else {
-          loadMarketplace();
-          setLoading(false);
-        }
-      });
-
-      const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-        if (session) fetchProfile(session.user.id);
-        else { setUser(null); setLoading(false); }
-      });
-      return () => authListener.subscription.unsubscribe();
-    }
-  }, [loadMarketplace, fetchProfile]);
 
   useEffect(() => {
     if (user && shops.length > 0) {
@@ -202,14 +203,17 @@ const App: React.FC = () => {
 
   if (loading) return (
     <div className="h-screen w-full flex flex-col items-center justify-center bg-white space-y-4">
-      <Loader2 className="w-10 h-10 animate-spin text-pink-600" />
-      <p className="font-black uppercase tracking-widest text-[10px] text-gray-400">Ghotki Bazar Loading...</p>
+      <div className="relative">
+        <div className="w-16 h-16 border-4 border-pink-50 border-t-pink-600 rounded-full animate-spin"></div>
+        <ShoppingBag className="absolute inset-0 m-auto w-6 h-6 text-pink-600" />
+      </div>
+      <p className="font-black uppercase tracking-widest text-[10px] text-gray-400">Loading Ghotki Bazar...</p>
     </div>
   );
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col" style={{ '--primary-event': activeEvent.primaryColor, '--accent-event': activeEvent.accentColor } as React.CSSProperties}>
-      <nav className={`fixed top-0 left-0 right-0 h-16 bg-white/80 backdrop-blur-xl border-b flex items-center justify-between px-6 z-50`}>
+      <nav className={`fixed top-0 left-0 right-0 h-16 bg-white/80 backdrop-blur-xl border-b flex items-center justify-between px-6 z-50 shadow-sm`}>
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
           <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-lg transition-colors duration-500" style={{ background: activeEvent.primaryColor }}>
             <ShoppingBag className="w-5 h-5" />
