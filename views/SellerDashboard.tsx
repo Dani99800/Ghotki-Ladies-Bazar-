@@ -29,10 +29,16 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
   const [isDataChecked, setIsDataChecked] = useState(false);
   
   const myShop = shops.find(s => s.owner_id === user.id);
+  const isEligibleForVideo = myShop?.subscription_tier === 'STANDARD' || myShop?.subscription_tier === 'PREMIUM';
 
   const [settingsForm, setSettingsForm] = useState({
     name: '', bio: '', mobile: '', whatsapp: '',
     logoPreview: '', bannerPreview: ''
+  });
+
+  const [productForm, setProductForm] = useState({
+    name: '', price: '', category: CATEGORIES[0].name, description: '',
+    videoFile: null as File | null, videoUrl: '', images: [] as File[], existingImageUrls: [] as string[]
   });
 
   // Track if we've checked for shop data
@@ -55,11 +61,6 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
       });
     }
   }, [myShop?.id, myShop?.logo, myShop?.banner]);
-
-  const [productForm, setProductForm] = useState({
-    name: '', price: '', category: CATEGORIES[0].name, description: '',
-    videoFile: null as File | null, videoUrl: '', images: [] as File[], existingImageUrls: [] as string[]
-  });
 
   const myProducts = products.filter(p => p.shopId === myShop?.id);
   const myOrders = orders.filter(o => o.sellerId === myShop?.id);
@@ -135,10 +136,18 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
     if (!supabase || !myShop) return;
     setLoading(true);
     try {
+      // 1. Handle Image Uploads
       const uploadedUrls = [...productForm.existingImageUrls];
       for (const file of productForm.images) {
         const path = `products/${myShop.id}/${Date.now()}_${file.name}`;
         uploadedUrls.push(await uploadFile('marketplace', path, file));
+      }
+
+      // 2. Handle Video Upload if eligible and file exists
+      let finalVideoUrl = productForm.videoUrl;
+      if (isEligibleForVideo && productForm.videoFile) {
+        const videoPath = `videos/${myShop.id}/${Date.now()}_${productForm.videoFile.name}`;
+        finalVideoUrl = await uploadFile('marketplace', videoPath, productForm.videoFile);
       }
 
       const productData = {
@@ -147,7 +156,8 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         price: parseFloat(productForm.price),
         category: productForm.category, 
         description: productForm.description, 
-        image_urls: uploadedUrls
+        image_urls: uploadedUrls,
+        video_url: finalVideoUrl
       };
 
       if (editingProduct) {
@@ -157,9 +167,15 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
       }
 
       setShowModal(false);
+      // Reset form
+      setProductForm({
+        name: '', price: '', category: CATEGORIES[0].name, description: '',
+        videoFile: null, videoUrl: '', images: [], existingImageUrls: []
+      });
       addProduct(); 
     } catch (err: any) { 
-      console.error(err); 
+      console.error(err);
+      alert("Operation failed: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -365,7 +381,14 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
                <h3 className="font-black uppercase text-sm tracking-tighter text-gray-900 leading-none">Your Inventory</h3>
                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{myProducts.length} Total Items</p>
              </div>
-             <button onClick={() => { setEditingProduct(null); setShowModal(true); }} className="bg-pink-600 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl flex items-center gap-2 hover:bg-pink-700 active:scale-95 transition-all"><PlusCircle className="w-4 h-4" /> New Item</button>
+             <button onClick={() => { 
+                setEditingProduct(null); 
+                setProductForm({
+                  name: '', price: '', category: CATEGORIES[0].name, description: '',
+                  videoFile: null, videoUrl: '', images: [], existingImageUrls: []
+                });
+                setShowModal(true); 
+             }} className="bg-pink-600 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl flex items-center gap-2 hover:bg-pink-700 active:scale-95 transition-all"><PlusCircle className="w-4 h-4" /> New Item</button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {myProducts.length === 0 ? (
@@ -375,14 +398,34 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
                </div>
             ) : myProducts.map(p => (
               <div key={p.id} className="bg-white p-5 rounded-[2.5rem] border flex items-center gap-5 shadow-sm group hover:border-pink-100 transition-all">
-                <img src={p.images?.[0]} className="w-20 h-20 rounded-[1.5rem] object-cover shadow-inner bg-gray-50" />
+                <div className="relative">
+                  <img src={p.images?.[0]} className="w-20 h-20 rounded-[1.5rem] object-cover shadow-inner bg-gray-50" />
+                  {(p.videoUrl || (p as any).video_url) && (
+                    <div className="absolute -bottom-1 -right-1 bg-pink-600 text-white p-1 rounded-lg border-2 border-white shadow-lg">
+                      <PlayCircle className="w-3 h-3" />
+                    </div>
+                  )}
+                </div>
                 <div className="flex-1 space-y-1">
                   <h4 className="font-black text-sm uppercase truncate italic text-gray-900">{p.name}</h4>
                   <p className="text-pink-600 font-black text-base italic">PKR {p.price.toLocaleString()}</p>
                   <p className="text-[8px] font-black text-gray-400 uppercase bg-gray-50 w-max px-2 py-0.5 rounded-full">{p.category}</p>
                 </div>
                 <div className="flex flex-col gap-2">
-                  <button onClick={() => { setEditingProduct(p); setProductForm({ ...productForm, name: p.name, price: p.price.toString(), category: p.category, description: p.description, existingImageUrls: p.images }); setShowModal(true); }} className="p-2.5 text-gray-300 hover:text-pink-600 hover:bg-pink-50 rounded-xl transition-all"><Edit3 className="w-4 h-4" /></button>
+                  <button onClick={() => { 
+                    setEditingProduct(p); 
+                    setProductForm({ 
+                      ...productForm, 
+                      name: p.name, 
+                      price: p.price.toString(), 
+                      category: p.category, 
+                      description: p.description, 
+                      existingImageUrls: p.images,
+                      videoUrl: p.videoUrl || (p as any).video_url || '',
+                      videoFile: null
+                    }); 
+                    setShowModal(true); 
+                  }} className="p-2.5 text-gray-300 hover:text-pink-600 hover:bg-pink-50 rounded-xl transition-all"><Edit3 className="w-4 h-4" /></button>
                   <button onClick={() => { if(confirm("Permanently delete this item?")) supabase?.from('products').delete().eq('id', p.id).then(() => addProduct()); }} className="p-2.5 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"><Trash2 className="w-4 h-4" /></button>
                 </div>
               </div>
@@ -434,7 +477,33 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
                    </div>
                 </div>
 
-                <button disabled={loading} className="w-full py-5 bg-pink-600 text-white font-black rounded-3xl uppercase tracking-widest text-[11px] shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-3">
+                <div className="space-y-2">
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Product Reel (Video)</p>
+                  {isEligibleForVideo ? (
+                    <label className="w-full p-8 border-2 border-dashed border-gray-200 rounded-[2rem] flex flex-col items-center justify-center gap-3 bg-gray-50 hover:border-pink-300 hover:bg-pink-50/30 transition-all cursor-pointer group">
+                      <div className="p-4 bg-white rounded-2xl shadow-sm group-hover:scale-110 transition-transform">
+                        <Film className="w-6 h-6 text-pink-600" />
+                      </div>
+                      <div className="text-center">
+                        <p className="font-black text-[10px] uppercase tracking-widest text-gray-900">
+                          {productForm.videoFile ? productForm.videoFile.name : (productForm.videoUrl ? 'Current Reel Attached' : 'Upload Video Reel')}
+                        </p>
+                        <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest mt-1">MP4, MOV up to 30MB</p>
+                      </div>
+                      <input type="file" className="hidden" accept="video/*" onChange={e => e.target.files?.[0] && setProductForm({...productForm, videoFile: e.target.files[0]})} />
+                    </label>
+                  ) : (
+                    <div className="w-full p-8 border-2 border-gray-100 rounded-[2rem] flex flex-col items-center justify-center gap-3 bg-gray-50/50 opacity-60">
+                      <Lock className="w-6 h-6 text-gray-400" />
+                      <div className="text-center">
+                        <p className="font-black text-[10px] uppercase tracking-widest text-gray-400 italic">Upgrade to unlock Video Reels</p>
+                        <p className="text-[8px] font-bold text-pink-400 uppercase tracking-widest mt-1">Standard or Premium Required</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <button disabled={loading} className="w-full py-5 bg-pink-600 text-white font-black rounded-3xl uppercase tracking-widest text-[11px] shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50">
                    {loading ? <Loader2 className="animate-spin" /> : <><Sparkles className="w-5 h-5" /> {editingProduct ? 'Save Changes' : 'Publish Product'}</>}
                 </button>
              </form>
