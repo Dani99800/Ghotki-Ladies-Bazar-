@@ -4,7 +4,7 @@ import {
   PlusCircle, ShoppingBag, X, Video, Image as ImageIcon,
   Loader2, Settings, Camera, PlayCircle, Trash2, 
   Package, Check, MessageCircle, Edit3, Save, UploadCloud, BellRing,
-  Lock, Film, Sparkles, AlertCircle, Phone, RefreshCw, Store, CreditCard, Building2, Smartphone
+  Lock, Film, Sparkles, AlertCircle, Phone, RefreshCw, Store, CreditCard, Building2, Smartphone, ShieldCheck, Clock
 } from 'lucide-react';
 import { Product, Order, User as UserType, Shop } from '../types';
 import { CATEGORIES } from '../constants';
@@ -193,6 +193,36 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         </div>
         <p className="font-black uppercase tracking-widest text-xs text-gray-900 italic">Accessing Store Vault...</p>
         <button onClick={refreshShop} className="flex items-center gap-2 px-6 py-3 bg-gray-50 text-gray-500 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-gray-100"><RefreshCw className="w-4 h-4" /> Sync Now</button>
+      </div>
+    );
+  }
+
+  // PENDING APPROVAL SCREEN
+  if (myShop && myShop.status === 'PENDING') {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center space-y-8 bg-white p-10 text-center animate-in fade-in duration-500">
+        <div className="w-32 h-32 bg-pink-50 rounded-[2.5rem] flex items-center justify-center text-pink-600 shadow-inner relative overflow-hidden">
+           <Clock className="w-16 h-16 animate-pulse" />
+           <div className="absolute top-0 right-0 p-3 bg-pink-100/50 rounded-bl-3xl">
+              <ShieldCheck className="w-5 h-5" />
+           </div>
+        </div>
+        <div className="space-y-3">
+          <h2 className="text-3xl font-black uppercase italic text-gray-900 tracking-tighter leading-tight">Application Under Review</h2>
+          <p className="text-gray-400 text-sm font-bold uppercase tracking-widest max-w-xs mx-auto">
+            Your shop "<span className="text-pink-600 italic">{myShop.name}</span>" has been registered and is currently being verified by our administration team.
+          </p>
+        </div>
+        <div className="bg-gray-50 p-6 rounded-[2rem] border border-gray-100 w-full max-w-xs space-y-4">
+           <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400">
+              <span>Status</span>
+              <span className="text-pink-600 animate-pulse">Pending Approval</span>
+           </div>
+           <p className="text-[9px] text-gray-400 italic">You will get full dashboard access once approved. Usually takes 12-24 hours.</p>
+        </div>
+        <button onClick={refreshShop} className="px-10 py-5 bg-pink-600 text-white font-black rounded-3xl uppercase tracking-widest text-[11px] shadow-2xl flex items-center gap-3 transition-transform active:scale-95">
+          <RefreshCw className="w-5 h-5" /> Refresh Status
+        </button>
       </div>
     );
   }

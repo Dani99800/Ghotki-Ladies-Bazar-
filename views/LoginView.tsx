@@ -113,7 +113,7 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
           bank_details: formData.bank,
           whatsapp: formData.mobile
         });
-        setView('PENDING');
+        setView('CHECK_EMAIL'); // Always check email first for account security
       } else {
         if (authData.session) {
            const mappedUser: UserType = {
@@ -136,6 +136,25 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
       setLoading(false);
     }
   };
+
+  if (view === 'CHECK_EMAIL') return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center space-y-6">
+      <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
+        <Mail className="w-10 h-10" />
+      </div>
+      <div className="space-y-2">
+        <h2 className="text-2xl font-black uppercase italic tracking-tighter text-gray-900">Check Your Email</h2>
+        <p className="text-gray-500 text-sm max-w-xs mx-auto">
+          We've sent a confirmation link to <span className="text-pink-600 font-bold">{formData.email}</span>. 
+          <br /><br />
+          <span className="bg-pink-50 text-pink-700 px-3 py-1 rounded-lg font-black uppercase text-[10px]">Important:</span> 
+          <br />
+          Must check your <span className="font-black italic">Spam folder</span> in your Gmail box if you don't see it in Inbox.
+        </p>
+      </div>
+      <button onClick={() => setView('LOGIN')} className="bg-gray-900 text-white w-full max-w-xs py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-2xl">Return to Login</button>
+    </div>
+  );
 
   return (
     <div className="max-w-md mx-auto min-h-screen flex flex-col items-center justify-center p-6 space-y-8 animate-in fade-in duration-700">
