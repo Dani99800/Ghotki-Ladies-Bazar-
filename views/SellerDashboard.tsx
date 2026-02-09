@@ -105,10 +105,10 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
       const { error } = await supabase.from('orders').update({ status: 'COMPLETED' }).eq('id', orderId);
       if (error) throw error;
       if (refreshOrders) await refreshOrders();
-      if (refreshShop) await refreshShop();
       alert("Order completed! Moved to History.");
+      setOrderSubTab('HISTORY');
     } catch (err: any) {
-      alert("Failed: " + err.message);
+      alert("Status Update Failed: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -137,13 +137,20 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
       else if (type === 'VIDEO') setProductForm(p => ({ ...p, videoUrl: url }));
       else if (type === 'LOGO' || type === 'BANNER') {
         const field = type === 'LOGO' ? 'logo' : 'banner';
-        const { error: updateError } = await supabase.from('shops').update({ [field]: url }).eq('id', myShop.id);
+        const dbField = type === 'LOGO' ? 'logo_url' : 'banner_url';
+        
+        const { error: updateError } = await supabase.from('shops').update({ 
+          [field]: url,
+          [dbField]: url 
+        }).eq('id', myShop.id);
+
         if (updateError) throw updateError;
         setSettingsForm(prev => ({ ...prev, [field]: url }));
         await refreshShop();
+        alert(`${type} updated!`);
       }
     } catch (err: any) {
-      alert(`Upload failed: ${err.message}. Ensure '${bucket}' bucket exists in Supabase storage.`);
+      alert(`Upload Failed: ${err.message}. Please ensure '${bucket}' bucket exists in Supabase Storage.`);
     } finally {
       setLoading(false);
       setUploadingType(null);
@@ -152,7 +159,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
   };
 
   const handleDeleteProduct = async (id: string) => {
-    if (!window.confirm("Delete this style from your bazaar?")) return;
+    if (!window.confirm("Are you sure you want to remove this style?")) return;
     setLoading(true);
     try {
       const { error } = await supabase.from('products').delete().eq('id', id);
@@ -180,9 +187,9 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
       }).eq('id', myShop.id);
       if (error) throw error;
       await refreshShop();
-      alert("Settings Updated!");
+      alert("Brand Profile Updated!");
     } catch (err: any) {
-      alert("Update failed: " + err.message);
+      alert("Save failed: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -216,8 +223,9 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
       setShowModal(false);
       setEditingProduct(null);
       setProductForm({ name: '', originalPrice: '', discountPercentage: '', price: '', category: CATEGORIES[0].name, description: '', eventName: '', images: [], videoUrl: '' });
+      alert(editingProduct ? "Product Updated!" : "Product Added!");
     } catch (err: any) {
-      alert("Action failed: " + err.message);
+      alert("Submission failed: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -235,7 +243,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
          <img src={settingsForm.banner} className="w-full h-full object-cover opacity-80" alt="Banner" />
          <div onClick={() => bannerInputRef.current?.click()} className="absolute inset-0 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer bg-black/50 backdrop-blur-sm z-10">
            {uploadingType === 'BANNER' ? <Loader2 className="animate-spin text-white" /> : <UploadCloud className="w-10 h-10 text-white" />}
-           <span className="text-[10px] font-black uppercase text-white tracking-widest mt-2">Update Banner</span>
+           <span className="text-[10px] font-black uppercase text-white tracking-widest mt-2">Change Banner</span>
          </div>
          <input type="file" hidden ref={bannerInputRef} accept="image/*" onChange={(e) => handleFileUpload(e, 'BANNER')} />
 
@@ -251,7 +259,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
             </div>
             <div className="text-white drop-shadow-lg mb-2">
                <h2 className="text-3xl font-black uppercase italic tracking-tighter leading-none">{myShop?.name}</h2>
-               <p className="text-[9px] font-black uppercase text-pink-400 tracking-[0.3em] mt-2">Merchant Dashboard</p>
+               <p className="text-[9px] font-black uppercase text-pink-400 tracking-[0.3em] mt-2">Verified Boutique</p>
             </div>
          </div>
       </div>
@@ -269,7 +277,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
           <div className="flex justify-between items-center px-2">
              <h3 className="font-black uppercase text-[11px] tracking-widest text-gray-400">Inventory Control</h3>
              <button onClick={() => { setEditingProduct(null); setShowModal(true); }} className="bg-pink-600 text-white px-8 py-4 rounded-[2rem] text-[10px] font-black uppercase tracking-widest shadow-xl flex items-center gap-2 active:scale-95 transition-all">
-                <PlusCircle className="w-4 h-4" /> Add New
+                <PlusCircle className="w-4 h-4" /> Add New Style
              </button>
           </div>
           <div className="grid grid-cols-2 gap-5">
@@ -278,8 +286,8 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
                 <div className="relative aspect-[3/4] rounded-[2rem] overflow-hidden bg-gray-50 shadow-inner">
                   <img src={p.images?.[0]} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                   <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                     <button onClick={() => { setEditingProduct(p); setShowModal(true); }} className="p-2 bg-white text-pink-600 rounded-xl shadow-lg hover:bg-pink-50"><Edit2 className="w-4 h-4" /></button>
-                     <button onClick={() => handleDeleteProduct(p.id)} className="p-2 bg-white text-red-600 rounded-xl shadow-lg hover:bg-red-50"><Trash2 className="w-4 h-4" /></button>
+                     <button onClick={() => { setEditingProduct(p); setShowModal(true); }} className="p-3 bg-white text-pink-600 rounded-xl shadow-lg hover:bg-pink-50"><Edit2 className="w-4 h-4" /></button>
+                     <button onClick={() => handleDeleteProduct(p.id)} className="p-3 bg-white text-red-600 rounded-xl shadow-lg hover:bg-red-50"><Trash2 className="w-4 h-4" /></button>
                   </div>
                 </div>
                 <div className="space-y-1.5 px-1">
@@ -300,7 +308,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
           </div>
           <div className="space-y-4">
             {filteredOrders.length === 0 ? (
-               <div className="py-24 text-center text-gray-300 font-black uppercase text-[10px] tracking-widest border-4 border-dashed rounded-[3rem]">No Orders</div>
+               <div className="py-24 text-center text-gray-300 font-black uppercase text-[10px] tracking-widest border-4 border-dashed rounded-[3rem]">No Orders in {orderSubTab === 'ACTIVE' ? 'Pending' : 'History'}</div>
             ) : filteredOrders.map(order => (
               <div key={order.id} className="bg-white p-7 rounded-[3rem] border border-gray-100 shadow-sm space-y-4">
                  <div className="flex justify-between items-start">
@@ -312,7 +320,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
                  </div>
                  <div className="flex items-center gap-3">
                     <button onClick={() => window.open(`https://wa.me/${order.buyerMobile.replace(/^0/, '92')}`)} className="flex-1 py-4 bg-green-50 text-green-600 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2">
-                      <MessageCircle className="w-4 h-4" /> Message
+                      <MessageCircle className="w-4 h-4" /> Message Buyer
                     </button>
                     {order.status !== 'COMPLETED' && (
                       <button onClick={() => handleCompleteOrder(order.id)} disabled={loading} className="p-4 bg-gray-900 text-white rounded-2xl shadow-xl hover:bg-green-600 transition-all">
@@ -329,18 +337,19 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
       {activeTab === 'Settings' && (
         <form onSubmit={handleUpdateSettings} className="bg-white p-8 rounded-[3.5rem] border border-gray-100 shadow-xl space-y-8">
            <div className="space-y-6">
-              <h3 className="font-black uppercase text-xs text-gray-900 flex items-center gap-2"><Settings className="w-4 h-4 text-pink-600" /> Boutique Profile</h3>
+              <h3 className="font-black uppercase text-xs text-gray-900 flex items-center gap-2"><Settings className="w-4 h-4 text-pink-600" /> Merchant Identity</h3>
               <div className="space-y-4">
                  <input placeholder="Brand Name" className="w-full p-5 bg-gray-50 rounded-2xl font-black text-sm outline-none" value={settingsForm.name} onChange={e => setSettingsForm({...settingsForm, name: e.target.value})} />
                  <input placeholder="WhatsApp Number" className="w-full p-5 bg-gray-50 rounded-2xl font-black text-sm outline-none" value={settingsForm.whatsapp} onChange={e => setSettingsForm({...settingsForm, whatsapp: e.target.value})} />
-                 <textarea placeholder="Bio" className="w-full p-5 bg-gray-50 rounded-2xl font-bold text-sm outline-none h-24" value={settingsForm.bio} onChange={e => setSettingsForm({...settingsForm, bio: e.target.value})} />
+                 <textarea placeholder="About your boutique..." className="w-full p-5 bg-gray-50 rounded-2xl font-bold text-sm outline-none h-24" value={settingsForm.bio} onChange={e => setSettingsForm({...settingsForm, bio: e.target.value})} />
               </div>
            </div>
            <div className="space-y-6 pt-6 border-t border-gray-100">
-              <h3 className="font-black uppercase text-xs text-gray-900 flex items-center gap-2"><CreditCard className="w-4 h-4 text-pink-600" /> Payments</h3>
+              <h3 className="font-black uppercase text-xs text-gray-900 flex items-center gap-2"><CreditCard className="w-4 h-4 text-pink-600" /> Payment Settings</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 <input placeholder="EasyPaisa" className="w-full p-5 bg-pink-50/50 rounded-2xl font-black text-sm border border-pink-100" value={settingsForm.easypaisa} onChange={e => setSettingsForm({...settingsForm, easypaisa: e.target.value})} />
-                 <input placeholder="JazzCash" className="w-full p-5 bg-blue-50/50 rounded-2xl font-black text-sm border border-blue-100" value={settingsForm.jazzcash} onChange={e => setSettingsForm({...settingsForm, jazzcash: e.target.value})} />
+                 <input placeholder="EasyPaisa Account" className="w-full p-5 bg-pink-50/50 rounded-2xl font-black text-sm border border-pink-100" value={settingsForm.easypaisa} onChange={e => setSettingsForm({...settingsForm, easypaisa: e.target.value})} />
+                 <input placeholder="JazzCash Account" className="w-full p-5 bg-blue-50/50 rounded-2xl font-black text-sm border border-blue-100" value={settingsForm.jazzcash} onChange={e => setSettingsForm({...settingsForm, jazzcash: e.target.value})} />
+                 <textarea placeholder="Bank Details (Bank, IBAN, Title)" className="md:col-span-2 w-full p-5 bg-gray-50 rounded-2xl font-bold text-sm outline-none h-24" value={settingsForm.bank} onChange={e => setSettingsForm({...settingsForm, bank: e.target.value})} />
               </div>
            </div>
            <button disabled={loading} className="w-full py-5 bg-gray-900 text-white font-black rounded-[2rem] uppercase tracking-widest text-xs shadow-xl active:scale-[0.98] transition-all">
@@ -353,18 +362,18 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 backdrop-blur-sm p-4">
            <div className="bg-white w-full max-w-lg rounded-t-[4rem] p-10 space-y-8 animate-in slide-in-from-bottom-full duration-500 max-h-[95vh] overflow-y-auto no-scrollbar border-t-8 border-pink-600">
               <div className="flex items-center justify-between">
-                 <h2 className="text-3xl font-black uppercase italic tracking-tighter text-gray-900">{editingProduct ? 'Edit Style' : 'New Style'}</h2>
+                 <h2 className="text-3xl font-black uppercase italic tracking-tighter text-gray-900">{editingProduct ? 'Update Style' : 'New Listing'}</h2>
                  <button onClick={() => { setShowModal(false); setEditingProduct(null); }} className="p-4 bg-gray-100 rounded-full"><X className="w-6 h-6" /></button>
               </div>
 
               <form onSubmit={handleProductSubmit} className="space-y-6 pb-12">
                  <div className="grid grid-cols-2 gap-4">
-                   <div onClick={() => imgInputRef.current?.click()} className="aspect-square bg-gray-50 rounded-[2.5rem] border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-3 cursor-pointer overflow-hidden">
-                      {productForm.images.length > 0 ? <img src={productForm.images[0]} className="w-full h-full object-cover" /> : <><Camera className="w-8 h-8 text-gray-300" /><span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Photo</span></>}
+                   <div onClick={() => imgInputRef.current?.click()} className="aspect-square bg-gray-50 rounded-[2.5rem] border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-3 cursor-pointer overflow-hidden group">
+                      {productForm.images.length > 0 ? <img src={productForm.images[0]} className="w-full h-full object-cover" /> : <><Camera className="w-8 h-8 text-gray-300" /><span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Main Photo</span></>}
                       <input type="file" hidden ref={imgInputRef} accept="image/*" onChange={(e) => handleFileUpload(e, 'IMAGE')} />
                    </div>
                    <div onClick={() => videoInputRef.current?.click()} className="aspect-square bg-gray-50 rounded-[2.5rem] border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-3 cursor-pointer overflow-hidden">
-                      {productForm.videoUrl ? <div className="text-pink-600 flex flex-col items-center"><Film className="w-8 h-8" /><span className="text-[9px] font-black uppercase mt-1">Video Added</span></div> : <><Film className="w-8 h-8 text-gray-300" /><span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Video</span></>}
+                      {productForm.videoUrl ? <div className="text-pink-600 flex flex-col items-center"><Film className="w-8 h-8" /><span className="text-[9px] font-black uppercase mt-1">Video Added</span></div> : <><Film className="w-8 h-8 text-gray-300" /><span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Live Reel</span></>}
                       <input type="file" hidden ref={videoInputRef} accept="video/*" onChange={(e) => handleFileUpload(e, 'VIDEO')} />
                    </div>
                  </div>
@@ -381,12 +390,12 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
                  <input placeholder="Custom Event Badge (e.g. Eid Sale)" className="w-full p-6 bg-pink-50/50 rounded-[2rem] font-black text-sm border border-pink-100 outline-none" value={productForm.eventName} onChange={e => setProductForm({...productForm, eventName: e.target.value})} />
 
                  <div className="grid grid-cols-2 gap-4">
-                    <input required type="number" placeholder="Price" className="w-full p-6 bg-gray-50 rounded-[2rem] font-black text-sm outline-none" value={productForm.originalPrice} onChange={e => setProductForm({...productForm, originalPrice: e.target.value})} />
-                    <input type="number" placeholder="Off %" className="w-full p-6 bg-gray-50 rounded-[2rem] font-black text-sm outline-none text-pink-600" value={productForm.discountPercentage} onChange={e => setProductForm({...productForm, discountPercentage: e.target.value})} />
+                    <input required type="number" placeholder="Actual Price" className="w-full p-6 bg-gray-50 rounded-[2rem] font-black text-sm outline-none" value={productForm.originalPrice} onChange={e => setProductForm({...productForm, originalPrice: e.target.value})} />
+                    <input type="number" placeholder="Discount %" className="w-full p-6 bg-gray-50 rounded-[2rem] font-black text-sm outline-none text-pink-600" value={productForm.discountPercentage} onChange={e => setProductForm({...productForm, discountPercentage: e.target.value})} />
                  </div>
 
                  <button disabled={loading} className="w-full py-6 bg-gray-900 text-white font-black rounded-[2.5rem] uppercase tracking-widest text-xs shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all">
-                   {loading ? <Loader2 className="animate-spin" /> : <><Sparkles className="w-6 h-6" /> {editingProduct ? 'Update Style' : 'Launch Style'}</>}
+                   {loading ? <Loader2 className="animate-spin" /> : <><Sparkles className="w-6 h-6" /> {editingProduct ? 'Save Changes' : 'Publish to Bazar'}</>}
                  </button>
               </form>
            </div>

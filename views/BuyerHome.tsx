@@ -44,26 +44,28 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-12 pb-32 animate-in fade-in duration-700">
       
-      {/* Dynamic Theme Announcement Bar */}
+      {/* High-Visibility Theme Announcement Bar */}
       {activeEvent.id !== 'NORMAL' && (
         <div 
-          className="rounded-[2.5rem] p-6 flex items-center justify-between text-white shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-700"
+          className="rounded-[2.5rem] p-8 flex items-center justify-between text-white shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-700"
           style={{ background: `linear-gradient(135deg, ${activeEvent.primaryColor}, ${activeEvent.accentColor})` }}
         >
-          <div className="absolute top-0 right-0 p-4 opacity-10 rotate-12 scale-150">
+          <div className="absolute top-0 right-0 p-4 opacity-10 rotate-12 scale-[3]">
             <span className="text-9xl">{activeEvent.emoji}</span>
           </div>
-          <div className="relative z-10 flex items-center gap-5">
-            <div className="w-14 h-14 bg-white/20 backdrop-blur-xl rounded-[1.5rem] flex items-center justify-center text-3xl shadow-inner">
+          <div className="relative z-10 flex items-center gap-6">
+            <div className="w-16 h-16 bg-white/20 backdrop-blur-2xl rounded-[1.8rem] flex items-center justify-center text-4xl shadow-inner border border-white/30">
                {activeEvent.emoji}
             </div>
             <div>
-               <h3 className="font-black text-xl italic uppercase tracking-tighter leading-none">{activeEvent.name}</h3>
-               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/80 mt-1">{activeEvent.bannerText}</p>
+               <h3 className="font-black text-2xl italic uppercase tracking-tighter leading-none">{activeEvent.name}</h3>
+               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/90 mt-2 bg-black/10 px-3 py-1 rounded-full inline-block">{activeEvent.bannerText}</p>
             </div>
           </div>
-          <div className="urdu-font text-3xl font-black text-white/90 drop-shadow-md">
-            {activeEvent.urduName}
+          <div className="relative z-10 text-right">
+             <div className="urdu-font text-4xl font-black text-white drop-shadow-lg">
+                {activeEvent.urduName}
+             </div>
           </div>
         </div>
       )}
@@ -107,7 +109,7 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
         </div>
       </section>
 
-      {/* Trending Boutiques */}
+      {/* Restore: Trending Boutiques */}
       {trendingShops.length > 0 && (
         <section className="space-y-6">
           <div className="flex items-center justify-between px-2">
@@ -134,7 +136,7 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
         </section>
       )}
 
-      {/* New Arrivals Scroll */}
+      {/* Restore: New Arrivals Scroll */}
       <section className="space-y-6">
         <div className="flex items-center justify-between px-2">
            <h2 className="font-black text-xl text-gray-900 uppercase italic tracking-tighter flex items-center gap-2">
@@ -162,7 +164,7 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
           <h2 className="font-black text-2xl text-gray-900 uppercase italic tracking-tighter">Marketplace</h2>
           <div className="flex items-center gap-2">
              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-             <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{filteredProducts.length} Items Available</span>
+             <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{filteredProducts.length} Items Live</span>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-5 md:gap-8">
@@ -173,10 +175,9 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
                 <div className="relative aspect-[3/4] overflow-hidden cursor-pointer" onClick={() => navigate(`/product/${product.id}`)}>
                   <img src={product.images[0]} className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700" />
                   
-                  {/* Custom Event Badge (Eid Sale etc) */}
                   {product.event_name && (
                     <div className="absolute top-4 right-4 z-10 animate-in zoom-in-50 duration-500">
-                      <div className="bg-white/80 backdrop-blur-md text-pink-600 text-[8px] font-black px-4 py-2 rounded-2xl uppercase tracking-widest shadow-2xl border border-pink-100 flex items-center gap-2">
+                      <div className="bg-white/90 backdrop-blur-md text-pink-600 text-[8px] font-black px-4 py-2 rounded-2xl uppercase tracking-widest shadow-2xl border border-pink-100 flex items-center gap-2">
                         <Sparkles className="w-3 h-3 animate-pulse" /> {product.event_name}
                       </div>
                     </div>
