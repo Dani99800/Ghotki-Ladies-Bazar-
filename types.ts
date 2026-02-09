@@ -61,6 +61,9 @@ export interface Product {
   name: string;
   description: string;
   price: number;
+  original_price?: number;
+  discount_percentage?: number;
+  event_name?: string;
   category: string;
   images: string[];
   videoUrl?: string; 
