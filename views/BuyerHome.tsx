@@ -86,7 +86,7 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
       <section className="space-y-4">
         <div className="flex items-center justify-between px-2">
            <h2 className="font-black text-[10px] text-gray-400 uppercase tracking-widest flex items-center gap-2">
-             <LayoutGrid className="w-3 h-3" /> Explore Categories
+             <LayoutGrid className="w-3 h-3" /> Popular Categories
            </h2>
         </div>
         <div className="flex gap-4 overflow-x-auto no-scrollbar px-2">
@@ -109,17 +109,18 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
         </div>
       </section>
 
-      {/* Trending Boutiques */}
+      {/* RESTORED: Trending Boutiques */}
       {trendingShops.length > 0 && (
         <section className="space-y-6">
           <div className="flex items-center justify-between px-2">
              <h2 className="font-black text-xl text-gray-900 uppercase italic tracking-tighter flex items-center gap-2">
                <Flame className="w-6 h-6 text-orange-500" /> Trending Boutiques
              </h2>
+             <button onClick={() => navigate('/shops')} className="text-[10px] font-black uppercase text-pink-600 tracking-widest">View All</button>
           </div>
-          <div className="flex gap-5 overflow-x-auto no-scrollbar pb-6 px-2">
+          <div className="flex gap-5 overflow-x-auto no-scrollbar pb-6 px-2 snap-x">
             {trendingShops.map((shop) => (
-              <div key={shop.id} onClick={() => navigate(`/shop/${shop.id}`)} className="flex-shrink-0 w-36 space-y-3 group cursor-pointer text-center">
+              <div key={shop.id} onClick={() => navigate(`/shop/${shop.id}`)} className="flex-shrink-0 w-36 space-y-3 group cursor-pointer text-center snap-start">
                 <div className="relative aspect-square rounded-[2.5rem] overflow-hidden border-4 border-white shadow-xl bg-white group-hover:scale-105 transition-transform duration-500">
                   <img src={shop.logo} className="w-full h-full object-cover" />
                   <div className="absolute top-2 right-2 bg-pink-600 p-2 rounded-2xl shadow-xl shadow-pink-200/50">
@@ -136,16 +137,16 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
         </section>
       )}
 
-      {/* New Arrivals Scroll */}
+      {/* RESTORED: New Arrivals Scroll */}
       <section className="space-y-6">
         <div className="flex items-center justify-between px-2">
            <h2 className="font-black text-xl text-gray-900 uppercase italic tracking-tighter flex items-center gap-2">
-             <Clock className="w-6 h-6 text-pink-600" /> New Arrivals
+             <Clock className="w-6 h-6 text-pink-600" /> Fresh Arrivals
            </h2>
         </div>
-        <div className="flex gap-5 overflow-x-auto no-scrollbar pb-6 px-2">
+        <div className="flex gap-5 overflow-x-auto no-scrollbar pb-6 px-2 snap-x">
           {newArrivals.map(product => (
-            <div key={product.id} onClick={() => navigate(`/product/${product.id}`)} className="flex-shrink-0 w-48 bg-white rounded-[2.5rem] border border-gray-100 p-4 shadow-sm group cursor-pointer transition-all hover:shadow-lg">
+            <div key={product.id} onClick={() => navigate(`/product/${product.id}`)} className="flex-shrink-0 w-48 bg-white rounded-[2.5rem] border border-gray-100 p-4 shadow-sm group cursor-pointer transition-all hover:shadow-lg snap-start">
               <div className="relative aspect-[4/5] rounded-[2rem] overflow-hidden mb-4">
                 <img src={product.images[0]} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
                 {product.discount_percentage ? <div className="absolute top-3 left-3 bg-red-600 text-white text-[9px] font-black px-3 py-1.5 rounded-xl shadow-lg uppercase">-{product.discount_percentage}%</div> : null}
@@ -161,10 +162,10 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
       {/* Main Marketplace Grid */}
       <section className="space-y-8">
         <div className="flex items-center justify-between px-2 border-b border-gray-100 pb-6">
-          <h2 className="font-black text-2xl text-gray-900 uppercase italic tracking-tighter">Live Marketplace</h2>
+          <h2 className="font-black text-2xl text-gray-900 uppercase italic tracking-tighter">Marketplace</h2>
           <div className="flex items-center gap-2">
              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-             <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{filteredProducts.length} Items Live</span>
+             <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{filteredProducts.length} Live Items</span>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-5 md:gap-8">
