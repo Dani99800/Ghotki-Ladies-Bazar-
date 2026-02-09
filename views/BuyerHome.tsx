@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, MapPin, Sparkles, TrendingUp, LayoutGrid, Store, ChevronRight, ShoppingBag, Flame, Clock, Star, Trophy } from 'lucide-react';
+import { Search, MapPin, Sparkles, TrendingUp, LayoutGrid, Store, ChevronRight, ShoppingBag, Flame, Clock, Star, Trophy, BellRing } from 'lucide-react';
 import { Shop, Product, Order, User as UserType, Category, AppEvent } from '../types';
 import InstantCheckout from '../components/InstantCheckout';
 
@@ -43,6 +43,31 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-12 pb-32 animate-in fade-in duration-700">
+      
+      {/* Dynamic Theme Announcement Bar */}
+      {activeEvent.id !== 'NORMAL' && (
+        <div 
+          className="rounded-[2.5rem] p-6 flex items-center justify-between text-white shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-700"
+          style={{ background: `linear-gradient(135deg, ${activeEvent.primaryColor}, ${activeEvent.accentColor})` }}
+        >
+          <div className="absolute top-0 right-0 p-4 opacity-10 rotate-12 scale-150">
+            <span className="text-9xl">{activeEvent.emoji}</span>
+          </div>
+          <div className="relative z-10 flex items-center gap-5">
+            <div className="w-14 h-14 bg-white/20 backdrop-blur-xl rounded-[1.5rem] flex items-center justify-center text-3xl shadow-inner">
+               {activeEvent.emoji}
+            </div>
+            <div>
+               <h3 className="font-black text-xl italic uppercase tracking-tighter leading-none">{activeEvent.name}</h3>
+               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/80 mt-1">{activeEvent.bannerText}</p>
+            </div>
+          </div>
+          <div className="urdu-font text-3xl font-black text-white/90 drop-shadow-md">
+            {activeEvent.urduName}
+          </div>
+        </div>
+      )}
+
       {/* Search Header */}
       <div className="relative group">
         <Search className="absolute left-6 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-pink-600 transition-colors" />
@@ -55,7 +80,7 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
         />
       </div>
 
-      {/* Horizontal Categories (Restored) */}
+      {/* Horizontal Categories */}
       <section className="space-y-4">
         <div className="flex items-center justify-between px-2">
            <h2 className="font-black text-[10px] text-gray-400 uppercase tracking-widest flex items-center gap-2">
@@ -82,7 +107,7 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
         </div>
       </section>
 
-      {/* Trending Boutiques (Restored) */}
+      {/* Trending Boutiques */}
       {trendingShops.length > 0 && (
         <section className="space-y-6">
           <div className="flex items-center justify-between px-2">
