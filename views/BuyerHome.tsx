@@ -44,7 +44,7 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-12 pb-32 animate-in fade-in duration-700">
       
-      {/* High-Visibility Theme Announcement Bar */}
+      {/* High-Visibility Dynamic Theme Announcement Bar */}
       {activeEvent.id !== 'NORMAL' && (
         <div 
           className="rounded-[2.5rem] p-8 flex items-center justify-between text-white shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-700"
@@ -86,7 +86,7 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
       <section className="space-y-4">
         <div className="flex items-center justify-between px-2">
            <h2 className="font-black text-[10px] text-gray-400 uppercase tracking-widest flex items-center gap-2">
-             <LayoutGrid className="w-3 h-3" /> Boutique Categories
+             <LayoutGrid className="w-3 h-3" /> Explore Categories
            </h2>
         </div>
         <div className="flex gap-4 overflow-x-auto no-scrollbar px-2">
@@ -109,7 +109,7 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
         </div>
       </section>
 
-      {/* Restore: Trending Boutiques */}
+      {/* Trending Boutiques */}
       {trendingShops.length > 0 && (
         <section className="space-y-6">
           <div className="flex items-center justify-between px-2">
@@ -136,7 +136,7 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
         </section>
       )}
 
-      {/* Restore: New Arrivals Scroll */}
+      {/* New Arrivals Scroll */}
       <section className="space-y-6">
         <div className="flex items-center justify-between px-2">
            <h2 className="font-black text-xl text-gray-900 uppercase italic tracking-tighter flex items-center gap-2">
@@ -161,7 +161,7 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
       {/* Main Marketplace Grid */}
       <section className="space-y-8">
         <div className="flex items-center justify-between px-2 border-b border-gray-100 pb-6">
-          <h2 className="font-black text-2xl text-gray-900 uppercase italic tracking-tighter">Marketplace</h2>
+          <h2 className="font-black text-2xl text-gray-900 uppercase italic tracking-tighter">Live Marketplace</h2>
           <div className="flex items-center gap-2">
              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{filteredProducts.length} Items Live</span>
