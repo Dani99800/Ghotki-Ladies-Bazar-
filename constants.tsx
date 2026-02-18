@@ -12,7 +12,7 @@ export const COLORS = {
 export const PK_EVENTS: AppEvent[] = [
   {
     id: 'NORMAL',
-    name: 'Ghotki Ladies Bazar',
+    name: 'Ghotki Bazar',
     urduName: 'عام دن',
     primaryColor: '#db2777',
     accentColor: '#be185d',
@@ -94,9 +94,9 @@ export const PK_EVENTS: AppEvent[] = [
 ];
 
 export const BAZAARS = [
-  'Ghotki Ladies Bazar',
-  'Sahee Bazar',
-  'Main Bazar Ghotki',
+  'Ladies Bazar',
+  'Shahi Bazar',
+  'Main Bazar',
   'Resham Gali',
 ];
 

@@ -70,6 +70,8 @@ export interface Product {
   tags: string[];
   createdAt?: string;
   stock?: number;
+  is_new_arrival?: boolean;
+  sort_priority?: number;
 }
 
 export interface CartItem extends Product {

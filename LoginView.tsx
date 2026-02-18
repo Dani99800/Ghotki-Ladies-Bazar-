@@ -157,10 +157,10 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
   return (
     <div className="max-w-md mx-auto min-h-screen flex flex-col items-center justify-center p-6 space-y-10 animate-in fade-in duration-700">
       <div className="text-center space-y-2">
-        <div className="inline-flex items-center justify-center w-14 h-14 bg-pink-600 rounded-[1.5rem] text-white shadow-xl mb-4">
-          <ShoppingBag className="w-7 h-7" />
+        <div className="inline-flex items-center justify-center w-14 h-14 bg-pink-600 rounded-2xl text-white shadow-xl mb-4 font-black italic text-xl">
+          GB
         </div>
-        <h1 className="text-4xl font-black text-pink-600 uppercase italic tracking-tighter">GLB BAZAR</h1>
+        <h1 className="text-4xl font-black text-pink-600 uppercase italic tracking-tighter">GHOTKI BAZAR</h1>
         <p className="text-[10px] font-black uppercase text-gray-400 tracking-[0.3em]">Digitizing Ghotki Legacy</p>
       </div>
       
@@ -192,28 +192,23 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
             {view === 'SIGNUP_SHOP' && (
               <div className="space-y-6 pt-6 border-t border-gray-100 animate-in slide-in-from-top-4">
                 <div className="space-y-2">
-                   <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1">Merchant Details</p>
+                   <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1">Merchant Identity</p>
                    <input required type="text" placeholder="Shop Name" className="w-full p-5 bg-white border border-gray-100 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-pink-500/10" value={formData.shopName} onChange={e => setFormData({...formData, shopName: e.target.value})} />
                 </div>
 
                 <div className="space-y-2">
                    <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1 flex items-center gap-2">
-                     <MapPin className="w-3 h-3" /> Shop Address
+                     <MapPin className="w-3 h-3" /> Specific Shop Address
                    </p>
-                   <textarea required placeholder="Full Shop Address in Ghotki..." className="w-full p-5 bg-white border border-gray-100 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-pink-500/10 h-24" value={formData.shopAddress} onChange={e => setFormData({...formData, shopAddress: e.target.value})} />
+                   <textarea required placeholder="Bazaar location, shop number, landmarks..." className="w-full p-5 bg-white border border-gray-100 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-pink-500/10 h-24 shadow-sm" value={formData.shopAddress} onChange={e => setFormData({...formData, shopAddress: e.target.value})} />
                 </div>
                 
                 <div className="space-y-2">
                   <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1 flex items-center gap-2">
-                    <Briefcase className="w-3 h-3" /> Industry Category
+                    <Briefcase className="w-3 h-3" /> Business Category
                   </p>
                   <div className="relative">
-                    <select 
-                      required 
-                      className="w-full p-5 bg-white border-2 border-pink-50 rounded-2xl font-black text-sm outline-none appearance-none focus:ring-4 focus:ring-pink-500/10 text-gray-900 cursor-pointer"
-                      value={formData.category}
-                      onChange={e => setFormData({...formData, category: e.target.value})}
-                    >
+                    <select required className="w-full p-5 bg-white border-2 border-pink-50 rounded-2xl font-black text-sm outline-none appearance-none focus:ring-4 focus:ring-pink-500/10 text-gray-900 cursor-pointer shadow-sm" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
                       {CATEGORIES.map(cat => (
                         <option key={cat.id} value={cat.name}>{cat.name}</option>
                       ))}
@@ -226,9 +221,9 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
                   <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1">Subscription Plan</p>
                   <div className="grid grid-cols-3 gap-2">
                     {SUBSCRIPTION_PLANS.map(plan => (
-                      <button key={plan.id} type="button" onClick={() => setFormData({...formData, tier: plan.id as any})} className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-1 ${formData.tier === plan.id ? 'border-pink-600 bg-pink-50 text-pink-600' : 'border-gray-50 text-gray-400'}`}>
+                      <button key={plan.id} type="button" onClick={() => setFormData({...formData, tier: plan.id as any})} className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-1 ${formData.tier === plan.id ? 'border-pink-600 bg-pink-50 text-pink-600' : 'border-gray-50 text-gray-400 bg-white'}`}>
                         <span className="text-[8px] font-black uppercase">{plan.label}</span>
-                        <span className="text-[10px] font-black">PKR {plan.price}</span>
+                        <span className="text-[10px] font-black leading-none">PKR {plan.price}</span>
                       </button>
                     ))}
                   </div>
@@ -242,7 +237,7 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
           </button>
           
           <button type="button" onClick={() => setView(view === 'LOGIN' ? 'SIGNUP_CHOICE' : 'LOGIN')} className="w-full text-center text-gray-400 font-black uppercase text-[10px] pt-4 tracking-[0.2em]">
-            {view === 'LOGIN' ? "Join the Bazaar? Sign Up" : 'Already have an account? Login'}
+            {view === 'LOGIN' ? "New to Ghotki Bazar? Sign Up" : 'Already have an account? Login'}
           </button>
         </form>
       )}

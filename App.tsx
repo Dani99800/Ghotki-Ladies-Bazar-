@@ -74,7 +74,9 @@ const App: React.FC = () => {
         images: Array.isArray(p.image_urls) ? p.image_urls : (p.image_url ? [p.image_url] : (p.images || [])),
         videoUrl: p.video_url || p.videoUrl,
         createdAt: p.created_at || p.createdAt,
-        tags: p.tags || []
+        tags: p.tags || [],
+        is_new_arrival: !!p.is_new_arrival, // Ensure boolean mapping
+        sort_priority: p.sort_priority || 0
       })).sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
       
       setProducts(mappedProducts);
@@ -215,10 +217,10 @@ const App: React.FC = () => {
     <div className="h-screen w-full flex flex-col items-center justify-center bg-white space-y-6">
       <div className="relative">
         <div className="w-16 h-16 border-4 border-pink-50 border-t-pink-600 rounded-full animate-spin"></div>
-        <ShoppingBag className="absolute inset-0 m-auto w-6 h-6 text-pink-600" />
+        <div className="absolute inset-0 m-auto w-8 h-8 flex items-center justify-center font-black text-pink-600 italic">GB</div>
       </div>
       <div className="text-center space-y-1">
-        <p className="font-black uppercase tracking-widest text-[11px] text-gray-900 italic">GLB BAZAR</p>
+        <p className="font-black uppercase tracking-widest text-[11px] text-gray-900 italic">GHOTKI BAZAR</p>
         <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Digitizing Ghotki Legacy</p>
       </div>
     </div>
@@ -228,10 +230,10 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-gray-50 flex flex-col" style={{ '--primary-event': activeEvent.primaryColor, '--accent-event': activeEvent.accentColor } as React.CSSProperties}>
       <nav className="fixed top-0 left-0 right-0 h-16 bg-white/80 backdrop-blur-xl border-b flex items-center justify-between px-6 z-50 shadow-sm">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-lg" style={{ background: activeEvent.primaryColor }}>
-            <ShoppingBag className="w-5 h-5" />
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white shadow-lg font-black italic text-sm" style={{ background: activeEvent.primaryColor }}>
+            GB
           </div>
-          <h1 className="text-gray-900 font-black text-xl italic uppercase tracking-tighter">GLB BAZAR</h1>
+          <h1 className="text-gray-900 font-black text-xl italic uppercase tracking-tighter">GHOTKI BAZAR</h1>
         </div>
 
         {/* Desktop Navigation */}
