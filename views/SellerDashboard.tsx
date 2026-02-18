@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   PlusCircle, X, Image as ImageIcon, Loader2, Settings, Trash2, 
-  Check, MessageCircle, Sparkles, Plus, DollarSign, Tag, Calendar, History, Film, Camera, Save, UploadCloud, Store, ChevronDown, Trophy, CreditCard, Smartphone, Building2, Edit2
+  Check, MessageCircle, Sparkles, Plus, DollarSign, Tag, Calendar, History, Film, Camera, Save, UploadCloud, Store, ChevronDown, Trophy, CreditCard, Smartphone, Building2, Edit2, MapPin
 } from 'lucide-react';
 import { Product, Order, User as UserType, Shop } from '../types';
 import { CATEGORIES } from '../constants';
@@ -51,6 +51,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
     logo: myShop?.logo || '',
     banner: myShop?.banner || '',
     bio: myShop?.bio || '',
+    address: myShop?.address || '',
     easypaisa: myShop?.easypaisa_number || '',
     jazzcash: myShop?.jazzcash_number || '',
     bank: myShop?.bank_details || ''
@@ -64,6 +65,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         logo: myShop.logo || '',
         banner: myShop.banner || '',
         bio: myShop.bio || '',
+        address: myShop.address || '',
         easypaisa: myShop.easypaisa_number || '',
         jazzcash: myShop.jazzcash_number || '',
         bank: myShop.bank_details || ''
@@ -131,7 +133,6 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
       if (uploadError) throw uploadError;
       
       const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(filePath);
-      // Cache busting ensures the browser doesn't show an old image after update
       const finalUrl = `${publicUrl}?v=${Date.now()}`;
       
       if (type === 'IMAGE') {
@@ -141,7 +142,6 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
       } else if (type === 'LOGO' || type === 'BANNER') {
         const field = type.toLowerCase() as 'logo' | 'banner';
         
-        // Update both field variants to ensure compatibility with different SQL column names
         const dbPayload = type === 'LOGO' 
           ? { logo: finalUrl, logo_url: finalUrl } 
           : { banner: finalUrl, banner_url: finalUrl };
@@ -185,6 +185,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         name: settingsForm.name,
         whatsapp: settingsForm.whatsapp,
         bio: settingsForm.bio,
+        address: settingsForm.address,
         easypaisa_number: settingsForm.easypaisa,
         jazzcash_number: settingsForm.jazzcash,
         bank_details: settingsForm.bank
@@ -243,7 +244,6 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6 pb-32">
-      {/* Banner / Header */}
       <div className="relative h-56 rounded-[3.5rem] overflow-hidden shadow-2xl border-4 border-white bg-gray-900 group">
          <img src={settingsForm.banner} className="w-full h-full object-cover opacity-80" alt="Banner" />
          <div onClick={() => bannerInputRef.current?.click()} className="absolute inset-0 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer bg-black/50 backdrop-blur-sm z-10">
@@ -269,7 +269,6 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
          </div>
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-2 p-1.5 bg-gray-100 rounded-[2.5rem]">
         {['Inventory', 'Orders', 'Settings'].map(tab => (
           <button key={tab} onClick={() => setActiveTab(tab as any)} className={`flex-1 py-4 rounded-[2rem] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab ? 'bg-white text-pink-600 shadow-lg' : 'text-gray-400 hover:text-gray-600'}`}>
@@ -348,6 +347,13 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
                  <input placeholder="Shop Name" className="w-full p-5 bg-gray-50 rounded-2xl font-black text-sm outline-none border-2 border-transparent focus:border-pink-100" value={settingsForm.name} onChange={e => setSettingsForm({...settingsForm, name: e.target.value})} />
                  <input placeholder="WhatsApp (03xx...)" className="w-full p-5 bg-gray-50 rounded-2xl font-black text-sm outline-none border-2 border-transparent focus:border-pink-100" value={settingsForm.whatsapp} onChange={e => setSettingsForm({...settingsForm, whatsapp: e.target.value})} />
                  <textarea placeholder="Tell your story..." className="w-full p-5 bg-gray-50 rounded-2xl font-bold text-sm outline-none h-24 border-2 border-transparent focus:border-pink-100" value={settingsForm.bio} onChange={e => setSettingsForm({...settingsForm, bio: e.target.value})} />
+                 
+                 <div className="space-y-2">
+                    <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1 flex items-center gap-2">
+                      <MapPin className="w-3.5 h-3.5" /> Physical Shop Address
+                    </p>
+                    <textarea placeholder="Bazaar location, shop number, etc..." className="w-full p-5 bg-gray-50 rounded-2xl font-bold text-sm outline-none h-24 border-2 border-transparent focus:border-pink-100" value={settingsForm.address} onChange={e => setSettingsForm({...settingsForm, address: e.target.value})} />
+                 </div>
               </div>
            </div>
            <div className="space-y-6 pt-6 border-t border-gray-100">

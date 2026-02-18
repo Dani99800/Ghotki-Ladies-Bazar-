@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  User, Store, Phone, Mail, CheckCircle, Loader2, ChevronDown, AlertTriangle, Briefcase, ShoppingBag
+  User, Store, Phone, Mail, CheckCircle, Loader2, ChevronDown, AlertTriangle, Briefcase, ShoppingBag, MapPin
 } from 'lucide-react';
 import { supabase } from './services/supabase';
 import { BAZAARS, CATEGORIES, SUBSCRIPTION_PLANS } from './constants';
@@ -24,6 +24,7 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
     name: '',
     mobile: '',
     shopName: '',
+    shopAddress: '',
     bazaar: BAZAARS[0],
     category: CATEGORIES[0].name,
     tier: 'BASIC' as any
@@ -72,8 +73,6 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
     if (!supabase) return;
     setLoading(true);
     try {
-      // 1. Supabase Auth Signup
-      // We send ALL data as user_metadata. The SQL trigger will pick this up.
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -85,6 +84,7 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
             role: role,
             tier: formData.tier,
             shop_name: formData.shopName,
+            address: formData.shopAddress,
             bazaar: formData.bazaar,
             category: formData.category
           }
@@ -93,9 +93,6 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
 
       if (authError) throw authError;
       if (!authData.user) throw new Error("Auth failed.");
-
-      // NOTE: We no longer manually insert into 'profiles' or 'shops' here.
-      // The database trigger 'on_auth_user_created' handles it instantly.
 
       if (role === 'SELLER') {
         setView('PENDING');
@@ -197,6 +194,13 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
                 <div className="space-y-2">
                    <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1">Merchant Details</p>
                    <input required type="text" placeholder="Shop Name" className="w-full p-5 bg-white border border-gray-100 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-pink-500/10" value={formData.shopName} onChange={e => setFormData({...formData, shopName: e.target.value})} />
+                </div>
+
+                <div className="space-y-2">
+                   <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1 flex items-center gap-2">
+                     <MapPin className="w-3 h-3" /> Shop Address
+                   </p>
+                   <textarea required placeholder="Full Shop Address in Ghotki..." className="w-full p-5 bg-white border border-gray-100 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-pink-500/10 h-24" value={formData.shopAddress} onChange={e => setFormData({...formData, shopAddress: e.target.value})} />
                 </div>
                 
                 <div className="space-y-2">
