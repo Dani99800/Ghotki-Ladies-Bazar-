@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { 
-  Store, Shield, Loader2, Check, ChevronUp, ChevronDown, Palette, LayoutGrid, Star, Trophy, ShoppingBag, Edit2, Clock, ArrowUp, ArrowDown, CreditCard
+  Store, Shield, Loader2, Check, Palette, Star, Trophy, ShoppingBag, Clock, ArrowUp, ArrowDown, CreditCard, X, ExternalLink
 } from 'lucide-react';
 import { Shop, Order, Category, AppEvent, Product } from '../types';
 import { supabase } from '../services/supabase';
@@ -28,13 +28,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const fetchAdminProducts = async () => {
       if (!supabase) return;
       try {
-        const { data, error } = await supabase.from('products').select('*').order('created_at', { ascending: false });
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .order('created_at', { ascending: false });
         if (error) throw error;
-        if (data) setAdminProducts(data.map(p => ({
-          ...p,
-          images: p.image_urls || p.images || [],
-          is_new_arrival: !!p.is_new_arrival
-        })));
+        if (data) {
+          setAdminProducts(data.map((p: any) => ({
+            ...p,
+            id: p.id.toString(),
+            shopId: (p.shop_id || p.shopId).toString(),
+            images: Array.isArray(p.image_urls) ? p.image_urls : (p.image_url ? [p.image_url] : (p.images || [])),
+            is_new_arrival: !!p.is_new_arrival
+          })));
+        }
       } catch (err) {
         console.error("Admin products fetch failed:", err);
       }
@@ -56,11 +63,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  const changePriority = async (shop: Shop, delta: number) => {
-    const newPriority = (shop.sort_priority || 0) + delta;
-    await updateShopField(shop.id, 'sort_priority', newPriority);
-  };
-
   const updateProductField = async (id: string, field: string, value: any) => {
     if (!supabase) return;
     setLoadingId(id + field);
@@ -76,23 +78,30 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  const changePriority = async (shop: Shop, delta: number) => {
+    const newPriority = (shop.sort_priority || 0) + delta;
+    await updateShopField(shop.id, 'sort_priority', newPriority);
+  };
+
   const sortedShops = [...shops].sort((a, b) => (b.sort_priority || 0) - (a.sort_priority || 0));
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-8 pb-32 animate-in fade-in duration-500">
+      {/* Admin Header */}
       <div className="flex justify-between items-center bg-white p-8 rounded-[3.5rem] border border-gray-100 shadow-sm">
         <div className="space-y-1">
           <h1 className="text-3xl font-black uppercase italic tracking-tighter text-gray-900 leading-none">Admin Authority</h1>
-          <p className="text-[10px] font-black text-pink-600 uppercase tracking-[0.2em]">Curation & Market Order</p>
+          <p className="text-[10px] font-black text-pink-600 uppercase tracking-[0.2em]">Curation & Merchant Control</p>
         </div>
         <div className="w-16 h-16 bg-pink-100 rounded-[2rem] flex items-center justify-center text-pink-600 shadow-inner"><Shield className="w-8 h-8" /></div>
       </div>
 
+      {/* Navigation Tabs */}
       <div className="flex gap-2 p-1.5 bg-gray-200 rounded-[2.5rem]">
         {[
-          { id: 'SHOPS', icon: Store, label: 'Shops' },
-          { id: 'INVENTORY', icon: ShoppingBag, label: 'Arrivals' },
-          { id: 'THEME', icon: Palette, label: 'Theme' }
+          { id: 'SHOPS', icon: Store, label: 'Merchants' },
+          { id: 'INVENTORY', icon: ShoppingBag, label: 'New Arrivals' },
+          { id: 'THEME', icon: Palette, label: 'Themes' }
         ].map((tab) => (
           <button 
             key={tab.id}
@@ -104,23 +113,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         ))}
       </div>
 
+      {/* Merchants Tab */}
       {activeAdminTab === 'SHOPS' && (
-        <div className="space-y-4">
-          <div className="flex justify-between items-center px-4">
-             <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Manage Ranking, Badges & Plans</p>
-          </div>
+        <div className="space-y-4 animate-in slide-in-from-bottom-4">
           {sortedShops.map((shop) => (
             <div key={shop.id} className="bg-white p-6 rounded-[3rem] border border-gray-100 shadow-sm flex flex-col gap-6">
                <div className="flex items-center justify-between gap-4">
                  <div className="flex items-center gap-4 flex-1 min-w-0">
-                    <div className="relative">
-                      <img src={shop.logo} className="w-14 h-14 rounded-[1.5rem] object-cover bg-gray-50 border-2 border-white shadow-sm" />
-                      {shop.is_top_seller && (
-                        <div className="absolute -top-1 -right-1 bg-pink-600 p-1 rounded-full border border-white">
-                          <Trophy className="w-2.5 h-2.5 text-white" />
-                        </div>
-                      )}
-                    </div>
+                    <img src={shop.logo} className="w-14 h-14 rounded-[1.5rem] object-cover bg-gray-50 border-2 border-white shadow-sm" />
                     <div className="truncate">
                       <p className="font-black text-sm uppercase italic text-gray-900 truncate tracking-tight">{shop.name}</p>
                       <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Priority: {shop.sort_priority || 0}</p>
@@ -154,25 +154,29 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         ))}
                      </select>
                   </div>
-                  <button onClick={() => updateShopField(shop.id, 'status', shop.status === 'APPROVED' ? 'SUSPENDED' : 'APPROVED')} className={`px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${shop.status === 'APPROVED' ? 'bg-red-50 text-red-600' : 'bg-green-600 text-white shadow-lg'}`}>
-                    {shop.status === 'APPROVED' ? 'Block Merchant' : 'Activate Merchant'}
-                  </button>
+                  <div className="flex gap-2">
+                     <button onClick={() => window.open(`https://wa.me/${shop.whatsapp || shop.mobile}`)} className="p-3 bg-green-50 text-green-600 rounded-xl"><ExternalLink className="w-4 h-4" /></button>
+                     <button onClick={() => updateShopField(shop.id, 'status', shop.status === 'APPROVED' ? 'SUSPENDED' : 'APPROVED')} className={`px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${shop.status === 'APPROVED' ? 'bg-red-50 text-red-600' : 'bg-green-600 text-white shadow-lg'}`}>
+                       {shop.status === 'APPROVED' ? 'Suspend Merchant' : 'Approve Live'}
+                     </button>
+                  </div>
                </div>
             </div>
           ))}
         </div>
       )}
 
+      {/* New Arrivals Tab */}
       {activeAdminTab === 'INVENTORY' && (
-        <div className="space-y-4">
-           <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest px-2 mb-4 text-center">Select "New Arrivals" for Marketplace Curation</p>
+        <div className="space-y-4 animate-in slide-in-from-bottom-4">
+           <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest px-2 mb-4 text-center text-pink-600 italic">Toggle products to appear in the "New Arrivals" section</p>
            {adminProducts.map(product => (
              <div key={product.id} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm flex items-center justify-between gap-4">
                 <div className="flex items-center gap-4 flex-1 min-w-0">
-                  <img src={product.images?.[0]} className="w-14 h-14 rounded-2xl object-cover shadow-sm" />
+                  <img src={product.images?.[0]} className="w-14 h-14 rounded-2xl object-cover shadow-sm bg-gray-50" />
                   <div className="truncate">
-                    <p className="font-black text-sm uppercase italic text-gray-900 truncate">{product.name}</p>
-                    <p className="text-[9px] font-black text-gray-400 uppercase">PKR {product.price}</p>
+                    <p className="font-black text-sm uppercase italic text-gray-900 truncate tracking-tight">{product.name}</p>
+                    <p className="text-[9px] font-black text-gray-400 uppercase">PKR {product.price.toLocaleString()}</p>
                   </div>
                 </div>
                 <button 
@@ -188,13 +192,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       )}
 
+      {/* Themes Tab */}
       {activeAdminTab === 'THEME' && (
-        <div className="grid grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 animate-in slide-in-from-bottom-4">
            {PK_EVENTS.map(event => (
-              <button key={event.id} onClick={() => onUpdateEvent(event)} className={`p-8 rounded-[3rem] border-2 transition-all text-left ${activeEvent.id === event.id ? 'border-pink-600 bg-pink-50' : 'border-gray-100 bg-white'}`}>
-                 <span className="text-4xl mb-4 block">{event.emoji}</span>
-                 <p className="font-black text-[11px] uppercase text-gray-900 leading-none mb-2">{event.name}</p>
+              <button key={event.id} onClick={() => onUpdateEvent(event)} className={`p-8 rounded-[3rem] border-4 transition-all text-left relative overflow-hidden group ${activeEvent.id === event.id ? 'border-pink-600 bg-pink-50 shadow-xl' : 'border-white bg-white shadow-sm hover:border-gray-100'}`}>
+                 <span className="text-4xl mb-4 block group-hover:scale-110 transition-transform">{event.emoji}</span>
+                 <p className="font-black text-[11px] uppercase text-gray-900 leading-none mb-2 tracking-widest">{event.name}</p>
                  <p className="urdu-font text-2xl text-gray-400">{event.urduName}</p>
+                 {activeEvent.id === event.id && (
+                   <div className="absolute top-4 right-4 bg-pink-600 text-white p-1 rounded-full">
+                     <Check className="w-3 h-3" />
+                   </div>
+                 )}
+                 <div className="absolute -bottom-10 -right-10 w-24 h-24 rounded-full opacity-10" style={{ backgroundColor: event.primaryColor }}></div>
               </button>
            ))}
         </div>

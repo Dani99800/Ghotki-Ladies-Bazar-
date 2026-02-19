@@ -75,7 +75,7 @@ const App: React.FC = () => {
         videoUrl: p.video_url || p.videoUrl,
         createdAt: p.created_at || p.createdAt,
         tags: p.tags || [],
-        is_new_arrival: !!p.is_new_arrival, // Ensure boolean mapping
+        is_new_arrival: Boolean(p.is_new_arrival), // CRITICAL: Strict boolean mapping for curation
         sort_priority: p.sort_priority || 0
       })).sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
       

@@ -1,11 +1,11 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  PlusCircle, X, Image as ImageIcon, Loader2, Settings, Trash2, 
-  Check, MessageCircle, Sparkles, Plus, DollarSign, Tag, Calendar, History, Film, Camera, Save, UploadCloud, Store, ChevronDown, Trophy, CreditCard, Smartphone, Building2, Edit2, MapPin, Box
+  PlusCircle, X, Loader2, Settings, Trash2, 
+  Check, MessageCircle, Sparkles, Film, Camera, Save, UploadCloud, Store, Trophy, CreditCard, Smartphone, Building2, Edit2, MapPin, Box, Package, History
 } from 'lucide-react';
 import { Product, Order, User as UserType, Shop } from '../types';
-import { CATEGORIES } from '../constants';
+import { CATEGORIES, BAZAARS } from '../constants';
 import { supabase } from '../services/supabase';
 
 interface SellerDashboardProps {
@@ -24,7 +24,6 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
   const [uploadingType, setUploadingType] = useState<'LOGO' | 'BANNER' | null>(null);
 
   const imgInputRef = useRef<HTMLInputElement>(null);
@@ -38,14 +37,14 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
   const [productForm, setProductForm] = useState({
     name: '',
     originalPrice: '',
-    discountPercentage: '',
+    discountPercentage: '0',
     price: '', 
     category: CATEGORIES[0].name,
     description: '',
     eventName: '',
     images: [] as string[],
     videoUrl: '',
-    stock: '0'
+    stock: '1'
   });
 
   const [settingsForm, setSettingsForm] = useState({
@@ -55,6 +54,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
     banner: myShop?.banner || '',
     bio: myShop?.bio || '',
     address: myShop?.address || '',
+    bazaar: myShop?.bazaar || BAZAARS[0],
     easypaisa: myShop?.easypaisa_number || '',
     jazzcash: myShop?.jazzcash_number || '',
     bank: myShop?.bank_details || ''
@@ -69,6 +69,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         banner: myShop.banner || '',
         bio: myShop.bio || '',
         address: myShop.address || '',
+        bazaar: myShop.bazaar || BAZAARS[0],
         easypaisa: myShop.easypaisa_number || '',
         jazzcash: myShop.jazzcash_number || '',
         bank: myShop.bank_details || ''
@@ -88,37 +89,24 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         eventName: editingProduct.event_name || '',
         images: editingProduct.images || [],
         videoUrl: editingProduct.videoUrl || '',
-        stock: (editingProduct.stock || 0).toString()
+        stock: (editingProduct.stock || 1).toString()
       });
+    } else {
+      setProductForm({ name: '', originalPrice: '', discountPercentage: '0', price: '', category: CATEGORIES[0].name, description: '', eventName: '', images: [], videoUrl: '', stock: '1' });
     }
-  }, [editingProduct]);
+  }, [editingProduct, showModal]);
 
+  // Handle Automatic Discount Calculation
   useEffect(() => {
     const orig = parseFloat(productForm.originalPrice);
     const perc = parseFloat(productForm.discountPercentage);
-    if (!isNaN(orig) && !isNaN(perc)) {
+    if (!isNaN(orig) && !isNaN(perc) && perc > 0) {
       const discounted = orig - (orig * (perc / 100));
       setProductForm(prev => ({ ...prev, price: Math.round(discounted).toString() }));
     } else if (!isNaN(orig)) {
       setProductForm(prev => ({ ...prev, price: orig.toString() }));
     }
   }, [productForm.originalPrice, productForm.discountPercentage]);
-
-  const handleCompleteOrder = async (orderId: string) => {
-    if (!supabase) return;
-    setLoading(true);
-    try {
-      const { error } = await supabase.from('orders').update({ status: 'COMPLETED' }).eq('id', orderId);
-      if (error) throw error;
-      if (refreshOrders) await refreshOrders();
-      alert("Order Fulfilled!");
-      setOrderSubTab('HISTORY');
-    } catch (err: any) {
-      alert("Status Update Failed: " + err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'IMAGE' | 'VIDEO' | 'LOGO' | 'BANNER') => {
     if (!supabase || !e.target.files?.[0] || !myShop) return;
@@ -144,16 +132,10 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
       } else if (type === 'VIDEO') {
         setProductForm(p => ({ ...p, videoUrl: finalUrl }));
       } else if (type === 'LOGO' || type === 'BANNER') {
-        const field = type.toLowerCase() as 'logo' | 'banner';
-        
-        const dbPayload = type === 'LOGO' 
-          ? { logo: finalUrl, logo_url: finalUrl } 
-          : { banner: finalUrl, banner_url: finalUrl };
-        
-        const { error: updateError } = await supabase.from('shops').update(dbPayload).eq('id', myShop.id);
+        const field = type.toLowerCase() === 'logo' ? 'logo_url' : 'banner_url';
+        const { error: updateError } = await supabase.from('shops').update({ [field]: finalUrl }).eq('id', myShop.id);
         if (updateError) throw updateError;
-        
-        setSettingsForm(prev => ({ ...prev, [field]: finalUrl }));
+        setSettingsForm(prev => ({ ...prev, [type.toLowerCase()]: finalUrl }));
         await refreshShop();
       }
     } catch (err: any) {
@@ -162,48 +144,6 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
       setLoading(false);
       setUploadingType(null);
       if (e.target) e.target.value = '';
-    }
-  };
-
-  const handleDeleteProduct = async (id: string) => {
-    if (!window.confirm("Delete this style permanently?")) return;
-    setLoading(true);
-    try {
-      const { error } = await supabase.from('products').delete().eq('id', id);
-      if (error) throw error;
-      await addProduct();
-    } catch (err: any) {
-      alert("Delete failed: " + err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleUpdateSettings = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!myShop || !supabase) return;
-    setLoading(true);
-    setSaveSuccess(false);
-    try {
-      const { error } = await supabase.from('shops').update({
-        name: settingsForm.name,
-        whatsapp: settingsForm.whatsapp,
-        bio: settingsForm.bio,
-        address: settingsForm.address,
-        easypaisa_number: settingsForm.easypaisa,
-        jazzcash_number: settingsForm.jazzcash,
-        bank_details: settingsForm.bank
-      }).eq('id', myShop.id);
-      
-      if (error) throw error;
-      
-      await refreshShop();
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
-    } catch (err: any) {
-      alert("Save failed: " + err.message);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -224,7 +164,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         image_urls: productForm.images,
         video_url: productForm.videoUrl,
         stock: parseInt(productForm.stock) || 0,
-        tags: productForm.discountPercentage ? [`${productForm.discountPercentage}% OFF`] : ['New Arrival']
+        tags: productForm.discountPercentage !== '0' ? [`${productForm.discountPercentage}% OFF`] : ['New Arrival']
       };
 
       const { error } = editingProduct 
@@ -234,27 +174,64 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
       if (error) throw error;
       await addProduct();
       setShowModal(false);
-      setEditingProduct(null);
-      setProductForm({ name: '', originalPrice: '', discountPercentage: '', price: '', category: CATEGORIES[0].name, description: '', eventName: '', images: [], videoUrl: '', stock: '0' });
     } catch (err: any) {
-      alert("Launch failed: " + err.message);
+      alert("Action failed: " + err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredOrders = orders.filter(o => {
-    const isMine = o.sellerId === myShop?.id;
-    if (!isMine) return false;
-    return orderSubTab === 'ACTIVE' ? o.status !== 'COMPLETED' : o.status === 'COMPLETED';
-  });
+  const handleUpdateSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!myShop || !supabase) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase.from('shops').update({
+        name: settingsForm.name,
+        whatsapp: settingsForm.whatsapp,
+        bio: settingsForm.bio,
+        address: settingsForm.address,
+        bazaar: settingsForm.bazaar,
+        easypaisa_number: settingsForm.easypaisa,
+        jazzcash_number: settingsForm.jazzcash,
+        bank_details: settingsForm.bank
+      }).eq('id', myShop.id);
+
+      if (error) throw error;
+      alert("Settings Updated Successfully!");
+      await refreshShop();
+    } catch (err: any) {
+      alert("Settings Update Failed: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateOrderStatus = async (orderId: string, newStatus: string) => {
+    if (!supabase) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', orderId);
+      if (error) throw error;
+      if (refreshOrders) refreshOrders();
+    } catch (err: any) {
+      alert("Status Update Failed: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const myOrders = orders.filter(o => o.sellerId === myShop?.id);
+  const activeOrders = myOrders.filter(o => o.status !== 'COMPLETED' && o.status !== 'CANCELLED');
+  const historyOrders = myOrders.filter(o => o.status === 'COMPLETED' || o.status === 'CANCELLED');
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6 pb-32">
+      {/* Dynamic Merchant Banner */}
       <div className="relative h-56 rounded-[3.5rem] overflow-hidden shadow-2xl border-4 border-white bg-gray-900 group">
          <img src={settingsForm.banner} className="w-full h-full object-cover opacity-80" alt="Banner" />
          <div onClick={() => bannerInputRef.current?.click()} className="absolute inset-0 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer bg-black/50 backdrop-blur-sm z-10">
-           {uploadingType === 'BANNER' ? <Loader2 className="animate-spin text-white" /> : <UploadCloud className="w-10 h-10 text-white" />}
+           <UploadCloud className="w-10 h-10 text-white" />
            <span className="text-[10px] font-black uppercase text-white tracking-widest mt-2">Update Cover</span>
          </div>
          <input type="file" hidden ref={bannerInputRef} accept="image/*" onChange={(e) => handleFileUpload(e, 'BANNER')} />
@@ -264,51 +241,65 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
               <div className="w-24 h-24 rounded-[2.5rem] border-4 border-white bg-white overflow-hidden shadow-2xl relative">
                 <img src={settingsForm.logo} className="w-full h-full object-cover" alt="Logo" />
                 <div onClick={(e) => { e.stopPropagation(); logoInputRef.current?.click(); }} className="absolute inset-0 bg-black/60 opacity-0 group-hover/logo:opacity-100 flex items-center justify-center cursor-pointer transition-opacity">
-                   {uploadingType === 'LOGO' ? <Loader2 className="w-6 h-6 text-white animate-spin" /> : <Camera className="w-6 h-6 text-white" />}
+                   <Camera className="w-6 h-6 text-white" />
                 </div>
               </div>
               <input type="file" hidden ref={logoInputRef} accept="image/*" onChange={(e) => handleFileUpload(e, 'LOGO')} />
             </div>
             <div className="text-white drop-shadow-lg mb-2">
                <h2 className="text-3xl font-black uppercase italic tracking-tighter leading-none">{myShop?.name}</h2>
-               <p className="text-[9px] font-black uppercase text-pink-400 tracking-[0.3em] mt-2">{myShop?.subscription_tier} Merchant</p>
+               <div className="flex items-center gap-2 mt-2">
+                  <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border border-white/20 ${myShop?.status === 'APPROVED' ? 'bg-green-500/80' : 'bg-red-500/80'}`}>
+                    {myShop?.status || 'PENDING'}
+                  </span>
+                  <span className="text-[9px] font-black uppercase text-pink-400 tracking-[0.2em]">{myShop?.subscription_tier} PLAN</span>
+               </div>
             </div>
          </div>
       </div>
 
-      <div className="flex gap-2 p-1.5 bg-gray-100 rounded-[2.5rem]">
-        {['Inventory', 'Orders', 'Settings'].map(tab => (
-          <button key={tab} onClick={() => setActiveTab(tab as any)} className={`flex-1 py-4 rounded-[2rem] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab ? 'bg-white text-pink-600 shadow-lg' : 'text-gray-400 hover:text-gray-600'}`}>
-            {tab}
+      {/* Primary Navigation Tabs */}
+      <div className="flex gap-2 p-1.5 bg-gray-100 rounded-[2.5rem] shadow-inner">
+        {[
+          { id: 'Inventory', icon: Box, label: 'Products' },
+          { id: 'Orders', icon: Package, label: 'Orders' },
+          { id: 'Settings', icon: Settings, label: 'Shop Settings' }
+        ].map(tab => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`flex-1 py-4 rounded-[2rem] text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${activeTab === tab.id ? 'bg-white text-pink-600 shadow-lg' : 'text-gray-400 hover:text-gray-600'}`}>
+            <tab.icon className="w-4 h-4" /> {tab.label}
           </button>
         ))}
       </div>
 
+      {/* Inventory Tab Content */}
       {activeTab === 'Inventory' && (
-        <div className="space-y-6">
+        <div className="space-y-6 animate-in fade-in duration-500">
           <div className="flex justify-between items-center px-2">
-             <h3 className="font-black uppercase text-[11px] tracking-widest text-gray-400">Manage Styles</h3>
+             <h3 className="font-black uppercase text-[11px] tracking-widest text-gray-400">Merchant Inventory</h3>
              <button onClick={() => { setEditingProduct(null); setShowModal(true); }} className="bg-pink-600 text-white px-8 py-4 rounded-[2rem] text-[10px] font-black uppercase tracking-widest shadow-xl flex items-center gap-2 active:scale-95 transition-all">
-                <PlusCircle className="w-4 h-4" /> New Listing
+                <PlusCircle className="w-4 h-4" /> New Style
              </button>
           </div>
           <div className="grid grid-cols-2 gap-5">
             {products.filter(p => p.shopId === myShop?.id).map(p => (
-              <div key={p.id} className="bg-white p-5 rounded-[2.5rem] border border-gray-100 flex flex-col gap-4 shadow-sm group hover:shadow-xl transition-all">
+              <div key={p.id} className="bg-white p-5 rounded-[2.5rem] border border-gray-100 flex flex-col gap-4 shadow-sm group hover:shadow-xl transition-all relative">
                 <div className="relative aspect-[3/4] rounded-[2rem] overflow-hidden bg-gray-50 shadow-inner">
-                  <img src={p.images?.[0]} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                  <img src={p.images?.[0]} className="w-full h-full object-cover" />
                   <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                     <button onClick={() => { setEditingProduct(p); setShowModal(true); }} className="p-3 bg-white text-pink-600 rounded-xl shadow-lg hover:bg-pink-50"><Edit2 className="w-4 h-4" /></button>
-                     <button onClick={() => handleDeleteProduct(p.id)} className="p-3 bg-white text-red-600 rounded-xl shadow-lg hover:bg-red-50"><Trash2 className="w-4 h-4" /></button>
+                     <button onClick={() => { setEditingProduct(p); setShowModal(true); }} className="p-3 bg-white text-pink-600 rounded-xl shadow-lg"><Edit2 className="w-4 h-4" /></button>
+                     <button onClick={() => { if(window.confirm("Delete style?")) supabase?.from('products').delete().eq('id', p.id).then(addProduct); }} className="p-3 bg-white text-red-600 rounded-xl shadow-lg"><Trash2 className="w-4 h-4" /></button>
                   </div>
+                  {p.discount_percentage && p.discount_percentage > 0 && (
+                    <div className="absolute top-2 left-2 bg-red-600 text-white text-[7px] font-black px-2 py-1 rounded-lg uppercase shadow-lg">-{p.discount_percentage}% OFF</div>
+                  )}
                   {p.stock !== undefined && (
-                    <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-md px-3 py-1 rounded-lg">
-                      <p className="text-[8px] font-black text-white uppercase tracking-widest">Stock: {p.stock}</p>
+                    <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-md px-3 py-1 rounded-lg border border-white/20">
+                      <p className="text-[8px] font-black text-white uppercase tracking-widest">Qty: {p.stock}</p>
                     </div>
                   )}
                 </div>
-                <div className="space-y-1.5 px-1">
-                  <h4 className="font-black text-xs uppercase truncate text-gray-900 italic">{p.name}</h4>
+                <div className="px-1">
+                  <h4 className="font-black text-xs uppercase truncate text-gray-900 italic leading-none mb-1">{p.name}</h4>
                   <p className="text-pink-600 font-black text-sm italic">PKR {p.price.toLocaleString()}</p>
                 </div>
               </div>
@@ -317,110 +308,144 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         </div>
       )}
 
+      {/* Orders Tab Content */}
       {activeTab === 'Orders' && (
-        <div className="space-y-6">
-          <div className="flex gap-2 bg-gray-200 p-1.5 rounded-[1.8rem]">
-            <button onClick={() => setOrderSubTab('ACTIVE')} className={`flex-1 py-3 text-[9px] font-black uppercase tracking-widest rounded-[1.5rem] ${orderSubTab === 'ACTIVE' ? 'bg-white text-pink-600 shadow-md' : 'text-gray-400'}`}>Pending</button>
-            <button onClick={() => setOrderSubTab('HISTORY')} className={`flex-1 py-3 text-[9px] font-black uppercase tracking-widest rounded-[1.5rem] ${orderSubTab === 'HISTORY' ? 'bg-white text-pink-600 shadow-md' : 'text-gray-400'}`}>Fulfilled</button>
-          </div>
-          <div className="space-y-4">
-            {filteredOrders.length === 0 ? (
-               <div className="py-24 text-center text-gray-300 font-black uppercase text-[10px] tracking-widest border-4 border-dashed rounded-[3rem]">No orders found</div>
-            ) : filteredOrders.map(order => (
-              <div key={order.id} className="bg-white p-7 rounded-[3rem] border border-gray-100 shadow-sm space-y-4">
-                 <div className="flex justify-between items-start">
-                    <div>
-                      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">ID: #{order.id.slice(-6).toUpperCase()}</p>
-                      <p className="font-black text-lg text-gray-900 italic uppercase">{order.buyerName}</p>
-                    </div>
-                    <span className={`px-4 py-1 rounded-full text-[8px] font-black uppercase ${order.status === 'COMPLETED' ? 'bg-green-100 text-green-700' : 'bg-pink-50 text-pink-600'}`}>{order.status}</span>
-                 </div>
-                 <div className="flex items-center gap-3">
-                    <button onClick={() => window.open(`https://wa.me/${order.buyerMobile.replace(/^0/, '92')}`)} className="flex-1 py-4 bg-green-50 text-green-600 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2">
-                      <MessageCircle className="w-4 h-4" /> Message Buyer
-                    </button>
-                    {order.status !== 'COMPLETED' && (
-                      <button onClick={() => handleCompleteOrder(order.id)} disabled={loading} className="p-4 bg-gray-900 text-white rounded-2xl shadow-xl hover:bg-green-600 transition-all flex items-center justify-center">
-                        {loading ? <Loader2 className="animate-spin w-5 h-5" /> : <Check className="w-5 h-5" />}
-                      </button>
-                    )}
-                 </div>
-              </div>
-            ))}
-          </div>
+        <div className="space-y-6 animate-in fade-in duration-500">
+           <div className="flex gap-2 p-1.5 bg-white border border-gray-100 rounded-full shadow-sm">
+             <button onClick={() => setOrderSubTab('ACTIVE')} className={`flex-1 py-3 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${orderSubTab === 'ACTIVE' ? 'bg-pink-600 text-white shadow-lg' : 'text-gray-400'}`}>Active ({activeOrders.length})</button>
+             <button onClick={() => setOrderSubTab('HISTORY')} className={`flex-1 py-3 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${orderSubTab === 'HISTORY' ? 'bg-gray-900 text-white shadow-lg' : 'text-gray-400'}`}>History ({historyOrders.length})</button>
+           </div>
+
+           <div className="space-y-4">
+              {(orderSubTab === 'ACTIVE' ? activeOrders : historyOrders).map(order => (
+                <div key={order.id} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4">
+                   <div className="flex justify-between items-start">
+                      <div>
+                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Order ID: #{order.id.slice(-6).toUpperCase()}</p>
+                         <h4 className="font-black text-gray-900 uppercase italic text-sm">{order.buyerName}</h4>
+                         <p className="text-[10px] text-gray-400 font-bold">{new Date(order.createdAt).toLocaleDateString()}</p>
+                      </div>
+                      <span className={`px-4 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest ${order.status === 'COMPLETED' ? 'bg-green-100 text-green-600' : 'bg-pink-50 text-pink-600'}`}>{order.status}</span>
+                   </div>
+
+                   <div className="p-4 bg-gray-50 rounded-2xl space-y-2">
+                      {order.items.map((item, i) => (
+                        <div key={i} className="flex justify-between items-center text-xs">
+                           <span className="font-bold text-gray-700">{item.name} x {item.quantity}</span>
+                           <span className="font-black text-pink-600 italic">PKR {item.price.toLocaleString()}</span>
+                        </div>
+                      ))}
+                      <div className="pt-2 border-t border-gray-200 flex justify-between items-center">
+                         <span className="text-[9px] font-black uppercase text-gray-400">Total Revenue</span>
+                         <span className="font-black text-gray-900 text-sm italic">PKR {order.total.toLocaleString()}</span>
+                      </div>
+                   </div>
+
+                   <div className="flex gap-2">
+                      <button onClick={() => window.open(`https://wa.me/${order.buyerMobile}`)} className="flex-1 bg-green-50 text-green-600 py-3 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest border border-green-100"><MessageCircle className="w-4 h-4" /> WhatsApp</button>
+                      {order.status === 'PENDING' && (
+                        <button onClick={() => updateOrderStatus(order.id, 'PAID')} className="flex-1 bg-blue-600 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg">Confirm Payment</button>
+                      )}
+                      {order.status === 'PAID' && (
+                        <button onClick={() => updateOrderStatus(order.id, 'SHIPPED')} className="flex-1 bg-pink-600 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg">Mark Shipped</button>
+                      )}
+                      {order.status === 'SHIPPED' && (
+                        <button onClick={() => updateOrderStatus(order.id, 'COMPLETED')} className="flex-1 bg-green-600 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg">Order Delivered</button>
+                      )}
+                   </div>
+                </div>
+              ))}
+           </div>
         </div>
       )}
 
+      {/* Settings Tab Content */}
       {activeTab === 'Settings' && (
-        <form onSubmit={handleUpdateSettings} className="bg-white p-8 rounded-[3.5rem] border border-gray-100 shadow-xl space-y-8 animate-in fade-in duration-500">
-           <div className="space-y-6">
-              <h3 className="font-black uppercase text-xs text-gray-900 flex items-center gap-2"><Settings className="w-4 h-4 text-pink-600" /> Boutique Identity</h3>
-              <div className="space-y-4">
-                 <div className="space-y-1">
-                    <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1">Boutique Name</p>
-                    <input placeholder="Shop Name" className="w-full p-5 bg-gray-50 rounded-2xl font-black text-sm outline-none border-2 border-transparent focus:border-pink-100 transition-all" value={settingsForm.name} onChange={e => setSettingsForm({...settingsForm, name: e.target.value})} />
-                 </div>
-                 <div className="space-y-1">
-                    <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1">Business WhatsApp</p>
-                    <input placeholder="WhatsApp (03xx...)" className="w-full p-5 bg-gray-50 rounded-2xl font-black text-sm outline-none border-2 border-transparent focus:border-pink-100 transition-all" value={settingsForm.whatsapp} onChange={e => setSettingsForm({...settingsForm, whatsapp: e.target.value})} />
-                 </div>
-                 <div className="space-y-1">
-                    <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1">Boutique Bio</p>
-                    <textarea placeholder="Tell your story..." className="w-full p-5 bg-gray-50 rounded-2xl font-bold text-sm outline-none h-24 border-2 border-transparent focus:border-pink-100 transition-all" value={settingsForm.bio} onChange={e => setSettingsForm({...settingsForm, bio: e.target.value})} />
-                 </div>
-                 
-                 <div className="space-y-2">
-                    <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1 flex items-center gap-2">
-                      <MapPin className="w-3.5 h-3.5" /> Physical Shop Address
-                    </p>
-                    <textarea placeholder="Bazaar location, shop number, etc..." className="w-full p-5 bg-pink-50/20 rounded-2xl font-bold text-sm outline-none h-24 border-2 border-pink-100/50 focus:border-pink-200 transition-all" value={settingsForm.address} onChange={e => setSettingsForm({...settingsForm, address: e.target.value})} />
-                 </div>
-              </div>
-           </div>
-           
-           <div className="space-y-6 pt-6 border-t border-gray-100">
-              <h3 className="font-black uppercase text-xs text-gray-900 flex items-center gap-2"><CreditCard className="w-4 h-4 text-pink-600" /> Payment Accounts</h3>
+        <form onSubmit={handleUpdateSettings} className="space-y-6 animate-in fade-in duration-500">
+           <div className="bg-white p-8 rounded-[3rem] border border-gray-100 shadow-sm space-y-6">
+              <h3 className="font-black uppercase text-[11px] tracking-widest text-pink-600 flex items-center gap-2"><Store className="w-4 h-4" /> Basic Information</h3>
+              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                  <div className="space-y-1">
-                    <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1">EasyPaisa</p>
-                    <input placeholder="03xx..." className="w-full p-5 bg-pink-50/50 rounded-2xl font-black text-sm border border-pink-100" value={settingsForm.easypaisa} onChange={e => setSettingsForm({...settingsForm, easypaisa: e.target.value})} />
+                    <p className="text-[9px] font-black uppercase text-gray-400 ml-4">Shop Display Name</p>
+                    <input required className="w-full p-5 bg-gray-50 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-pink-500/20" value={settingsForm.name} onChange={e => setSettingsForm({...settingsForm, name: e.target.value})} />
                  </div>
                  <div className="space-y-1">
-                    <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1">JazzCash</p>
-                    <input placeholder="03xx..." className="w-full p-5 bg-blue-50/50 rounded-2xl font-black text-sm border border-blue-100" value={settingsForm.jazzcash} onChange={e => setSettingsForm({...settingsForm, jazzcash: e.target.value})} />
+                    <p className="text-[9px] font-black uppercase text-gray-400 ml-4">WhatsApp Support #</p>
+                    <input required className="w-full p-5 bg-gray-50 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-pink-500/20" value={settingsForm.whatsapp} onChange={e => setSettingsForm({...settingsForm, whatsapp: e.target.value})} />
+                 </div>
+              </div>
+
+              <div className="space-y-1">
+                 <p className="text-[9px] font-black uppercase text-gray-400 ml-4">Shop Bio / Slogan</p>
+                 <textarea className="w-full p-5 bg-gray-50 rounded-2xl font-bold text-sm outline-none h-24 focus:ring-2 focus:ring-pink-500/20" value={settingsForm.bio} onChange={e => setSettingsForm({...settingsForm, bio: e.target.value})} />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <div className="space-y-1">
+                    <p className="text-[9px] font-black uppercase text-gray-400 ml-4">Ghotki Bazaar</p>
+                    <select className="w-full p-5 bg-gray-50 rounded-2xl font-bold text-sm outline-none cursor-pointer" value={settingsForm.bazaar} onChange={e => setSettingsForm({...settingsForm, bazaar: e.target.value})}>
+                       {BAZAARS.map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                 </div>
+                 <div className="space-y-1">
+                    <p className="text-[9px] font-black uppercase text-gray-400 ml-4">Specific Address</p>
+                    <input className="w-full p-5 bg-gray-50 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-pink-500/20" value={settingsForm.address} onChange={e => setSettingsForm({...settingsForm, address: e.target.value})} />
                  </div>
               </div>
            </div>
 
-           <button disabled={loading} className={`w-full py-5 rounded-[2rem] font-black uppercase tracking-widest text-xs shadow-xl active:scale-[0.98] transition-all flex items-center justify-center gap-2 ${saveSuccess ? 'bg-green-600 text-white' : 'bg-gray-900 text-white'}`}>
-             {loading ? <Loader2 className="animate-spin" /> : saveSuccess ? <><Check className="w-5 h-5" /> Profile Updated Instantly</> : <><Save className="w-5 h-5" /> Save Brand Profile</>}
+           <div className="bg-white p-8 rounded-[3rem] border border-gray-100 shadow-sm space-y-6">
+              <h3 className="font-black uppercase text-[11px] tracking-widest text-green-600 flex items-center gap-2"><CreditCard className="w-4 h-4" /> Payment Collection (Accounts)</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <div className="space-y-1">
+                    <p className="text-[9px] font-black uppercase text-gray-400 ml-4 flex items-center gap-2"><Smartphone className="w-3 h-3" /> EasyPaisa Number</p>
+                    <input placeholder="03xx..." className="w-full p-5 bg-gray-50 rounded-2xl font-bold text-sm outline-none" value={settingsForm.easypaisa} onChange={e => setSettingsForm({...settingsForm, easypaisa: e.target.value})} />
+                 </div>
+                 <div className="space-y-1">
+                    <p className="text-[9px] font-black uppercase text-gray-400 ml-4 flex items-center gap-2"><Smartphone className="w-3 h-3" /> JazzCash Number</p>
+                    <input placeholder="03xx..." className="w-full p-5 bg-gray-50 rounded-2xl font-bold text-sm outline-none" value={settingsForm.jazzcash} onChange={e => setSettingsForm({...settingsForm, jazzcash: e.target.value})} />
+                 </div>
+              </div>
+
+              <div className="space-y-1">
+                 <p className="text-[9px] font-black uppercase text-gray-400 ml-4 flex items-center gap-2"><Building2 className="w-3 h-3" /> Bank Details (IBAN/Account)</p>
+                 <textarea placeholder="Bank Name, Account Title, IBAN..." className="w-full p-5 bg-gray-50 rounded-2xl font-bold text-sm outline-none h-24" value={settingsForm.bank} onChange={e => setSettingsForm({...settingsForm, bank: e.target.value})} />
+              </div>
+           </div>
+
+           <button disabled={loading} className="w-full py-6 bg-pink-600 text-white font-black rounded-full uppercase tracking-widest text-xs shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all">
+             {loading ? <Loader2 className="animate-spin" /> : <><Save className="w-5 h-5" /> Save Shop Profiles</>}
            </button>
         </form>
       )}
 
+      {/* Product Modal */}
       {showModal && (
         <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 backdrop-blur-sm p-4">
            <div className="bg-white w-full max-w-lg rounded-t-[4rem] p-10 space-y-8 animate-in slide-in-from-bottom-full duration-500 max-h-[95vh] overflow-y-auto no-scrollbar border-t-8 border-pink-600">
               <div className="flex items-center justify-between">
                  <h2 className="text-3xl font-black uppercase italic tracking-tighter text-gray-900">{editingProduct ? 'Refine Style' : 'New Creation'}</h2>
-                 <button onClick={() => { setShowModal(false); setEditingProduct(null); }} className="p-4 bg-gray-100 rounded-full"><X className="w-6 h-6 text-gray-400" /></button>
+                 <button onClick={() => setShowModal(false)} className="p-4 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"><X className="w-6 h-6 text-gray-400" /></button>
               </div>
 
               <form onSubmit={handleProductSubmit} className="space-y-6 pb-12">
+                 {/* Media Section */}
                  <div className="grid grid-cols-2 gap-4">
                    <div onClick={() => imgInputRef.current?.click()} className="aspect-square bg-gray-50 rounded-[2.5rem] border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-3 cursor-pointer overflow-hidden group">
-                      {productForm.images.length > 0 ? <img src={productForm.images[0]} className="w-full h-full object-cover" /> : <><Camera className="w-8 h-8 text-gray-300" /><span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Add Photo</span></>}
+                      {productForm.images.length > 0 ? <img src={productForm.images[0]} className="w-full h-full object-cover" /> : <><Camera className="w-8 h-8 text-gray-300" /><span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Main Photo</span></>}
                       <input type="file" hidden ref={imgInputRef} accept="image/*" onChange={(e) => handleFileUpload(e, 'IMAGE')} />
                    </div>
                    <div 
-                    onClick={() => canUploadVideo ? videoInputRef.current?.click() : alert("Video upload is only available for Standard and Premium merchants. Upgrade your plan to use this feature!")} 
+                    onClick={() => canUploadVideo ? videoInputRef.current?.click() : alert("Video upload is only for Standard/Premium merchants.")} 
                     className={`aspect-square rounded-[2.5rem] border-2 border-dashed flex flex-col items-center justify-center gap-3 cursor-pointer overflow-hidden group transition-all ${canUploadVideo ? 'bg-gray-50 border-gray-200' : 'bg-gray-100 border-gray-100 opacity-60'}`}
                    >
-                      {productForm.videoUrl ? <div className="text-pink-600 flex flex-col items-center"><Film className="w-8 h-8" /><span className="text-[9px] font-black uppercase mt-1">Reel Added</span></div> : (
+                      {productForm.videoUrl ? <div className="text-pink-600 flex flex-col items-center"><Film className="w-8 h-8" /><span className="text-[9px] font-black uppercase mt-1">Reel Ready</span></div> : (
                         <>
                           <Film className={`w-8 h-8 ${canUploadVideo ? 'text-gray-300' : 'text-gray-200'}`} />
                           <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-4 text-center">
-                            {canUploadVideo ? 'Video Reel' : 'Pro Feature'}
+                            {canUploadVideo ? 'Product Reel' : 'Pro Feature'}
                           </span>
                         </>
                       )}
@@ -428,34 +453,54 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
                    </div>
                  </div>
 
-                 <input required placeholder="Style Name" className="w-full p-6 bg-gray-50 rounded-[2rem] font-black text-base outline-none border border-transparent focus:border-pink-200" value={productForm.name} onChange={e => setProductForm({...productForm, name: e.target.value})} />
+                 {/* Basic Details */}
+                 <div className="space-y-4">
+                   <div className="space-y-1">
+                      <p className="text-[10px] font-black uppercase text-gray-400 ml-4">Style Name</p>
+                      <input required placeholder="e.g. Silk Shalwar Kameez" className="w-full p-6 bg-gray-50 rounded-[2rem] font-black text-base outline-none focus:ring-2 focus:ring-pink-500/10" value={productForm.name} onChange={e => setProductForm({...productForm, name: e.target.value})} />
+                   </div>
+
+                   <div className="grid grid-cols-2 gap-4">
+                     <div className="space-y-1">
+                        <p className="text-[10px] font-black uppercase text-pink-600 ml-4 flex items-center gap-1"><Sparkles className="w-3 h-3" /> Event Label</p>
+                        <input placeholder="Eid Special" className="w-full p-6 bg-pink-50 border border-pink-100 rounded-[2rem] font-black text-sm outline-none text-pink-700" value={productForm.eventName} onChange={e => setProductForm({...productForm, eventName: e.target.value})} />
+                     </div>
+                     <div className="space-y-1">
+                        <p className="text-[10px] font-black uppercase text-gray-400 ml-4">Category</p>
+                        <select className="w-full p-6 bg-gray-50 border border-transparent rounded-[2rem] font-black text-sm outline-none cursor-pointer" value={productForm.category} onChange={e => setProductForm({...productForm, category: e.target.value})}>
+                          {CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                        </select>
+                     </div>
+                   </div>
+                 </div>
                  
-                 <div className="relative">
-                    <select required className="w-full p-6 bg-gray-50 rounded-[2rem] font-black text-sm outline-none appearance-none cursor-pointer border border-transparent focus:border-pink-200" value={productForm.category} onChange={e => setProductForm({...productForm, category: e.target.value})}>
-                      {CATEGORIES.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
-                    </select>
-                    <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+                 {/* Pricing and Stock */}
+                 <div className="bg-gray-50/50 p-6 rounded-[3rem] border border-gray-100 space-y-6">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <p className="text-[8px] font-black uppercase text-gray-400 ml-4">Retail Price (PKR)</p>
+                          <input required type="number" placeholder="Original Price" className="w-full p-5 bg-white border border-gray-100 rounded-2xl font-black text-sm outline-none" value={productForm.originalPrice} onChange={e => setProductForm({...productForm, originalPrice: e.target.value})} />
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-[8px] font-black uppercase text-red-600 ml-4">% Off Discount</p>
+                          <input type="number" placeholder="0" className="w-full p-5 bg-white border border-gray-100 rounded-2xl font-black text-sm outline-none text-red-600" value={productForm.discountPercentage} onChange={e => setProductForm({...productForm, discountPercentage: e.target.value})} />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 items-end">
+                       <div className="space-y-1">
+                         <p className="text-[8px] font-black uppercase text-gray-400 ml-4">Final Bazar Price</p>
+                         <input disabled className="w-full p-5 bg-pink-50 rounded-2xl font-black text-sm text-pink-600 border border-pink-100" value={productForm.price} />
+                       </div>
+                       <div className="space-y-1">
+                         <p className="text-[8px] font-black uppercase text-gray-400 ml-4">Stock Qty</p>
+                         <input required type="number" className="w-full p-5 bg-white border border-gray-100 rounded-2xl font-black text-sm outline-none" value={productForm.stock} onChange={e => setProductForm({...productForm, stock: e.target.value})} />
+                       </div>
+                    </div>
                  </div>
 
-                 <input placeholder="Event Label (e.g. Eid Mubarak)" className="w-full p-6 bg-pink-50/50 rounded-[2rem] font-black text-sm border border-pink-100 outline-none" value={productForm.eventName} onChange={e => setProductForm({...productForm, eventName: e.target.value})} />
-
-                 <div className="grid grid-cols-3 gap-4">
-                    <div className="space-y-1">
-                      <p className="text-[8px] font-black uppercase text-gray-400 ml-4">Orig. Price</p>
-                      <input required type="number" placeholder="PKR" className="w-full p-5 bg-gray-50 rounded-[2rem] font-black text-sm outline-none" value={productForm.originalPrice} onChange={e => setProductForm({...productForm, originalPrice: e.target.value})} />
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[8px] font-black uppercase text-pink-600 ml-4">Sale %</p>
-                      <input type="number" placeholder="Off %" className="w-full p-5 bg-pink-50 rounded-[2rem] font-black text-sm outline-none text-pink-600" value={productForm.discountPercentage} onChange={e => setProductForm({...productForm, discountPercentage: e.target.value})} />
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[8px] font-black uppercase text-gray-400 ml-4 flex items-center gap-1"><Box className="w-2.5 h-2.5" /> Stock</p>
-                      <input required type="number" placeholder="Qty" className="w-full p-5 bg-gray-50 rounded-[2rem] font-black text-sm outline-none" value={productForm.stock} onChange={e => setProductForm({...productForm, stock: e.target.value})} />
-                    </div>
-                 </div>
-
-                 <button disabled={loading} className="w-full py-6 bg-gray-900 text-white font-black rounded-[2.5rem] uppercase tracking-widest text-xs shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all">
-                   {loading ? <Loader2 className="animate-spin" /> : <><Sparkles className="w-6 h-6" /> {editingProduct ? 'Refine Style' : 'List in Bazar'}</>}
+                 <button disabled={loading} className="w-full py-6 bg-gray-900 text-white font-black rounded-full uppercase tracking-widest text-xs shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all">
+                   {loading ? <Loader2 className="animate-spin" /> : <><Check className="w-6 h-6" /> {editingProduct ? 'Save Updates' : 'Launch Style'}</>}
                  </button>
               </form>
            </div>
