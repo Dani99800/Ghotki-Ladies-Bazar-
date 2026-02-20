@@ -59,7 +59,7 @@ const OrdersView: React.FC<OrdersViewProps> = ({ orders, user, shops }) => {
                       <Package className="w-5 h-5 text-pink-500" />
                     </div>
                     <div>
-                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Order #{order.id.slice(-6).toUpperCase()}</p>
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Order #{String(order.id).slice(-6).toUpperCase()}</p>
                       <p className="text-xs font-bold text-gray-900">{new Date(order.createdAt).toLocaleDateString()}</p>
                     </div>
                   </div>

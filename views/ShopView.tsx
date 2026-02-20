@@ -53,7 +53,7 @@ const ShopView: React.FC<ShopViewProps> = ({ shops, products, addToCart, lang, u
               </div>
               <div className="flex items-center gap-2 pt-2 text-gray-400 font-bold text-[10px] uppercase truncate max-w-[200px]">
                 <MapPin className="w-3.5 h-3.5 text-pink-500" />
-                <span className="truncate">{shop.address || shop.bazaar}</span>
+                <span className="truncate">{shop.address || 'Address not added yet'}</span>
               </div>
             </div>
             <button 
@@ -121,7 +121,18 @@ const ShopView: React.FC<ShopViewProps> = ({ shops, products, addToCart, lang, u
                     <div className="w-12 h-12 bg-white rounded-2xl shadow-md flex items-center justify-center flex-shrink-0 text-pink-600 border border-pink-100"><Navigation className="w-6 h-6" /></div>
                     <div>
                       <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Exact Address</p>
-                      <p className="font-bold text-gray-700 leading-relaxed text-sm bg-white/50 p-4 rounded-2xl border border-pink-50 min-w-[200px]">{shop.address || 'Standard Ghotki Bazaar location'}</p>
+                      <p className={`font-bold leading-relaxed text-sm bg-white/50 p-4 rounded-2xl border border-pink-50 min-w-[200px] ${shop.address ? 'text-gray-700' : 'text-gray-400 italic'}`}>
+                        {shop.address || 'Address not added yet by shop owner'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-5">
+                    <div className="w-12 h-12 bg-white rounded-2xl shadow-md flex items-center justify-center flex-shrink-0 text-green-600 border border-green-100"><Phone className="w-6 h-6" /></div>
+                    <div>
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">WhatsApp Support</p>
+                      <p className={`font-bold leading-relaxed text-sm bg-white/50 p-4 rounded-2xl border border-green-50 min-w-[200px] ${shop.whatsapp || shop.mobile ? 'text-gray-700' : 'text-gray-400 italic'}`}>
+                        {shop.whatsapp || shop.mobile || 'WhatsApp number not provided'}
+                      </p>
                     </div>
                   </div>
                </div>

@@ -161,6 +161,7 @@ const App: React.FC = () => {
     if (data) {
       setOrders(data.map(o => ({ 
         ...o, 
+        id: o.id.toString(),
         buyerId: o.buyer_id, 
         sellerId: o.seller_id, 
         createdAt: o.created_at,
@@ -174,7 +175,44 @@ const App: React.FC = () => {
   useEffect(() => {
     if (user && shops.length > 0) {
       fetchOrders();
+      
+      if (!supabase) return;
+      const channel = supabase.channel('public:orders')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, payload => {
+          const newOrder = payload.new;
+          const myShop = shops.find(s => s.owner_id === user.id);
+          if (user.role === 'SELLER' && myShop && newOrder.seller_id === myShop.id) {
+            audioRef.current?.play().catch(e => console.log("Audio play error:", e));
+            fetchOrders();
+          }
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
+  }, [user, shops, fetchOrders]);
+
+  useEffect(() => {
+    if (!supabase || !user) return;
+    
+    const channel = supabase.channel('public:orders')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, payload => {
+        const newOrder = payload.new;
+        const myShop = shops.find(s => s.owner_id === user.id);
+        if (myShop && newOrder.seller_id === myShop.id) {
+          if (audioRef.current) {
+            audioRef.current.play().catch(e => console.log("Audio play error:", e));
+          }
+          fetchOrders();
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user, shops, fetchOrders]);
 
   const handlePlaceOrder = async (order: Order) => {

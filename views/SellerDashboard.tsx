@@ -181,7 +181,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
     }
   };
 
-  const handleUpdateSettings = async (e: React.FormEvent) => {
+  const handleUpdateBasicInfo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!myShop || !supabase) return;
     setLoading(true);
@@ -191,17 +191,35 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         whatsapp: settingsForm.whatsapp,
         bio: settingsForm.bio,
         address: settingsForm.address,
-        bazaar: settingsForm.bazaar,
+        bazaar: settingsForm.bazaar
+      }).eq('id', myShop.id);
+
+      if (error) throw error;
+      alert("Basic Information Updated Successfully!");
+      await refreshShop();
+    } catch (err: any) {
+      alert("Update Failed: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdatePaymentInfo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!myShop || !supabase) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase.from('shops').update({
         easypaisa_number: settingsForm.easypaisa,
         jazzcash_number: settingsForm.jazzcash,
         bank_details: settingsForm.bank
       }).eq('id', myShop.id);
 
       if (error) throw error;
-      alert("Settings Updated Successfully!");
+      alert("Payment Information Updated Successfully!");
       await refreshShop();
     } catch (err: any) {
-      alert("Settings Update Failed: " + err.message);
+      alert("Update Failed: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -321,7 +339,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
                 <div key={order.id} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4">
                    <div className="flex justify-between items-start">
                       <div>
-                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Order ID: #{order.id.slice(-6).toUpperCase()}</p>
+                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Order ID: #{String(order.id).slice(-6).toUpperCase()}</p>
                          <h4 className="font-black text-gray-900 uppercase italic text-sm">{order.buyerName}</h4>
                          <p className="text-[10px] text-gray-400 font-bold">{new Date(order.createdAt).toLocaleDateString()}</p>
                       </div>
@@ -344,10 +362,10 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
                    <div className="flex gap-2">
                       <button onClick={() => window.open(`https://wa.me/${order.buyerMobile}`)} className="flex-1 bg-green-50 text-green-600 py-3 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest border border-green-100"><MessageCircle className="w-4 h-4" /> WhatsApp</button>
                       {order.status === 'PENDING' && (
-                        <button onClick={() => updateOrderStatus(order.id, 'PAID')} className="flex-1 bg-blue-600 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg">Confirm Payment</button>
+                        <button onClick={() => updateOrderStatus(order.id, 'COMPLETED')} className="flex-1 bg-blue-600 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg">Confirm Payment</button>
                       )}
                       {order.status === 'PAID' && (
-                        <button onClick={() => updateOrderStatus(order.id, 'SHIPPED')} className="flex-1 bg-pink-600 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg">Mark Shipped</button>
+                        <button onClick={() => updateOrderStatus(order.id, 'COMPLETED')} className="flex-1 bg-pink-600 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg">Complete Order</button>
                       )}
                       {order.status === 'SHIPPED' && (
                         <button onClick={() => updateOrderStatus(order.id, 'COMPLETED')} className="flex-1 bg-green-600 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg">Order Delivered</button>
@@ -361,8 +379,8 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
 
       {/* Settings Tab Content */}
       {activeTab === 'Settings' && (
-        <form onSubmit={handleUpdateSettings} className="space-y-6 animate-in fade-in duration-500">
-           <div className="bg-white p-8 rounded-[3rem] border border-gray-100 shadow-sm space-y-6">
+        <div className="space-y-6 animate-in fade-in duration-500">
+           <form onSubmit={handleUpdateBasicInfo} className="bg-white p-8 rounded-[3rem] border border-gray-100 shadow-sm space-y-6">
               <h3 className="font-black uppercase text-[11px] tracking-widest text-pink-600 flex items-center gap-2"><Store className="w-4 h-4" /> Basic Information</h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -393,9 +411,12 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
                     <input className="w-full p-5 bg-gray-50 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-pink-500/20" value={settingsForm.address} onChange={e => setSettingsForm({...settingsForm, address: e.target.value})} />
                  </div>
               </div>
-           </div>
+              <button disabled={loading} className="w-full py-4 bg-pink-600 text-white font-black rounded-2xl uppercase tracking-widest text-xs shadow-lg flex items-center justify-center gap-3 active:scale-95 transition-all">
+                {loading ? <Loader2 className="animate-spin" /> : <><Save className="w-5 h-5" /> Save Basic Info</>}
+              </button>
+           </form>
 
-           <div className="bg-white p-8 rounded-[3rem] border border-gray-100 shadow-sm space-y-6">
+           <form onSubmit={handleUpdatePaymentInfo} className="bg-white p-8 rounded-[3rem] border border-gray-100 shadow-sm space-y-6">
               <h3 className="font-black uppercase text-[11px] tracking-widest text-green-600 flex items-center gap-2"><CreditCard className="w-4 h-4" /> Payment Collection (Accounts)</h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -413,12 +434,11 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
                  <p className="text-[9px] font-black uppercase text-gray-400 ml-4 flex items-center gap-2"><Building2 className="w-3 h-3" /> Bank Details (IBAN/Account)</p>
                  <textarea placeholder="Bank Name, Account Title, IBAN..." className="w-full p-5 bg-gray-50 rounded-2xl font-bold text-sm outline-none h-24" value={settingsForm.bank} onChange={e => setSettingsForm({...settingsForm, bank: e.target.value})} />
               </div>
-           </div>
-
-           <button disabled={loading} className="w-full py-6 bg-pink-600 text-white font-black rounded-full uppercase tracking-widest text-xs shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all">
-             {loading ? <Loader2 className="animate-spin" /> : <><Save className="w-5 h-5" /> Save Shop Profiles</>}
-           </button>
-        </form>
+              <button disabled={loading} className="w-full py-4 bg-green-600 text-white font-black rounded-2xl uppercase tracking-widest text-xs shadow-lg flex items-center justify-center gap-3 active:scale-95 transition-all">
+                {loading ? <Loader2 className="animate-spin" /> : <><Save className="w-5 h-5" /> Save Payment Info</>}
+              </button>
+           </form>
+        </div>
       )}
 
       {/* Product Modal */}
