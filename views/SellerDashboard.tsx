@@ -246,10 +246,14 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
     if (!supabase) return;
     setLoading(true);
     try {
+      console.log(`Updating order ${orderId} to ${newStatus}`);
       const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', orderId);
       if (error) throw error;
-      if (refreshOrders) refreshOrders();
+      
+      alert(`Order updated to ${newStatus} successfully!`);
+      if (refreshOrders) await refreshOrders();
     } catch (err: any) {
+      console.error("Status Update Error:", err);
       alert("Status Update Failed: " + err.message);
     } finally {
       setLoading(false);
@@ -389,13 +393,13 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
                    <div className="flex gap-2">
                       <button onClick={() => window.open(`https://wa.me/${order.buyerMobile}`)} className="flex-1 bg-green-50 text-green-600 py-3 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest border border-green-100"><MessageCircle className="w-4 h-4" /> WhatsApp</button>
                       {order.status === 'PENDING' && (
-                        <button onClick={() => updateOrderStatus(order.id, 'COMPLETED')} className="flex-1 bg-blue-600 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg">Confirm Payment</button>
+                        <button disabled={loading} onClick={() => updateOrderStatus(order.id, 'COMPLETED')} className="flex-1 bg-blue-600 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg disabled:opacity-50">{loading ? '...' : 'Confirm Payment'}</button>
                       )}
                       {order.status === 'PAID' && (
-                        <button onClick={() => updateOrderStatus(order.id, 'COMPLETED')} className="flex-1 bg-pink-600 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg">Complete Order</button>
+                        <button disabled={loading} onClick={() => updateOrderStatus(order.id, 'COMPLETED')} className="flex-1 bg-pink-600 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg disabled:opacity-50">{loading ? '...' : 'Complete Order'}</button>
                       )}
                       {order.status === 'SHIPPED' && (
-                        <button onClick={() => updateOrderStatus(order.id, 'COMPLETED')} className="flex-1 bg-green-600 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg">Order Delivered</button>
+                        <button disabled={loading} onClick={() => updateOrderStatus(order.id, 'COMPLETED')} className="flex-1 bg-green-600 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg disabled:opacity-50">{loading ? '...' : 'Order Delivered'}</button>
                       )}
                    </div>
                 </div>
