@@ -172,8 +172,8 @@ const App: React.FC = () => {
       setOrders(data.map(o => ({ 
         ...o, 
         id: o.id.toString(),
-        buyerId: o.buyer_id, 
-        sellerId: o.seller_id, 
+        buyerId: o.buyer_id?.toString(), 
+        sellerId: o.seller_id?.toString(), 
         createdAt: o.created_at,
         buyerName: o.buyer_name, 
         buyerMobile: o.buyer_mobile, 

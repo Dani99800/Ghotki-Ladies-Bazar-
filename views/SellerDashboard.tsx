@@ -260,9 +260,15 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
     }
   };
 
-  const myOrders = orders.filter(o => o.sellerId === myShop?.id);
-  const activeOrders = myOrders.filter(o => o.status !== 'COMPLETED' && o.status !== 'CANCELLED');
-  const historyOrders = myOrders.filter(o => o.status === 'COMPLETED' || o.status === 'CANCELLED');
+  const myOrders = orders.filter(o => String(o.sellerId) === String(myShop?.id));
+  const activeOrders = myOrders.filter(o => {
+    const s = (o.status || '').toUpperCase();
+    return s !== 'COMPLETED' && s !== 'CANCELLED';
+  });
+  const historyOrders = myOrders.filter(o => {
+    const s = (o.status || '').toUpperCase();
+    return s === 'COMPLETED' || s === 'CANCELLED';
+  });
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6 pb-32">
