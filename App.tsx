@@ -28,9 +28,17 @@ const App: React.FC = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showForceLoad, setShowForceLoad] = useState(false);
   const [activeEvent, setActiveEvent] = useState<AppEvent>(PK_EVENTS[0]);
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (loading) setShowForceLoad(true);
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [loading]);
 
   useEffect(() => {
     const savedEventId = localStorage.getItem('glb_active_event');
@@ -83,8 +91,10 @@ const App: React.FC = () => {
       setCategories(cRes.data && cRes.data.length > 0 ? cRes.data : FALLBACK_CATEGORIES);
       
       console.log(`Sync Complete: ${mappedShops.length} shops, ${mappedProducts.length} products found.`);
+      setLoading(false);
     } catch (err) { 
       console.error("Critical Marketplace Fetch Error:", err); 
+      setLoading(false);
     }
   }, []);
 
@@ -261,6 +271,14 @@ const App: React.FC = () => {
         <p className="font-black uppercase tracking-widest text-[11px] text-gray-900 italic">GHOTKI BAZAR</p>
         <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Digitizing Ghotki Legacy</p>
       </div>
+      {showForceLoad && (
+        <button 
+          onClick={() => setLoading(false)} 
+          className="mt-8 px-6 py-2 bg-pink-600 text-white text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg animate-bounce"
+        >
+          Enter Marketplace Anyway
+        </button>
+      )}
     </div>
   );
 

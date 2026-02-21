@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   PlusCircle, X, Loader2, Settings, Trash2, 
-  Check, MessageCircle, Sparkles, Film, Camera, Save, UploadCloud, Store, Trophy, CreditCard, Smartphone, Building2, Edit2, MapPin, Box, Package, History
+  Check, MessageCircle, Sparkles, Film, Camera, Save, UploadCloud, Store, Trophy, CreditCard, Smartphone, Building2, Edit2, MapPin, Box, Package, History, AlertTriangle
 } from 'lucide-react';
 import { Product, Order, User as UserType, Shop } from '../types';
 import { CATEGORIES, BAZAARS } from '../constants';
@@ -149,14 +149,25 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
 
   const handleProductSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!myShop || !supabase) return;
+    if (!supabase) return;
+    
+    if (!myShop) {
+      alert("Error: Your shop profile was not found. Please ensure your shop is registered and approved.");
+      return;
+    }
+
+    if (!productForm.name || !productForm.price || productForm.images.length === 0) {
+      alert("Please provide a name, price, and at least one image.");
+      return;
+    }
+
     setLoading(true);
     try {
       const payload = {
         shop_id: myShop.id,
         name: productForm.name,
         price: parseFloat(productForm.price),
-        original_price: parseFloat(productForm.originalPrice),
+        original_price: parseFloat(productForm.originalPrice) || parseFloat(productForm.price),
         discount_percentage: parseFloat(productForm.discountPercentage) || 0,
         event_name: productForm.eventName,
         category: productForm.category,
@@ -172,10 +183,16 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         : await supabase.from('products').insert(payload);
 
       if (error) throw error;
+      
+      // Refresh data
       await addProduct();
+      
+      // Close modal and reset
       setShowModal(false);
+      setEditingProduct(null);
     } catch (err: any) {
-      alert("Action failed: " + err.message);
+      console.error("Product Submission Error:", err);
+      alert("Action failed: " + (err.message || "Unknown error occurred"));
     } finally {
       setLoading(false);
     }
@@ -277,6 +294,16 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
       </div>
 
       {/* Primary Navigation Tabs */}
+      {!myShop && (
+        <div className="bg-orange-50 border-2 border-orange-200 p-6 rounded-[2rem] flex items-center gap-4 animate-pulse">
+          <AlertTriangle className="w-8 h-8 text-orange-500" />
+          <div>
+            <p className="font-black text-orange-900 uppercase text-xs">Shop Profile Missing</p>
+            <p className="text-[10px] text-orange-700 font-bold">We couldn't find your shop profile. Please contact support or check your registration status.</p>
+          </div>
+        </div>
+      )}
+
       <div className="flex gap-2 p-1.5 bg-gray-100 rounded-[2.5rem] shadow-inner">
         {[
           { id: 'Inventory', icon: Box, label: 'Products' },
@@ -519,7 +546,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
                     </div>
                  </div>
 
-                 <button disabled={loading} className="w-full py-6 bg-gray-900 text-white font-black rounded-full uppercase tracking-widest text-xs shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all">
+                 <button type="submit" disabled={loading} className="w-full py-6 bg-gray-900 text-white font-black rounded-full uppercase tracking-widest text-xs shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all">
                    {loading ? <Loader2 className="animate-spin" /> : <><Check className="w-6 h-6" /> {editingProduct ? 'Save Updates' : 'Launch Style'}</>}
                  </button>
               </form>
