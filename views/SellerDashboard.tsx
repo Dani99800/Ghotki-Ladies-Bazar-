@@ -444,6 +444,12 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
                     </select>
                  </div>
                  <div className="space-y-1">
+                    <p className="text-[9px] font-black uppercase text-gray-400 ml-4">Shop Category</p>
+                    <select className="w-full p-5 bg-gray-50 rounded-2xl font-bold text-sm outline-none cursor-pointer" value={settingsForm.category} onChange={e => setSettingsForm({...settingsForm, category: e.target.value})}>
+                       {CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                 </div>
+                 <div className="space-y-1">
                     <p className="text-[9px] font-black uppercase text-gray-400 ml-4">Specific Address</p>
                     <input className="w-full p-5 bg-gray-50 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-pink-500/20" value={settingsForm.address} onChange={e => setSettingsForm({...settingsForm, address: e.target.value})} />
                  </div>

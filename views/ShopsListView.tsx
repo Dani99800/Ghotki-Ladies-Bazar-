@@ -1,8 +1,9 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, MapPin, Star, ChevronRight, AlertCircle, ShoppingBag } from 'lucide-react';
+import { Search, MapPin, Star, ChevronRight, AlertCircle, ShoppingBag, Filter } from 'lucide-react';
 import { Shop } from '../types';
+import { CATEGORIES } from '../constants';
 
 interface ShopsListViewProps {
   shops: Shop[];
@@ -12,22 +13,28 @@ interface ShopsListViewProps {
 const ShopsListView: React.FC<ShopsListViewProps> = ({ shops, lang }) => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string | 'ALL'>('ALL');
 
   const filtered = shops
     .filter(s => {
       const status = s.status?.toString().trim().toUpperCase();
       const isApproved = status === 'APPROVED';
-      const matchesSearch = (s.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
-                           (s.category || '').toLowerCase().includes(searchTerm.toLowerCase());
-      return isApproved && matchesSearch;
+      const matchesSearch = (s.name || '').toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory = selectedCategory === 'ALL' || s.category === selectedCategory;
+      return isApproved && matchesSearch && matchesCategory;
     })
     .sort((a, b) => {
-      // 1. Sort by Admin Priority (Higher values come first)
+      // 1. Sort by Category Order (from constants)
+      const catIndexA = CATEGORIES.findIndex(c => c.id === a.category);
+      const catIndexB = CATEGORIES.findIndex(c => c.id === b.category);
+      if (catIndexA !== catIndexB) return catIndexA - catIndexB;
+
+      // 2. Sort by Admin Priority (Higher values come first)
       const priorityA = Number(a.sort_priority) || 0;
       const priorityB = Number(b.sort_priority) || 0;
       if (priorityA !== priorityB) return priorityB - priorityA;
 
-      // 2. Fallback to alphabetical
+      // 3. Fallback to alphabetical
       return (a.name || '').localeCompare(b.name || '');
     });
 
@@ -38,15 +45,36 @@ const ShopsListView: React.FC<ShopsListViewProps> = ({ shops, lang }) => {
         <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest">Premium Partner Selection</p>
       </div>
 
-      <div className="relative group">
-        <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-pink-600 transition-colors" />
-        <input 
-          type="text" 
-          placeholder="Search boutiques by name..." 
-          className="w-full pl-14 pr-6 py-5 bg-white border border-gray-100 rounded-[2.2rem] shadow-sm outline-none transition-all focus:ring-4 focus:ring-pink-500/10 focus:border-pink-200 font-bold text-gray-800"
-          value={searchTerm}
-          onChange={e => setSearchTerm(e.target.value)}
-        />
+      <div className="space-y-4">
+        <div className="relative group">
+          <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-pink-600 transition-colors" />
+          <input 
+            type="text" 
+            placeholder="Search boutiques by name..." 
+            className="w-full pl-14 pr-6 py-5 bg-white border border-gray-100 rounded-[2.2rem] shadow-sm outline-none transition-all focus:ring-4 focus:ring-pink-500/10 focus:border-pink-200 font-bold text-gray-800"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+          />
+        </div>
+
+        {/* Category Filter */}
+        <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+          <button 
+            onClick={() => setSelectedCategory('ALL')}
+            className={`px-6 py-3 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border-2 ${selectedCategory === 'ALL' ? 'bg-pink-600 border-pink-600 text-white shadow-lg' : 'bg-white border-gray-100 text-gray-400 hover:border-pink-200'}`}
+          >
+            All Shops
+          </button>
+          {CATEGORIES.map(cat => (
+            <button 
+              key={cat.id}
+              onClick={() => setSelectedCategory(cat.id)}
+              className={`px-6 py-3 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border-2 ${selectedCategory === cat.id ? 'bg-pink-600 border-pink-600 text-white shadow-lg' : 'bg-white border-gray-100 text-gray-400 hover:border-pink-200'}`}
+            >
+              {cat.name}
+            </button>
+          ))}
+        </div>
       </div>
 
       {filtered.length === 0 ? (
@@ -55,47 +83,65 @@ const ShopsListView: React.FC<ShopsListViewProps> = ({ shops, lang }) => {
            <p className="font-black uppercase text-sm text-gray-400 tracking-widest">No boutiques found</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {filtered.map((shop, index) => {
-            const isPremium = shop.subscription_tier === 'PREMIUM';
-            const showBag = shop.is_top_seller;
+        <div className="space-y-10">
+          {CATEGORIES.map(cat => {
+            const catShops = filtered.filter(s => s.category === cat.id);
+            if (catShops.length === 0 && selectedCategory !== 'ALL') return null;
+            if (catShops.length === 0) return null;
+
             return (
-              <div 
-                key={shop.id} 
-                onClick={() => navigate(`/shop/${shop.id}`)}
-                className={`group bg-white p-6 rounded-[2.5rem] border-2 transition-all cursor-pointer flex gap-5 items-center relative overflow-hidden active:scale-95 shadow-sm ${isPremium ? 'border-pink-500 ring-4 ring-pink-50 shadow-xl' : 'border-transparent hover:border-gray-100 hover:shadow-lg'}`}
-              >
-                {showBag && (
-                  <div className="absolute top-0 right-0 bg-pink-600 text-white text-[7px] font-black uppercase px-4 py-1.5 rounded-bl-[1.5rem] flex items-center gap-1.5 shadow-md z-10 animate-pulse">
-                    <ShoppingBag className="w-3 h-3" /> Top Seller
-                  </div>
-                )}
-                
-                <div className="relative flex-shrink-0">
-                  <img src={shop.logo} className="w-20 h-20 rounded-[1.8rem] object-cover border-2 border-gray-50 group-hover:scale-105 transition-transform bg-white shadow-inner" alt={shop.name} />
-                  <div className="absolute -bottom-2 -right-2 bg-gray-900 text-white w-8 h-8 rounded-full flex items-center justify-center font-black text-[10px] border-2 border-white shadow-lg">
-                    #{index + 1}
-                  </div>
+              <div key={cat.id} className="space-y-6">
+                <div className="flex items-center gap-4 px-2">
+                  <div className="h-px flex-1 bg-gray-100"></div>
+                  <h2 className="text-[11px] font-black uppercase tracking-[0.3em] text-pink-600 italic">{cat.name}</h2>
+                  <div className="h-px flex-1 bg-gray-100"></div>
                 </div>
 
-                <div className="flex-1 space-y-1 overflow-hidden">
-                   <div className="flex items-center gap-2">
-                      <h3 className="font-black text-lg uppercase italic tracking-tighter text-gray-900 truncate leading-none">
-                        <span className="text-pink-600 mr-1">{index + 1}.</span> {shop.name}
-                      </h3>
-                      {isPremium && <Star className="w-3.5 h-3.5 text-pink-500 fill-pink-500" />}
-                   </div>
-                   <div className="flex items-center gap-1.5 text-[9px] text-gray-400 font-black uppercase tracking-widest truncate">
-                      <MapPin className="w-3.5 h-3.5 text-pink-400" /> {shop.bazaar}
-                   </div>
-                   <div className="pt-2">
-                      <span className={`text-[8px] font-black px-3 py-1 rounded-lg uppercase tracking-widest border ${isPremium ? 'bg-pink-100 text-pink-600 border-pink-200' : 'bg-gray-100 text-gray-400 border-gray-200'}`}>
-                        {shop.subscription_tier}
-                      </span>
-                   </div>
-                </div>
-                <div className="w-10 h-10 bg-gray-50 rounded-2xl flex items-center justify-center text-gray-200 group-hover:bg-pink-600 group-hover:text-white transition-all shadow-sm">
-                   <ChevronRight className="w-6 h-6 transition-transform group-hover:translate-x-1" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {catShops.map((shop, index) => {
+                    const isPremium = shop.subscription_tier === 'PREMIUM';
+                    const showBag = shop.is_top_seller;
+                    return (
+                      <div 
+                        key={shop.id} 
+                        onClick={() => navigate(`/shop/${shop.id}`)}
+                        className={`group bg-white p-6 rounded-[2.5rem] border-2 transition-all cursor-pointer flex gap-5 items-center relative overflow-hidden active:scale-95 shadow-sm ${isPremium ? 'border-pink-500 ring-4 ring-pink-50 shadow-xl' : 'border-transparent hover:border-gray-100 hover:shadow-lg'}`}
+                      >
+                        {showBag && (
+                          <div className="absolute top-0 right-0 bg-pink-600 text-white text-[7px] font-black uppercase px-4 py-1.5 rounded-bl-[1.5rem] flex items-center gap-1.5 shadow-md z-10 animate-pulse">
+                            <ShoppingBag className="w-3 h-3" /> Top Seller
+                          </div>
+                        )}
+                        
+                        <div className="relative flex-shrink-0">
+                          <img src={shop.logo} className="w-20 h-20 rounded-[1.8rem] object-cover border-2 border-gray-50 group-hover:scale-105 transition-transform bg-white shadow-inner" alt={shop.name} />
+                          <div className="absolute -bottom-2 -right-2 bg-gray-900 text-white w-8 h-8 rounded-full flex items-center justify-center font-black text-[10px] border-2 border-white shadow-lg">
+                            #{index + 1}
+                          </div>
+                        </div>
+
+                        <div className="flex-1 space-y-1 overflow-hidden">
+                           <div className="flex items-center gap-2">
+                              <h3 className="font-black text-lg uppercase italic tracking-tighter text-gray-900 truncate leading-none">
+                                <span className="text-pink-600 mr-1">{index + 1}.</span> {shop.name}
+                              </h3>
+                              {isPremium && <Star className="w-3.5 h-3.5 text-pink-500 fill-pink-500" />}
+                           </div>
+                           <div className="flex items-center gap-1.5 text-[9px] text-gray-400 font-black uppercase tracking-widest truncate">
+                              <MapPin className="w-3.5 h-3.5 text-pink-400" /> {shop.bazaar}
+                           </div>
+                           <div className="pt-2">
+                              <span className={`text-[8px] font-black px-3 py-1 rounded-lg uppercase tracking-widest border ${isPremium ? 'bg-pink-100 text-pink-600 border-pink-200' : 'bg-gray-100 text-gray-400 border-gray-200'}`}>
+                                {shop.subscription_tier}
+                              </span>
+                           </div>
+                        </div>
+                        <div className="w-10 h-10 bg-gray-50 rounded-2xl flex items-center justify-center text-gray-200 group-hover:bg-pink-600 group-hover:text-white transition-all shadow-sm">
+                           <ChevronRight className="w-6 h-6 transition-transform group-hover:translate-x-1" />
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );
