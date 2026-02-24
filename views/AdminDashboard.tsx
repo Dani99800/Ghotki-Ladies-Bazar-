@@ -119,7 +119,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           {categories.map(cat => {
             const catShops = shops
               .filter(s => s.category === cat.id)
-              .sort((a, b) => (b.sort_priority || 0) - (a.sort_priority || 0));
+              .sort((a, b) => {
+                const priorityA = Number(a.sort_priority) || 0;
+                const priorityB = Number(b.sort_priority) || 0;
+                if (priorityA !== priorityB) return priorityB - priorityA;
+                return (a.name || '').localeCompare(b.name || '');
+              });
             
             if (catShops.length === 0) return null;
 
@@ -171,18 +176,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                    ))}
                                 </select>
                              </div>
-                             <div className="flex items-center gap-2">
-                                <ShoppingBag className="w-4 h-4 text-gray-400" />
-                                <select 
-                                  className="bg-gray-100 border-none rounded-xl text-[10px] font-black uppercase tracking-widest px-4 py-2 outline-none focus:ring-2 focus:ring-pink-500/20"
-                                  value={shop.category}
-                                  onChange={(e) => updateShopField(shop.id, 'category', e.target.value)}
-                                >
-                                   {categories.map(c => (
-                                     <option key={c.id} value={c.id}>{c.name}</option>
-                                   ))}
-                                </select>
-                             </div>
                           </div>
                           <div className="flex gap-2">
                              <button onClick={() => window.open(`https://wa.me/${shop.whatsapp || shop.mobile}`)} className="p-3 bg-green-50 text-green-600 rounded-xl"><ExternalLink className="w-4 h-4" /></button>
@@ -203,34 +196,65 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="space-y-6">
                <div className="flex items-center gap-4 px-2">
                   <div className="h-px flex-1 bg-gray-200"></div>
-                  <h2 className="text-[11px] font-black uppercase tracking-[0.3em] text-gray-400 italic">Uncategorized</h2>
+                  <h2 className="text-[11px] font-black uppercase tracking-[0.3em] text-gray-400 italic">Uncategorized Boutiques</h2>
                   <div className="h-px flex-1 bg-gray-200"></div>
                 </div>
                 <div className="space-y-4">
-                  {shops.filter(s => !s.category || !categories.find(c => c.id === s.category)).map(shop => (
+                  {shops
+                    .filter(s => !s.category || !categories.find(c => c.id === s.category))
+                    .sort((a, b) => (b.sort_priority || 0) - (a.sort_priority || 0))
+                    .map(shop => (
                     <div key={shop.id} className="bg-white p-6 rounded-[3rem] border border-gray-100 shadow-sm flex flex-col gap-6">
-                       {/* ... same content as above, but for brevity I'll keep it consistent ... */}
                        <div className="flex items-center justify-between gap-4">
                          <div className="flex items-center gap-4 flex-1 min-w-0">
                             <img src={shop.logo} className="w-14 h-14 rounded-[1.5rem] object-cover bg-gray-50 border-2 border-white shadow-sm" />
                             <div className="truncate">
                               <p className="font-black text-sm uppercase italic text-gray-900 truncate tracking-tight">{shop.name}</p>
-                              <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">No Category Assigned</p>
+                              <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Priority: {shop.sort_priority || 0}</p>
                             </div>
                          </div>
-                         <div className="flex items-center gap-2">
-                            <ShoppingBag className="w-4 h-4 text-gray-400" />
-                            <select 
-                              className="bg-gray-100 border-none rounded-xl text-[10px] font-black uppercase tracking-widest px-4 py-2 outline-none focus:ring-2 focus:ring-pink-500/20"
-                              value={shop.category || ''}
-                              onChange={(e) => updateShopField(shop.id, 'category', e.target.value)}
-                            >
-                               <option value="">Select Category</option>
-                               {categories.map(c => (
-                                 <option key={c.id} value={c.id}>{c.name}</option>
-                               ))}
-                            </select>
+                         
+                         <div className="flex items-center gap-1.5">
+                           <div className="flex flex-col gap-1">
+                             <button onClick={() => changePriority(shop, 1)} className="p-2 bg-gray-50 text-gray-400 rounded-lg hover:bg-gray-200 hover:text-pink-600 transition-all active:scale-90"><ArrowUp className="w-3.5 h-3.5" /></button>
+                             <button onClick={() => changePriority(shop, -1)} className="p-2 bg-gray-50 text-gray-400 rounded-lg hover:bg-gray-200 hover:text-pink-600 transition-all active:scale-90"><ArrowDown className="w-3.5 h-3.5" /></button>
+                           </div>
+                           <button onClick={() => updateShopField(shop.id, 'is_top_seller', !shop.is_top_seller)} className={`p-4 rounded-2xl border-2 transition-all ${shop.is_top_seller ? 'bg-pink-600 border-pink-600 text-white shadow-lg' : 'bg-white border-gray-100 text-gray-300'}`}>
+                             <Trophy className="w-5 h-5" />
+                           </button>
+                           <button onClick={() => updateShopField(shop.id, 'featured', !shop.featured)} className={`p-4 rounded-2xl border-2 transition-all ${shop.featured ? 'bg-orange-500 border-orange-500 text-white shadow-lg' : 'bg-white border-gray-100 text-gray-300'}`}>
+                             <Star className="w-5 h-5" />
+                           </button>
                          </div>
+                       </div>
+
+                       <div className="flex flex-wrap items-center justify-between pt-4 border-t border-gray-50 gap-4">
+                          <div className="flex items-center gap-4">
+                             <div className="flex items-center gap-2">
+                                <CreditCard className="w-4 h-4 text-gray-400" />
+                                <select 
+                                  className="bg-gray-100 border-none rounded-xl text-[10px] font-black uppercase tracking-widest px-4 py-2 outline-none focus:ring-2 focus:ring-pink-500/20"
+                                  value={shop.subscription_tier}
+                                  onChange={(e) => updateShopField(shop.id, 'subscription_tier', e.target.value)}
+                                >
+                                   {SUBSCRIPTION_PLANS.map(plan => (
+                                     <option key={plan.id} value={plan.id}>{plan.label}</option>
+                                   ))}
+                                </select>
+                             </div>
+                             <div className="flex items-center gap-2">
+                                <ShoppingBag className="w-4 h-4 text-gray-400" />
+                                <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+                                   {categories.find(c => c.id === shop.category)?.name || 'No Category'}
+                                </span>
+                             </div>
+                          </div>
+                          <div className="flex gap-2">
+                             <button onClick={() => window.open(`https://wa.me/${shop.whatsapp || shop.mobile}`)} className="p-3 bg-green-50 text-green-600 rounded-xl"><ExternalLink className="w-4 h-4" /></button>
+                             <button onClick={() => updateShopField(shop.id, 'status', shop.status === 'APPROVED' ? 'SUSPENDED' : 'APPROVED')} className={`px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${shop.status === 'APPROVED' ? 'bg-red-50 text-red-600' : 'bg-green-600 text-white shadow-lg'}`}>
+                               {shop.status === 'APPROVED' ? 'Suspend' : 'Approve'}
+                             </button>
+                          </div>
                        </div>
                     </div>
                   ))}

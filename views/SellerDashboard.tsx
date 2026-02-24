@@ -55,6 +55,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
     bio: myShop?.bio || '',
     address: myShop?.address || '',
     bazaar: myShop?.bazaar || BAZAARS[0],
+    category: myShop?.category || '',
     easypaisa: myShop?.easypaisa_number || '',
     jazzcash: myShop?.jazzcash_number || '',
     bank: myShop?.bank_details || ''
@@ -70,6 +71,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         bio: myShop.bio || '',
         address: myShop.address || '',
         bazaar: myShop.bazaar || BAZAARS[0],
+        category: myShop.category || '',
         easypaisa: myShop.easypaisa_number || '',
         jazzcash: myShop.jazzcash_number || '',
         bank: myShop.bank_details || ''
@@ -208,7 +210,8 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         whatsapp: settingsForm.whatsapp,
         bio: settingsForm.bio,
         address: settingsForm.address,
-        bazaar: settingsForm.bazaar
+        bazaar: settingsForm.bazaar,
+        category: settingsForm.category
       }).eq('id', myShop.id);
 
       if (error) throw error;

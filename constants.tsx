@@ -103,8 +103,8 @@ export const BAZAARS = [
 export const CATEGORIES = [
   { id: 'women_clothes', name: "Women's Clothes", image_url: 'https://images.unsplash.com/photo-1621112904887-419379ce6824?auto=format&fit=crop&q=80&w=400' },
   { id: 'men_clothes', name: "Men's Clothes", image_url: 'https://images.unsplash.com/photo-1594932224828-b4b059bdbf6f?auto=format&fit=crop&q=80&w=400' },
-  { id: 'men_footwear', name: "Men's Footwear", image_url: 'https://images.unsplash.com/photo-1560769629-975ec94e6a86?auto=format&fit=crop&q=80&w=400' },
   { id: 'women_footwear', name: "Women's Footwear", image_url: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?auto=format&fit=crop&q=80&w=400' },
+  { id: 'men_footwear', name: "Men's Footwear", image_url: 'https://images.unsplash.com/photo-1560769629-975ec94e6a86?auto=format&fit=crop&q=80&w=400' },
   { id: 'cosmetics', name: 'Cosmetics', image_url: 'https://images.unsplash.com/photo-1596462502278-27bfdc4033c8?auto=format&fit=crop&q=80&w=400' },
 ];
 

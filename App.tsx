@@ -316,7 +316,7 @@ const App: React.FC = () => {
         <Routes>
           <Route path="/" element={<BuyerHome shops={shops} products={products} categories={categories} addToCart={addToCart} lang="EN" user={user} onPlaceOrder={handlePlaceOrder} activeEvent={activeEvent} />} />
           <Route path="/explore" element={<ExploreView products={products} addToCart={addToCart} onPlaceOrder={handlePlaceOrder} user={user} savedProductIds={[]} onToggleSave={() => {}} />} />
-          <Route path="/shops" element={<ShopsListView shops={shops} lang="EN" />} />
+          <Route path="/shops" element={<ShopsListView shops={shops} categories={categories} lang="EN" />} />
           <Route path="/shop/:id" element={<ShopView shops={shops} products={products} addToCart={addToCart} lang="EN" user={user} onPlaceOrder={handlePlaceOrder} />} />
           <Route path="/product/:id" element={<ProductView products={products} addToCart={addToCart} lang="EN" />} />
           <Route path="/cart" element={<CartView cart={cart} removeFromCart={id => setCart(cart.filter(c => c.id !== id))} updateQuantity={(id, d) => setCart(cart.map(c => c.id === id ? {...c, quantity: Math.max(1, c.quantity+d)} : c))} lang="EN" />} />

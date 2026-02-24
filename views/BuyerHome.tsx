@@ -42,7 +42,9 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
 
   const filteredProducts = products.filter(p => {
     if (!isShopActive(p.shopId)) return false;
-    const categoryMatch = selectedCategory === 'All' || p.category === selectedCategory;
+    const categoryMatch = selectedCategory === 'All' || 
+                          p.category === selectedCategory ||
+                          categories.find(c => c.id === selectedCategory || c.name === selectedCategory)?.name === p.category;
     const searchMatch = searchTerm === '' || p.name.toLowerCase().includes(searchTerm.toLowerCase());
     return categoryMatch && searchMatch;
   });
@@ -83,11 +85,11 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
             <span className={`text-[10px] font-black uppercase tracking-widest ${selectedCategory === 'All' ? 'text-pink-600' : 'text-gray-400'}`}>All</span>
           </div>
           {categories.map((cat) => (
-            <div key={cat.id} onClick={() => setSelectedCategory(cat.name)} className="flex flex-col items-center gap-3 cursor-pointer group flex-shrink-0">
-              <div className={`w-16 h-16 rounded-[1.8rem] overflow-hidden transition-all border-4 ${selectedCategory === cat.name ? 'border-pink-600 shadow-xl scale-110' : 'border-white shadow-md'}`}>
+            <div key={cat.id} onClick={() => setSelectedCategory(cat.id)} className="flex flex-col items-center gap-3 cursor-pointer group flex-shrink-0">
+              <div className={`w-16 h-16 rounded-[1.8rem] overflow-hidden transition-all border-4 ${selectedCategory === cat.id ? 'border-pink-600 shadow-xl scale-110' : 'border-white shadow-md'}`}>
                 <img src={cat.image_url} className="w-full h-full object-cover" />
               </div>
-              <span className={`text-[10px] font-black uppercase tracking-widest ${selectedCategory === cat.name ? 'text-pink-600' : 'text-gray-400'}`}>{cat.name}</span>
+              <span className={`text-[10px] font-black uppercase tracking-widest ${selectedCategory === cat.id ? 'text-pink-600' : 'text-gray-400'}`}>{cat.name}</span>
             </div>
           ))}
         </div>

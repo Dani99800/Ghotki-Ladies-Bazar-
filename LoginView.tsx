@@ -26,7 +26,7 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
     shopName: '',
     shopAddress: '',
     bazaar: BAZAARS[0],
-    category: CATEGORIES[0].name,
+    category: CATEGORIES[0].id,
     tier: 'BASIC' as any
   });
 
@@ -210,10 +210,9 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
                   <div className="relative">
                     <select required className="w-full p-5 bg-white border-2 border-pink-50 rounded-2xl font-black text-sm outline-none appearance-none focus:ring-4 focus:ring-pink-500/10 text-gray-900 cursor-pointer shadow-sm" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
                       {CATEGORIES.map(cat => (
-                        <option key={cat.id} value={cat.name}>{cat.name}</option>
+                        <option key={cat.id} value={cat.id}>{cat.name}</option>
                       ))}
                     </select>
-                    <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
                   </div>
                 </div>
 
