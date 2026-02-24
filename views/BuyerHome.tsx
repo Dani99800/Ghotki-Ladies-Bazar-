@@ -40,11 +40,20 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
       .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
   }, [products, shops]);
 
+  const normalize = (str: string) => (str || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+
   const filteredProducts = products.filter(p => {
     if (!isShopActive(p.shopId)) return false;
+    
+    const pCatNorm = normalize(p.category || '');
+    const selectedCatNorm = normalize(selectedCategory);
+    const selectedCatObj = categories.find(c => c.id === selectedCategory || c.name === selectedCategory);
+    const selectedCatNameNorm = selectedCatObj ? normalize(selectedCatObj.name) : '';
+
     const categoryMatch = selectedCategory === 'All' || 
-                          p.category === selectedCategory ||
-                          categories.find(c => c.id === selectedCategory || c.name === selectedCategory)?.name === p.category;
+                          pCatNorm === selectedCatNorm ||
+                          (selectedCatNameNorm && pCatNorm === selectedCatNameNorm);
+
     const searchMatch = searchTerm === '' || p.name.toLowerCase().includes(searchTerm.toLowerCase());
     return categoryMatch && searchMatch;
   });

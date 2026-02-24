@@ -15,27 +15,32 @@ const ShopsListView: React.FC<ShopsListViewProps> = ({ shops, categories, lang }
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | 'ALL'>('ALL');
 
+  const normalize = (str: string) => (str || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+
   const filtered = shops
     .filter(s => {
       const status = s.status?.toString().trim().toUpperCase();
       const isApproved = status === 'APPROVED';
       const matchesSearch = (s.name || '').toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesCategory = selectedCategory === 'ALL' || 
-                              s.category === selectedCategory || 
-                              categories.find(c => c.id === selectedCategory)?.name === s.category;
+      
+      if (selectedCategory === 'ALL') return isApproved && matchesSearch;
+      
+      const shopCatNorm = normalize(s.category || '');
+      const selectedCatNorm = normalize(selectedCategory);
+      const selectedCatObj = categories.find(c => c.id === selectedCategory);
+      const selectedCatNameNorm = selectedCatObj ? normalize(selectedCatObj.name) : '';
+      
+      const matchesCategory = shopCatNorm === selectedCatNorm || 
+                              (selectedCatNameNorm && shopCatNorm === selectedCatNameNorm);
+                              
       return isApproved && matchesSearch && matchesCategory;
     })
     .sort((a, b) => {
-      // 1. Sort by Admin Priority (Higher values come first)
       const priorityA = Number(a.sort_priority) || 0;
       const priorityB = Number(b.sort_priority) || 0;
       if (priorityA !== priorityB) return priorityB - priorityA;
-
-      // 2. Fallback to alphabetical
       return (a.name || '').localeCompare(b.name || '');
     });
-
-  const uncategorizedShops = filtered.filter(s => !s.category || !categories.find(c => c.id === s.category || c.name === s.category));
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6 pb-32 animate-in fade-in duration-500">
@@ -86,7 +91,14 @@ const ShopsListView: React.FC<ShopsListViewProps> = ({ shops, categories, lang }
           {selectedCategory === 'ALL' ? (
             <>
               {categories.map(cat => {
-                const catShops = filtered.filter(s => s.category === cat.id || s.category === cat.name);
+                const catNorm = normalize(cat.id);
+                const catNameNorm = normalize(cat.name);
+                
+                const catShops = filtered.filter(s => {
+                  const sCatNorm = normalize(s.category || '');
+                  return sCatNorm === catNorm || sCatNorm === catNameNorm;
+                });
+                
                 if (catShops.length === 0) return null;
 
                 return (
@@ -112,29 +124,6 @@ const ShopsListView: React.FC<ShopsListViewProps> = ({ shops, categories, lang }
                   </div>
                 );
               })}
-
-              {/* Uncategorized Shops Section */}
-              {uncategorizedShops.length > 0 && (
-                <div className="space-y-6">
-                  <div className="flex items-center gap-4 px-2">
-                    <div className="h-px flex-1 bg-gray-100"></div>
-                    <h2 className="text-[11px] font-black uppercase tracking-[0.3em] text-gray-400 italic">Other Boutiques</h2>
-                    <div className="h-px flex-1 bg-gray-100"></div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    {uncategorizedShops.map((shop, index) => (
-                      <ShopCard 
-                        key={shop.id} 
-                        shop={shop} 
-                        index={index} 
-                        navigate={navigate} 
-                        isTopInCategory={index === 0}
-                        categoryName="Other"
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
             </>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -145,7 +134,7 @@ const ShopsListView: React.FC<ShopsListViewProps> = ({ shops, categories, lang }
                   index={index} 
                   navigate={navigate} 
                   isTopInCategory={index === 0} 
-                  categoryName={categories.find(c => c.id === shop.category || c.name === shop.category)?.name || shop.category || 'Category'}
+                  categoryName={categories.find(c => normalize(c.id) === normalize(shop.category) || normalize(c.name) === normalize(shop.category))?.name || shop.category || 'Category'}
                 />
               ))}
             </div>
