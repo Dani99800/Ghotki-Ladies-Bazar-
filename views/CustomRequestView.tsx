@@ -170,7 +170,7 @@ const CustomRequestView: React.FC<CustomRequestViewProps> = ({ user }) => {
             <div className="grid grid-cols-2 gap-4">
               {previews.map((url, i) => (
                 <div key={i} className="relative aspect-square rounded-2xl overflow-hidden border-2 border-gray-100 group">
-                  <img src={url} className="w-full h-full object-cover" alt="Preview" />
+                  <img src={url} referrerPolicy="no-referrer" className="w-full h-full object-cover" alt="Preview" />
                   <button 
                     type="button"
                     onClick={() => removeImage(i)}

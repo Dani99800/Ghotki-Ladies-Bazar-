@@ -115,6 +115,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     await updateShopField(shop.id, 'sort_priority', newPriority);
   };
 
+  const normalize = (str: string) => (str || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+
   const sortedShops = [...shops].sort((a, b) => (b.sort_priority || 0) - (a.sort_priority || 0));
 
   return (
@@ -150,8 +152,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {activeAdminTab === 'SHOPS' && (
         <div className="space-y-12 animate-in slide-in-from-bottom-4">
           {categories.map(cat => {
+            const catNorm = normalize(cat.id);
+            const catNameNorm = normalize(cat.name);
+
             const catShops = shops
-              .filter(s => s.category === cat.id)
+              .filter(s => {
+                const sCatNorm = normalize(s.category || '');
+                return sCatNorm === catNorm || sCatNorm === catNameNorm;
+              })
               .sort((a, b) => {
                 const priorityA = Number(a.sort_priority) || 0;
                 const priorityB = Number(b.sort_priority) || 0;
@@ -225,7 +233,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           })}
 
           {/* Uncategorized Shops */}
-          {shops.some(s => !s.category || !categories.find(c => c.id === s.category)) && (
+          {shops.some(s => {
+            const sCatNorm = normalize(s.category || '');
+            return !categories.some(c => normalize(c.id) === sCatNorm || normalize(c.name) === sCatNorm);
+          }) && (
             <div className="space-y-6">
                <div className="flex items-center gap-4 px-2">
                   <div className="h-px flex-1 bg-gray-200"></div>
@@ -234,7 +245,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
                 <div className="space-y-4">
                   {shops
-                    .filter(s => !s.category || !categories.find(c => c.id === s.category))
+                    .filter(s => {
+                      const sCatNorm = normalize(s.category || '');
+                      return !categories.some(c => normalize(c.id) === sCatNorm || normalize(c.name) === sCatNorm);
+                    })
                     .sort((a, b) => (b.sort_priority || 0) - (a.sort_priority || 0))
                     .map(shop => (
                     <div key={shop.id} className="bg-white p-6 rounded-[3rem] border border-gray-100 shadow-sm flex flex-col gap-6">
@@ -278,7 +292,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                              <div className="flex items-center gap-2">
                                 <ShoppingBag className="w-4 h-4 text-gray-400" />
                                 <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
-                                   {categories.find(c => c.id === shop.category)?.name || 'No Category'}
+                                   {categories.find(c => normalize(c.id) === normalize(shop.category) || normalize(c.name) === normalize(shop.category))?.name || 'No Category'}
                                 </span>
                              </div>
                           </div>
@@ -342,9 +356,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    {request.image_urls.map((url, i) => (
+                    {Array.isArray(request.image_urls) && request.image_urls.map((url, i) => (
                       <div key={i} className="aspect-square rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
-                        <img src={url} className="w-full h-full object-cover hover:scale-110 transition-transform duration-500" alt="Request" />
+                        <img src={url} referrerPolicy="no-referrer" className="w-full h-full object-cover hover:scale-110 transition-transform duration-500" alt="Request" />
                       </div>
                     ))}
                   </div>
@@ -389,7 +403,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
            {adminProducts.map(product => (
              <div key={product.id} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm flex items-center justify-between gap-4">
                 <div className="flex items-center gap-4 flex-1 min-w-0">
-                  <img src={product.images?.[0]} className="w-14 h-14 rounded-2xl object-cover shadow-sm bg-gray-50" />
+                  <img src={product.images?.[0]} referrerPolicy="no-referrer" className="w-14 h-14 rounded-2xl object-cover shadow-sm bg-gray-50" />
                   <div className="truncate">
                     <p className="font-black text-sm uppercase italic text-gray-900 truncate tracking-tight">{product.name}</p>
                     <p className="text-[9px] font-black text-gray-400 uppercase">PKR {product.price.toLocaleString()}</p>

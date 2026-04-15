@@ -184,38 +184,29 @@ const App: React.FC = () => {
   }, [user, shops]);
 
   useEffect(() => {
-    if (user && shops.length > 0) {
-      fetchOrders();
-      
-      if (!supabase) return;
-      const channel = supabase.channel('public:orders')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, payload => {
-          const newOrder = payload.new;
-          const myShop = shops.find(s => s.owner_id === user.id);
-          if (user.role === 'SELLER' && myShop && newOrder.seller_id === myShop.id) {
-            audioRef.current?.play().catch(e => console.log("Audio play error:", e));
-            fetchOrders();
-          }
-        })
-        .subscribe();
+    if (!supabase || !user || shops.length === 0) return;
 
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-  }, [user, shops, fetchOrders]);
-
-  useEffect(() => {
-    if (!supabase || !user) return;
+    fetchOrders();
     
-    const channel = supabase.channel('public:orders')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, payload => {
+    // Use a unique channel name to avoid conflicts if multiple components use realtime
+    const channelId = `orders-channel-${user.id}`;
+    const channel = supabase.channel(channelId)
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'orders' 
+      }, payload => {
         const newOrder = payload.new;
         const myShop = shops.find(s => s.owner_id === user.id);
-        if (myShop && newOrder.seller_id === myShop.id) {
-          if (audioRef.current) {
-            audioRef.current.play().catch(e => console.log("Audio play error:", e));
-          }
+        
+        // Notify seller if the new order belongs to their shop
+        if (user.role === 'SELLER' && myShop && newOrder.seller_id === myShop.id) {
+          audioRef.current?.play().catch(e => console.log("Audio play error:", e));
+          fetchOrders();
+        }
+        
+        // Also refresh if the user is the buyer or an admin
+        if (user.role === 'ADMIN' || newOrder.buyer_id === user.id) {
           fetchOrders();
         }
       })
@@ -324,7 +315,10 @@ const App: React.FC = () => {
           <Route path="/cart" element={<CartView cart={cart} removeFromCart={id => setCart(cart.filter(c => c.id !== id))} updateQuantity={(id, d) => setCart(cart.map(c => c.id === id ? {...c, quantity: Math.max(1, c.quantity+d)} : c))} lang="EN" />} />
           <Route path="/login" element={<LoginView setUser={setUser} lang="EN" />} />
           <Route path="/profile" element={user ? <ProfileView user={user} onLogout={() => { supabase?.auth.signOut(); setUser(null); navigate('/login'); }} lang="EN" /> : <Navigate to="/login" />} />
-          <Route path="/admin" element={user?.role === 'ADMIN' ? <AdminDashboard shops={shops} setShops={setShops} orders={orders} refreshData={loadMarketplace} categories={categories} activeEvent={activeEvent} onUpdateEvent={handleUpdateEvent} /> : <Navigate to="/" />} />
+          <Route path="/admin" element={(() => {
+            console.log("Admin Route Access Attempt:", { userRole: user?.role, userId: user?.id });
+            return user?.role === 'ADMIN' ? <AdminDashboard shops={shops} setShops={setShops} orders={orders} refreshData={loadMarketplace} categories={categories} activeEvent={activeEvent} onUpdateEvent={handleUpdateEvent} /> : <Navigate to="/" />;
+          })()} />
           <Route path="/seller/*" element={user?.role === 'SELLER' ? <SellerDashboard products={products} user={user} addProduct={loadMarketplace} orders={orders} shops={shops} refreshShop={loadMarketplace} refreshOrders={fetchOrders} /> : <Navigate to="/login" />} />
           <Route path="/checkout" element={<CheckoutView cart={cart} clearCart={() => setCart([])} user={user} lang="EN" onPlaceOrder={handlePlaceOrder} shops={shops} />} />
           <Route path="/orders" element={user ? <OrdersView orders={orders} user={user} shops={shops} /> : <Navigate to="/login" />} />
