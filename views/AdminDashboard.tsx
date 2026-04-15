@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { 
-  Store, Shield, Loader2, Check, Palette, Star, Trophy, ShoppingBag, Clock, ArrowUp, ArrowDown, CreditCard, X, ExternalLink
+  Store, Shield, Loader2, Check, Palette, Star, Trophy, ShoppingBag, Clock, ArrowUp, ArrowDown, CreditCard, X, ExternalLink, Package, User as UserIcon, MapPin
 } from 'lucide-react';
-import { Shop, Order, Category, AppEvent, Product } from '../types';
+import { Shop, Order, Category, AppEvent, Product, CustomRequest } from '../types';
 import { supabase } from '../services/supabase';
 import { PK_EVENTS, SUBSCRIPTION_PLANS } from '../constants';
 
@@ -21,8 +21,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   shops, setShops, orders, categories, refreshData, activeEvent, onUpdateEvent 
 }) => {
   const [loadingId, setLoadingId] = useState<string | null>(null);
-  const [activeAdminTab, setActiveAdminTab] = useState<'SHOPS' | 'INVENTORY' | 'THEME'>('SHOPS');
+  const [activeAdminTab, setActiveAdminTab] = useState<'SHOPS' | 'INVENTORY' | 'THEME' | 'CUSTOM_REQUESTS'>('SHOPS');
   const [adminProducts, setAdminProducts] = useState<Product[]>([]);
+  const [customRequests, setCustomRequests] = useState<CustomRequest[]>([]);
 
   useEffect(() => {
     const fetchAdminProducts = async () => {
@@ -48,6 +49,37 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     };
     if (activeAdminTab === 'INVENTORY') fetchAdminProducts();
   }, [activeAdminTab, loadingId]);
+
+  useEffect(() => {
+    const fetchCustomRequests = async () => {
+      if (!supabase) return;
+      try {
+        const { data, error } = await supabase
+          .from('custom_requests')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        setCustomRequests(data || []);
+      } catch (err) {
+        console.error("Custom requests fetch failed:", err);
+      }
+    };
+    if (activeAdminTab === 'CUSTOM_REQUESTS') fetchCustomRequests();
+  }, [activeAdminTab, loadingId]);
+
+  const updateRequestStatus = async (id: string, status: string) => {
+    if (!supabase) return;
+    setLoadingId(id + 'status');
+    try {
+      const { error } = await supabase.from('custom_requests').update({ status }).eq('id', id);
+      if (error) throw error;
+      setCustomRequests(prev => prev.map(r => r.id === id ? { ...r, status: status as any } : r));
+    } catch (err: any) {
+      alert(`Update Status Failed: ` + err.message);
+    } finally {
+      setLoadingId(null);
+    }
+  };
 
   const updateShopField = async (id: string, field: string, value: any) => {
     if (!supabase) return;
@@ -101,6 +133,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {[
           { id: 'SHOPS', icon: Store, label: 'Merchants' },
           { id: 'INVENTORY', icon: ShoppingBag, label: 'New Arrivals' },
+          { id: 'CUSTOM_REQUESTS', icon: Package, label: 'Requests' },
           { id: 'THEME', icon: Palette, label: 'Themes' }
         ].map((tab) => (
           <button 
@@ -259,6 +292,91 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                   ))}
                 </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Custom Requests Tab */}
+      {activeAdminTab === 'CUSTOM_REQUESTS' && (
+        <div className="space-y-6 animate-in slide-in-from-bottom-4">
+          {customRequests.length === 0 ? (
+            <div className="py-24 text-center bg-white rounded-[3.5rem] border-2 border-dashed border-gray-100 shadow-inner">
+              <Package className="w-16 h-16 text-gray-100 mx-auto mb-4" />
+              <p className="font-black uppercase text-sm text-gray-400 tracking-widest">No custom requests yet</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {customRequests.map((request) => (
+                <div key={request.id} className="bg-white p-8 rounded-[3rem] border border-gray-100 shadow-xl space-y-6">
+                  <div className="flex justify-between items-start gap-4">
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-pink-100 rounded-2xl flex items-center justify-center text-pink-600">
+                          <Package className="w-5 h-5" />
+                        </div>
+                        <h3 className="font-black text-xl uppercase italic text-gray-900 tracking-tighter">{request.product_name}</h3>
+                      </div>
+                      <div className="flex flex-wrap gap-4">
+                        <div className="flex items-center gap-2 text-[10px] font-black uppercase text-gray-400 tracking-widest">
+                          <UserIcon className="w-3.5 h-3.5 text-pink-400" /> {request.customer_name}
+                        </div>
+                        <div className="flex items-center gap-2 text-[10px] font-black uppercase text-gray-400 tracking-widest">
+                          <Clock className="w-3.5 h-3.5 text-pink-400" /> {request.delivery_days} Days
+                        </div>
+                      </div>
+                    </div>
+                    <div className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest ${
+                      request.status === 'PENDING' ? 'bg-orange-100 text-orange-600' :
+                      request.status === 'APPROVED' ? 'bg-green-100 text-green-600' :
+                      request.status === 'REJECTED' ? 'bg-red-100 text-red-600' :
+                      'bg-blue-100 text-blue-600'
+                    }`}>
+                      {request.status}
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 bg-gray-50 p-4 rounded-2xl">
+                    <MapPin className="w-4 h-4 text-gray-400 mt-0.5" />
+                    <p className="text-xs font-bold text-gray-600 leading-relaxed">{request.customer_address}</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    {request.image_urls.map((url, i) => (
+                      <div key={i} className="aspect-square rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
+                        <img src={url} className="w-full h-full object-cover hover:scale-110 transition-transform duration-500" alt="Request" />
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex gap-3 pt-4 border-t border-gray-50">
+                    {request.status === 'PENDING' && (
+                      <>
+                        <button 
+                          onClick={() => updateRequestStatus(request.id, 'APPROVED')}
+                          className="flex-1 py-4 bg-green-600 text-white font-black rounded-2xl uppercase tracking-widest text-[10px] shadow-lg shadow-green-600/20 active:scale-95 transition-all"
+                        >
+                          Approve
+                        </button>
+                        <button 
+                          onClick={() => updateRequestStatus(request.id, 'REJECTED')}
+                          className="flex-1 py-4 bg-red-50 text-red-600 font-black rounded-2xl uppercase tracking-widest text-[10px] active:scale-95 transition-all"
+                        >
+                          Reject
+                        </button>
+                      </>
+                    )}
+                    {request.status === 'APPROVED' && (
+                      <button 
+                        onClick={() => updateRequestStatus(request.id, 'COMPLETED')}
+                        className="w-full py-4 bg-blue-600 text-white font-black rounded-2xl uppercase tracking-widest text-[10px] shadow-lg shadow-blue-600/20 active:scale-95 transition-all"
+                      >
+                        Mark as Completed
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>

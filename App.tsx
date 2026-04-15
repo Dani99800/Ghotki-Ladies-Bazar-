@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { Home, ShoppingBag, User as UserIcon, ShoppingCart, LayoutDashboard, ShieldAlert, PlayCircle, Loader2 } from 'lucide-react';
+import { Home, ShoppingBag, User as UserIcon, ShoppingCart, LayoutDashboard, ShieldAlert, PlayCircle, Loader2, Package } from 'lucide-react';
 import { supabase } from './services/supabase';
 import { User as UserType, Shop, Product, CartItem, Order, Category, AppEvent } from './types';
 import { CATEGORIES as FALLBACK_CATEGORIES, NOTIFICATION_SOUND, PK_EVENTS } from './constants';
@@ -17,6 +17,7 @@ import SellerDashboard from './views/SellerDashboard';
 import AdminDashboard from './views/AdminDashboard';
 import OrdersView from './views/OrdersView';
 import CheckoutView from './views/CheckoutView';
+import CustomRequestView from './views/CustomRequestView';
 
 const App: React.FC = () => {
   const navigate = useNavigate();
@@ -258,6 +259,7 @@ const App: React.FC = () => {
     { icon: Home, label: 'Home', path: '/' },
     { icon: PlayCircle, label: 'Live', path: '/explore' },
     { icon: ShoppingBag, label: 'Shops', path: '/shops' },
+    { icon: Package, label: 'Request', path: '/custom-request' },
     { icon: user?.role === 'SELLER' ? LayoutDashboard : ShoppingCart, label: user?.role === 'SELLER' ? 'Dashboard' : 'Cart', path: user?.role === 'SELLER' ? '/seller' : '/cart' },
   ];
 
@@ -326,6 +328,7 @@ const App: React.FC = () => {
           <Route path="/seller/*" element={user?.role === 'SELLER' ? <SellerDashboard products={products} user={user} addProduct={loadMarketplace} orders={orders} shops={shops} refreshShop={loadMarketplace} refreshOrders={fetchOrders} /> : <Navigate to="/login" />} />
           <Route path="/checkout" element={<CheckoutView cart={cart} clearCart={() => setCart([])} user={user} lang="EN" onPlaceOrder={handlePlaceOrder} shops={shops} />} />
           <Route path="/orders" element={user ? <OrdersView orders={orders} user={user} shops={shops} /> : <Navigate to="/login" />} />
+          <Route path="/custom-request" element={user ? <CustomRequestView user={user} /> : <Navigate to="/login" />} />
         </Routes>
       </main>
 

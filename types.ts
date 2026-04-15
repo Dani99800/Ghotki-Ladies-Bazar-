@@ -94,3 +94,15 @@ export interface Order {
   buyerAddress: string;
   createdAt: string;
 }
+
+export interface CustomRequest {
+  id: string;
+  user_id: string;
+  product_name: string;
+  delivery_days: number;
+  image_urls: string[];
+  customer_name: string;
+  customer_address: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
+  created_at: string;
+}
