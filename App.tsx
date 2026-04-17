@@ -134,7 +134,16 @@ const App: React.FC = () => {
           return;
         }
         
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error("Session initialization error:", sessionError);
+          // If the refresh token is invalid, clear the session locally
+          if (sessionError.message.includes('refresh_token_not_found') || sessionError.message.includes('Refresh Token Not Found')) {
+            await supabase.auth.signOut();
+          }
+        }
+
         if (session) {
           await fetchProfile(session.user.id);
         }
@@ -148,9 +157,15 @@ const App: React.FC = () => {
     };
     init();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) fetchProfile(session.user.id);
-      else { setUser(null); }
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_OUT') {
+        setUser(null);
+        localStorage.removeItem('supabase.auth.token'); // Force clean up
+      } else if (session) {
+        await fetchProfile(session.user.id);
+      } else {
+        setUser(null);
+      }
     });
     return () => authListener.subscription.unsubscribe();
   }, [loadMarketplace, fetchProfile]);
