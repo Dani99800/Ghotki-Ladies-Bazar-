@@ -342,16 +342,18 @@ const App: React.FC = () => {
       </main>
 
       {/* Mobile Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 h-20 bg-white/80 backdrop-blur-xl border-t flex items-center justify-around z-50 px-2 shadow-2xl md:hidden">
-        {navItems.map(item => (
-          <button key={item.path} onClick={() => navigate(item.path)} className="flex flex-col items-center gap-1 group">
-            <div className={`p-2 rounded-2xl transition-all duration-300 ${location.pathname === item.path ? 'bg-pink-600 text-white shadow-lg' : 'text-gray-400 group-hover:text-pink-600'}`}>
-              <item.icon className="w-6 h-6" />
-            </div>
-            <span className={`text-[8px] font-black uppercase tracking-widest ${location.pathname === item.path ? 'text-pink-600' : 'text-gray-400'}`}>{item.label}</span>
-          </button>
-        ))}
-      </div>
+      {!location.pathname.startsWith('/product/') && (
+        <div className="fixed bottom-0 left-0 right-0 h-20 bg-white/80 backdrop-blur-xl border-t flex items-center justify-around z-50 px-2 shadow-2xl md:hidden">
+          {navItems.map(item => (
+            <button key={item.path} onClick={() => navigate(item.path)} className="flex flex-col items-center gap-1 group">
+              <div className={`p-2 rounded-2xl transition-all duration-300 ${location.pathname === item.path ? 'bg-pink-600 text-white shadow-lg' : 'text-gray-400 group-hover:text-pink-600'}`}>
+                <item.icon className="w-6 h-6" />
+              </div>
+              <span className={`text-[8px] font-black uppercase tracking-widest ${location.pathname === item.path ? 'text-pink-600' : 'text-gray-400'}`}>{item.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
