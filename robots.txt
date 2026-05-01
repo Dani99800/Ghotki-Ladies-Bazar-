@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /seller
+Disallow: /profile
+Disallow: /checkout
+Disallow: /orders
+
+Sitemap: https://ghotkibazar.com/sitemap.xml
