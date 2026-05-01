@@ -96,7 +96,7 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
           {categories.map((cat) => (
             <div key={cat.id} onClick={() => setSelectedCategory(cat.id)} className="flex flex-col items-center gap-3 cursor-pointer group flex-shrink-0">
               <div className={`w-16 h-16 rounded-[1.8rem] overflow-hidden transition-all border-4 ${selectedCategory === cat.id ? 'border-pink-600 shadow-xl scale-110' : 'border-white shadow-md'}`}>
-                <img src={cat.image_url} className="w-full h-full object-cover" />
+                <img src={cat.image_url} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
               </div>
               <span className={`text-[10px] font-black uppercase tracking-widest ${selectedCategory === cat.id ? 'text-pink-600' : 'text-gray-400'}`}>{cat.name}</span>
             </div>
@@ -113,18 +113,18 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
              </h2>
              <button onClick={() => navigate('/shops')} className="text-[10px] font-black uppercase text-pink-600 tracking-widest">View All</button>
           </div>
-          <div className="flex gap-5 overflow-x-auto no-scrollbar pb-6 px-2 snap-x">
+          <div className="flex gap-4 overflow-x-auto no-scrollbar pb-6 px-1 snap-x">
             {featuredShops.map((shop) => (
-              <div key={shop.id} onClick={() => navigate(`/shop/${shop.id}`)} className="flex-shrink-0 w-36 space-y-3 group cursor-pointer text-center snap-start">
-                <div className="relative aspect-square rounded-[2.5rem] overflow-hidden border-4 border-white shadow-xl bg-white group-hover:scale-105 transition-transform duration-500">
-                  <img src={shop.logo} className="w-full h-full object-cover" />
-                  <div className="absolute top-2 right-2">
-                    {shop.is_top_seller && <div className="bg-pink-600 p-1.5 rounded-full shadow-lg border border-white"><Trophy className="w-3.5 h-3.5 text-white" /></div>}
+              <div key={shop.id} onClick={() => navigate(`/shop/${shop.id}`)} className="flex-shrink-0 w-32 space-y-2 group cursor-pointer text-center snap-start">
+                <div className="relative aspect-square rounded-[2rem] overflow-hidden border-4 border-white shadow-xl bg-white group-hover:scale-105 transition-transform duration-500">
+                  <img src={shop.logo} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                  <div className="absolute top-1.5 right-1.5">
+                    {shop.is_top_seller && <div className="bg-pink-600 p-1 rounded-full shadow-lg border border-white"><Trophy className="w-3 h-3 text-white" /></div>}
                   </div>
                 </div>
                 <div className="px-1">
-                   <p className="text-[11px] font-black uppercase text-gray-900 truncate italic tracking-tight mb-1 leading-tight">{shop.name}</p>
-                   <p className="text-[8px] font-black uppercase text-gray-400 tracking-widest truncate">{shop.bazaar}</p>
+                   <p className="text-[10px] font-black uppercase text-gray-900 truncate italic tracking-tight mb-1 leading-tight">{shop.name}</p>
+                   <p className="text-[7px] font-black uppercase text-gray-400 tracking-widest truncate">{shop.bazaar}</p>
                 </div>
               </div>
             ))}
@@ -140,31 +140,31 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
                <Clock className="w-8 h-8 text-pink-600" /> New Arrivals
              </h2>
           </div>
-          <div className="flex gap-6 overflow-x-auto no-scrollbar pb-6 px-2 snap-x">
+          <div className="flex gap-4 overflow-x-auto no-scrollbar pb-6 px-1 snap-x">
             {newArrivals.map((product) => (
-              <div key={product.id} onClick={() => navigate(`/product/${product.id}`)} className="flex-shrink-0 w-56 space-y-4 group cursor-pointer snap-start">
-                <div className="relative aspect-[3/4] rounded-[3rem] overflow-hidden border border-gray-100 shadow-2xl bg-gray-50 group-hover:scale-[1.02] transition-transform duration-500">
-                  <img src={product.images[0]} className="w-full h-full object-cover" />
-                  <div className="absolute top-5 left-5 flex flex-col gap-2">
+              <div key={product.id} onClick={() => navigate(`/product/${product.id}`)} className="flex-shrink-0 w-40 md:w-56 space-y-3 group cursor-pointer snap-start">
+                <div className="relative aspect-[3/4] rounded-2xl md:rounded-[3rem] overflow-hidden border border-gray-100 shadow-xl bg-gray-50 group-hover:scale-[1.02] transition-transform duration-500">
+                  <img src={product.images[0]} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                  <div className="absolute top-3 left-3 flex flex-col gap-1.5">
                      {product.event_name && (
-                       <span className="bg-pink-600 text-white text-[9px] font-black px-4 py-2 rounded-2xl uppercase shadow-xl border border-pink-500 flex items-center gap-2">
-                         <Sparkles className="w-3 h-3" /> {product.event_name}
+                       <span className="bg-pink-600 text-white text-[7px] md:text-[9px] font-black px-3 py-1.5 md:px-4 md:py-2 rounded-xl md:rounded-2xl uppercase shadow-xl border border-pink-500 flex items-center gap-2">
+                         <Sparkles className="w-2 md:w-3 h-2 md:h-3" /> {product.event_name}
                        </span>
                      )}
                      {product.discount_percentage && product.discount_percentage > 0 && (
-                       <span className="bg-red-600 text-white text-[9px] font-black px-4 py-2 rounded-2xl uppercase shadow-xl border border-red-500 w-fit">
+                       <span className="bg-red-600 text-white text-[7px] md:text-[9px] font-black px-3 py-1.5 md:px-4 md:py-2 rounded-xl md:rounded-2xl uppercase shadow-xl border border-red-500 w-fit">
                          {product.discount_percentage}% OFF
                        </span>
                      )}
                   </div>
                 </div>
-                <div className="px-2">
-                   <h3 className="text-sm font-black uppercase text-gray-900 truncate tracking-tight italic">{product.name}</h3>
+                <div className="px-1">
+                   <h3 className="text-[11px] md:text-sm font-black uppercase text-gray-900 truncate tracking-tight italic">{product.name}</h3>
                    <div className="flex items-center justify-between mt-1">
-                     <p className="text-pink-600 font-black text-lg italic leading-none">PKR {product.price.toLocaleString()}</p>
-                     <span className="text-[8px] font-black text-gray-300 uppercase">Stock: {product.stock || 0}</span>
+                     <p className="text-pink-600 font-black text-sm md:text-lg italic leading-none">PKR {product.price.toLocaleString()}</p>
+                     <span className="text-[7px] md:text-[8px] font-black text-gray-300 uppercase">Qty: {product.stock || 0}</span>
                    </div>
-                   <button onClick={(e) => { e.stopPropagation(); setCheckoutProduct(product); }} className="w-full mt-4 bg-gray-900 text-white py-6 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl">BUY NOW</button>
+                   <button onClick={(e) => { e.stopPropagation(); setCheckoutProduct(product); }} className="w-full mt-2 bg-gray-900 text-white py-3 md:py-6 rounded-xl md:rounded-2xl font-black uppercase text-[8px] md:text-[10px] tracking-widest shadow-xl">BUY NOW</button>
                 </div>
               </div>
             ))}
@@ -181,35 +181,35 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{filteredProducts.length} items</span>
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-5 md:gap-8">
+        <div className="grid grid-cols-2 gap-3 md:gap-8">
           {filteredProducts.map(product => {
             const hasOff = product.discount_percentage && product.discount_percentage > 0;
             return (
-              <div key={product.id} className="bg-white rounded-[3.5rem] overflow-hidden shadow-sm border border-gray-100 flex flex-col group transition-all hover:shadow-2xl hover:border-pink-50">
+              <div key={product.id} className="bg-white rounded-3xl md:rounded-[3.5rem] overflow-hidden shadow-sm border border-gray-100 flex flex-col group transition-all hover:shadow-2xl hover:border-pink-50">
                 <div className="relative aspect-[3/4] overflow-hidden cursor-pointer" onClick={() => navigate(`/product/${product.id}`)}>
-                  <img src={product.images[0]} className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700" />
-                  <div className="absolute top-4 right-4 flex flex-col gap-2 z-10">
+                  <img src={product.images[0]} referrerPolicy="no-referrer" className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700" />
+                  <div className="absolute top-3 right-3 flex flex-col gap-1.5 z-10">
                     {product.event_name && (
-                      <div className="bg-white/90 backdrop-blur-md text-pink-600 text-[8px] font-black px-4 py-2 rounded-2xl uppercase tracking-widest shadow-2xl border border-pink-100 flex items-center gap-2">
-                        <Sparkles className="w-3 h-3 animate-pulse" /> {product.event_name}
+                      <div className="bg-white/90 backdrop-blur-md text-pink-600 text-[6px] md:text-[8px] font-black px-3 py-1.5 md:px-4 md:py-2 rounded-xl md:rounded-2xl uppercase tracking-widest shadow-2xl border border-pink-100 flex items-center gap-2">
+                        <Sparkles className="w-2 md:w-3 h-2 md:h-3 animate-pulse" /> {product.event_name}
                       </div>
                     )}
                     {hasOff && (
-                      <div className="bg-red-600 text-white text-[9px] font-black px-4 py-2 rounded-2xl shadow-xl uppercase italic text-center">
+                      <div className="bg-red-600 text-white text-[7px] md:text-[9px] font-black px-3 py-1.5 md:px-4 md:py-2 rounded-xl md:rounded-2xl shadow-xl uppercase italic text-center">
                         {product.discount_percentage}% OFF
                       </div>
                     )}
                   </div>
                 </div>
-                <div className="p-7 flex-1 space-y-4 flex flex-col justify-between bg-white relative">
+                <div className="p-3 md:p-7 flex-1 space-y-2 md:space-y-4 flex flex-col justify-between bg-white relative">
                   <div onClick={() => navigate(`/product/${product.id}`)}>
-                    <h3 className="font-black text-sm text-gray-900 truncate italic uppercase tracking-tight mb-2">{product.name}</h3>
+                    <h3 className="font-black text-[10px] md:text-sm text-gray-900 truncate italic uppercase tracking-tight mb-1 md:mb-2">{product.name}</h3>
                     <div className="flex items-center justify-between">
-                       <p className="text-pink-600 font-black text-xl italic leading-none">PKR {product.price.toLocaleString()}</p>
-                       <span className="text-[8px] font-black text-gray-300 uppercase">Qty: {product.stock || 0}</span>
+                       <p className="text-pink-600 font-black text-sm md:text-xl italic leading-none">PKR {product.price.toLocaleString()}</p>
+                       <span className="text-[7px] md:text-[8px] font-black text-gray-300 uppercase">Qty: {product.stock || 0}</span>
                     </div>
                   </div>
-                  <button onClick={() => setCheckoutProduct(product)} className="w-full bg-gray-900 text-white font-black py-7 rounded-[2.5rem] text-xs uppercase tracking-[0.25em] shadow-2xl active:scale-95 transition-all hover:bg-pink-600">ORDER</button>
+                  <button onClick={() => setCheckoutProduct(product)} className="w-full bg-gray-900 text-white font-black py-3 md:py-7 rounded-xl md:rounded-[2.5rem] text-[8px] md:text-xs uppercase tracking-widest md:tracking-[0.25em] shadow-2xl active:scale-95 transition-all hover:bg-pink-600">ORDER</button>
                 </div>
               </div>
             );

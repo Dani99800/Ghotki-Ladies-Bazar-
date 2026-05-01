@@ -83,19 +83,19 @@ const ShopView: React.FC<ShopViewProps> = ({ shops, products, addToCart, lang, u
       {/* Content */}
       <div className="p-4 max-w-4xl mx-auto">
         {activeTab === 'Products' ? (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3 md:gap-4">
             {shopProducts.map(product => (
-              <div key={product.id} className="bg-white rounded-[2rem] overflow-hidden shadow-sm border border-gray-100 group flex flex-col">
+              <div key={product.id} className="bg-white rounded-2xl md:rounded-[2rem] overflow-hidden shadow-sm border border-gray-100 group flex flex-col">
                 <div className="relative aspect-[3/4] overflow-hidden cursor-pointer" onClick={() => navigate(`/product/${product.id}`)}>
-                  <img src={product.images[0]} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                  {product.discount_percentage ? <span className="absolute top-3 left-3 bg-red-600 text-white text-[8px] font-black px-2 py-1 rounded shadow-lg uppercase">SALE</span> : null}
+                  <img src={product.images[0]} referrerPolicy="no-referrer" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                  {product.discount_percentage ? <span className="absolute top-2 left-2 bg-red-600 text-white text-[7px] md:text-[8px] font-black px-2 py-1 rounded shadow-lg uppercase">SALE</span> : null}
                 </div>
-                <div className="p-4 flex-1 flex flex-col justify-between space-y-4">
+                <div className="p-3 md:p-4 flex-1 flex flex-col justify-between space-y-2 md:space-y-4">
                   <div onClick={() => navigate(`/product/${product.id}`)}>
-                    <h3 className="font-bold text-sm text-gray-900 truncate mb-1">{product.name}</h3>
-                    <span className="text-pink-600 font-black text-base italic leading-none">PKR {product.price.toLocaleString()}</span>
+                    <h3 className="font-bold text-[11px] md:text-sm text-gray-900 truncate mb-1">{product.name}</h3>
+                    <span className="text-pink-600 font-black text-sm md:text-base italic leading-none">PKR {product.price.toLocaleString()}</span>
                   </div>
-                  <button onClick={(e) => { e.stopPropagation(); setCheckoutProduct(product); }} className="w-full bg-pink-600 text-white py-6 rounded-2xl text-xs font-black uppercase tracking-[0.2em] shadow-xl active:scale-95 transition-all shadow-pink-200/30">BUY</button>
+                  <button onClick={(e) => { e.stopPropagation(); setCheckoutProduct(product); }} className="w-full bg-pink-600 text-white py-3 md:py-6 rounded-xl md:rounded-2xl text-[10px] md:text-xs font-black uppercase tracking-widest md:tracking-[0.2em] shadow-xl active:scale-95 transition-all shadow-pink-200/30">BUY</button>
                 </div>
               </div>
             ))}
