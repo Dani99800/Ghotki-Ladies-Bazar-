@@ -337,26 +337,23 @@ const App: React.FC = () => {
                 if (!supabase || !user) return;
                 
                 try {
-                  // Actually delete the user's profile and cascading data in Supabase
-                  // This is the correct way to wipe data permanently
-                  const { error: profileError } = await supabase
+                  // This will trigger the cascading deletes in SQL for Shops, Products, etc.
+                  const { error } = await supabase
                     .from('profiles')
                     .delete()
                     .eq('id', user.id);
 
-                  if (profileError) throw profileError;
-
-                  // Sign out from Auth
-                  await supabase.auth.signOut();
+                  if (error) throw error;
                   
-                  // Clear everything
+                  // Sign out immediately
+                  await supabase.auth.signOut();
                   setUser(null);
-                  setCart([]);
                   navigate('/login');
-                  alert("Your account and all related data have been permanently deleted.");
+                  alert("Account deleted. You can now create a new account with the same email if you wish.");
                 } catch (err: any) {
                   console.error("Deletion Error:", err);
-                  alert("Could not delete account. If you just logged in, please logout and login again before deleting.");
+                  alert("Could not delete account: " + err.message);
+                  throw err;
                 }
               }}
               lang="EN" 
