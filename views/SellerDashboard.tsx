@@ -277,7 +277,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
     <div className="max-w-4xl mx-auto p-4 space-y-6 pb-32">
       {/* Dynamic Merchant Banner */}
       <div className="relative h-56 rounded-[3.5rem] overflow-hidden shadow-2xl border-4 border-white bg-gray-900 group">
-         <img src={settingsForm.banner} className="w-full h-full object-cover opacity-80" alt="Banner" />
+         <img src={settingsForm.banner || undefined} className="w-full h-full object-cover opacity-80" alt="Banner" />
          <div onClick={() => bannerInputRef.current?.click()} className="absolute inset-0 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer bg-black/50 backdrop-blur-sm z-10">
            <UploadCloud className="w-10 h-10 text-white" />
            <span className="text-[10px] font-black uppercase text-white tracking-widest mt-2">Update Cover</span>
@@ -287,7 +287,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
          <div className="absolute bottom-6 left-8 flex items-end gap-6 z-20">
             <div className="relative group/logo">
               <div className="w-24 h-24 rounded-[2.5rem] border-4 border-white bg-white overflow-hidden shadow-2xl relative">
-                <img src={settingsForm.logo} className="w-full h-full object-cover" alt="Logo" />
+                <img src={settingsForm.logo || undefined} className="w-full h-full object-cover" alt="Logo" />
                 <div onClick={(e) => { e.stopPropagation(); logoInputRef.current?.click(); }} className="absolute inset-0 bg-black/60 opacity-0 group-hover/logo:opacity-100 flex items-center justify-center cursor-pointer transition-opacity">
                    <Camera className="w-6 h-6 text-white" />
                 </div>
@@ -342,7 +342,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
             {products.filter(p => p.shopId === myShop?.id).map(p => (
               <div key={p.id} className="bg-white p-5 rounded-[2.5rem] border border-gray-100 flex flex-col gap-4 shadow-sm group hover:shadow-xl transition-all relative">
                 <div className="relative aspect-[3/4] rounded-[2rem] overflow-hidden bg-gray-50 shadow-inner">
-                  <img src={p.images?.[0]} className="w-full h-full object-cover" />
+                  <img src={p.images?.[0] || undefined} className="w-full h-full object-cover" />
                   <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                      <button onClick={() => { setEditingProduct(p); setShowModal(true); }} className="p-3 bg-white text-pink-600 rounded-xl shadow-lg"><Edit2 className="w-4 h-4" /></button>
                      <button onClick={() => { if(window.confirm("Delete style?")) supabase?.from('products').delete().eq('id', p.id).then(addProduct); }} className="p-3 bg-white text-red-600 rounded-xl shadow-lg"><Trash2 className="w-4 h-4" /></button>
@@ -500,7 +500,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
                  {/* Media Section */}
                  <div className="grid grid-cols-2 gap-4">
                    <div onClick={() => imgInputRef.current?.click()} className="aspect-square bg-gray-50 rounded-[2.5rem] border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-3 cursor-pointer overflow-hidden group">
-                      {productForm.images.length > 0 ? <img src={productForm.images[0]} className="w-full h-full object-cover" /> : <><Camera className="w-8 h-8 text-gray-300" /><span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Main Photo</span></>}
+                      {productForm.images.length > 0 ? <img src={productForm.images[0] || undefined} className="w-full h-full object-cover" /> : <><Camera className="w-8 h-8 text-gray-300" /><span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Main Photo</span></>}
                       <input type="file" hidden ref={imgInputRef} accept="image/*" onChange={(e) => handleFileUpload(e, 'IMAGE')} />
                    </div>
                    <div 

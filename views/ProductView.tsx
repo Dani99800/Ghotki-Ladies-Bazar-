@@ -33,7 +33,7 @@ const ProductView: React.FC<ProductViewProps> = ({ products, addToCart, lang }) 
       {/* Compact image area for mobile */}
       <div className="relative h-[35vh] md:h-[60vh] md:max-h-[700px] w-full bg-gray-100 overflow-hidden">
         <button onClick={() => navigate(-1)} className="absolute top-4 left-4 z-10 p-2.5 bg-white/80 backdrop-blur-md rounded-full shadow-lg active:scale-90 transition-all"><ArrowLeft className="w-5 h-5 text-gray-900" /></button>
-        <img src={product.images[0]} referrerPolicy="no-referrer" className="w-full h-full object-cover" alt={product.name} />
+        <img src={product.images[0] || undefined} referrerPolicy="no-referrer" className="w-full h-full object-cover" alt={product.name} />
         
         {/* Compact Event Badge */}
         {product.event_name && (
