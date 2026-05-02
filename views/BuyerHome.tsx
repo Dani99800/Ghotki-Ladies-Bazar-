@@ -96,7 +96,7 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
           {categories.map((cat) => (
             <div key={cat.id} onClick={() => setSelectedCategory(cat.id)} className="flex flex-col items-center gap-3 cursor-pointer group flex-shrink-0">
               <div className={`w-16 h-16 rounded-[1.8rem] overflow-hidden transition-all border-4 ${selectedCategory === cat.id ? 'border-pink-600 shadow-xl scale-110' : 'border-white shadow-md'}`}>
-                <img src={cat.image_url || undefined} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                <img src={cat.image_url} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
               </div>
               <span className={`text-[10px] font-black uppercase tracking-widest ${selectedCategory === cat.id ? 'text-pink-600' : 'text-gray-400'}`}>{cat.name}</span>
             </div>
@@ -117,7 +117,7 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
             {featuredShops.map((shop) => (
               <div key={shop.id} onClick={() => navigate(`/shop/${shop.id}`)} className="flex-shrink-0 w-32 space-y-2 group cursor-pointer text-center snap-start">
                 <div className="relative aspect-square rounded-[2rem] overflow-hidden border-4 border-white shadow-xl bg-white group-hover:scale-105 transition-transform duration-500">
-                  <img src={shop.logo || undefined} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                  <img src={shop.logo} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                   <div className="absolute top-1.5 right-1.5">
                     {shop.is_top_seller && <div className="bg-pink-600 p-1 rounded-full shadow-lg border border-white"><Trophy className="w-3 h-3 text-white" /></div>}
                   </div>
@@ -144,7 +144,7 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
             {newArrivals.map((product) => (
               <div key={product.id} onClick={() => navigate(`/product/${product.id}`)} className="flex-shrink-0 w-40 md:w-56 space-y-3 group cursor-pointer snap-start">
                 <div className="relative aspect-[3/4] rounded-2xl md:rounded-[3rem] overflow-hidden border border-gray-100 shadow-xl bg-gray-50 group-hover:scale-[1.02] transition-transform duration-500">
-                  <img src={product.images[0] || undefined} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                  <img src={product.images[0]} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                   <div className="absolute top-3 left-3 flex flex-col gap-1.5">
                      {product.event_name && (
                        <span className="bg-pink-600 text-white text-[7px] md:text-[9px] font-black px-3 py-1.5 md:px-4 md:py-2 rounded-xl md:rounded-2xl uppercase shadow-xl border border-pink-500 flex items-center gap-2">
@@ -187,7 +187,7 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
             return (
               <div key={product.id} className="bg-white rounded-2xl md:rounded-[3rem] overflow-hidden shadow-md border border-gray-100 flex flex-col group transition-all hover:shadow-2xl">
                 <div className="relative aspect-[4/5] overflow-hidden cursor-pointer" onClick={() => navigate(`/product/${product.id}`)}>
-                  <img src={product.images[0] || undefined} referrerPolicy="no-referrer" className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700" />
+                  <img src={product.images[0]} referrerPolicy="no-referrer" className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700" />
                   <div className="absolute top-2 right-2 flex flex-col gap-1 z-10">
                     {product.event_name && (
                       <div className="bg-white/90 backdrop-blur-md text-pink-600 text-[9px] font-black px-2.5 py-1.5 rounded-lg uppercase tracking-tight shadow-lg border border-pink-100 flex items-center gap-1.5">

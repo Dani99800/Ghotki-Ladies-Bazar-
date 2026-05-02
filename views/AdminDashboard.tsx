@@ -182,7 +182,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <div key={shop.id} className="bg-white p-6 rounded-[3rem] border border-gray-100 shadow-sm flex flex-col gap-6">
                        <div className="flex items-center justify-between gap-4">
                          <div className="flex items-center gap-4 flex-1 min-w-0">
-                            <img src={shop.logo || undefined} className="w-14 h-14 rounded-[1.5rem] object-cover bg-gray-50 border-2 border-white shadow-sm" />
+                            <img src={shop.logo} className="w-14 h-14 rounded-[1.5rem] object-cover bg-gray-50 border-2 border-white shadow-sm" />
                             <div className="truncate">
                               <p className="font-black text-sm uppercase italic text-gray-900 truncate tracking-tight">{shop.name}</p>
                               <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Priority: {shop.sort_priority || 0}</p>
@@ -254,7 +254,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <div key={shop.id} className="bg-white p-6 rounded-[3rem] border border-gray-100 shadow-sm flex flex-col gap-6">
                        <div className="flex items-center justify-between gap-4">
                          <div className="flex items-center gap-4 flex-1 min-w-0">
-                            <img src={shop.logo || undefined} className="w-14 h-14 rounded-[1.5rem] object-cover bg-gray-50 border-2 border-white shadow-sm" />
+                            <img src={shop.logo} className="w-14 h-14 rounded-[1.5rem] object-cover bg-gray-50 border-2 border-white shadow-sm" />
                             <div className="truncate">
                               <p className="font-black text-sm uppercase italic text-gray-900 truncate tracking-tight">{shop.name}</p>
                               <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Priority: {shop.sort_priority || 0}</p>
@@ -358,7 +358,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <div className="grid grid-cols-2 gap-4">
                     {Array.isArray(request.image_urls) && request.image_urls.map((url, i) => (
                       <div key={i} className="aspect-square rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
-                        <img src={url || undefined} referrerPolicy="no-referrer" className="w-full h-full object-cover hover:scale-110 transition-transform duration-500" alt="Request" />
+                        <img src={url} referrerPolicy="no-referrer" className="w-full h-full object-cover hover:scale-110 transition-transform duration-500" alt="Request" />
                       </div>
                     ))}
                   </div>
@@ -403,7 +403,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
            {adminProducts.map(product => (
              <div key={product.id} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm flex items-center justify-between gap-4">
                 <div className="flex items-center gap-4 flex-1 min-w-0">
-                  <img src={product.images?.[0] || undefined} referrerPolicy="no-referrer" className="w-14 h-14 rounded-2xl object-cover shadow-sm bg-gray-50" />
+                  <img src={product.images?.[0]} referrerPolicy="no-referrer" className="w-14 h-14 rounded-2xl object-cover shadow-sm bg-gray-50" />
                   <div className="truncate">
                     <p className="font-black text-sm uppercase italic text-gray-900 truncate tracking-tight">{product.name}</p>
                     <p className="text-[9px] font-black text-gray-400 uppercase">PKR {product.price.toLocaleString()}</p>

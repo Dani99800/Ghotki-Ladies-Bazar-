@@ -173,7 +173,7 @@ const ShopCard: React.FC<{ shop: Shop, index: number, navigate: any, isTopInCate
       )}
       
       <div className="relative flex-shrink-0">
-        <img src={shop.logo || undefined} referrerPolicy="no-referrer" className="w-16 h-16 md:w-20 md:h-20 rounded-2xl md:rounded-[1.8rem] object-cover border-2 border-gray-50 group-hover:scale-105 transition-transform bg-white shadow-inner" alt={shop.name} />
+        <img src={shop.logo} referrerPolicy="no-referrer" className="w-16 h-16 md:w-20 md:h-20 rounded-2xl md:rounded-[1.8rem] object-cover border-2 border-gray-50 group-hover:scale-105 transition-transform bg-white shadow-inner" alt={shop.name} />
         <div className="absolute -bottom-1 -right-1 bg-gray-900 text-white w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center font-black text-[8px] md:text-[10px] border-2 border-white shadow-lg">
           #{index + 1}
         </div>
