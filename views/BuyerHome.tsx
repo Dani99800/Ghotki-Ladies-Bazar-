@@ -186,16 +186,16 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
             const hasOff = product.discount_percentage && product.discount_percentage > 0;
             return (
               <div key={product.id} className="bg-white rounded-2xl md:rounded-[3rem] overflow-hidden shadow-md border border-gray-100 flex flex-col group transition-all hover:shadow-2xl">
-                <div className="relative aspect-square overflow-hidden cursor-pointer" onClick={() => navigate(`/product/${product.id}`)}>
+                <div className="relative aspect-[4/5] overflow-hidden cursor-pointer" onClick={() => navigate(`/product/${product.id}`)}>
                   <img src={product.images[0]} referrerPolicy="no-referrer" className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700" />
                   <div className="absolute top-2 right-2 flex flex-col gap-1 z-10">
                     {product.event_name && (
-                      <div className="bg-white/90 backdrop-blur-md text-pink-600 text-[8px] font-black px-2 py-1 rounded-lg uppercase tracking-widest shadow-lg border border-pink-100 flex items-center gap-1">
-                        <Sparkles className="w-2 h-2 animate-pulse" /> {product.event_name}
+                      <div className="bg-white/90 backdrop-blur-md text-pink-600 text-[9px] font-black px-2.5 py-1.5 rounded-lg uppercase tracking-tight shadow-lg border border-pink-100 flex items-center gap-1.5">
+                        <Sparkles className="w-2.5 h-2.5 animate-pulse" /> {product.event_name}
                       </div>
                     )}
                     {hasOff && (
-                      <div className="bg-red-600 text-white text-[9px] font-black px-2 py-1 rounded-lg shadow-xl uppercase italic text-center">
+                      <div className="bg-red-600 text-white text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-xl uppercase italic text-center">
                         {product.discount_percentage}% OFF
                       </div>
                     )}
@@ -203,13 +203,13 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
                 </div>
                 <div className="p-4 md:p-7 flex-1 space-y-2 md:space-y-4 flex flex-col justify-between bg-white">
                   <div onClick={() => navigate(`/product/${product.id}`)}>
-                    <h3 className="font-bold text-xs md:text-lg text-gray-900 truncate uppercase tracking-tight mb-1 hover:text-pink-600 transition-colors">{product.name}</h3>
+                    <h3 className="font-bold text-sm md:text-xl text-gray-900 truncate uppercase tracking-tight mb-1 hover:text-pink-600 transition-colors">{product.name}</h3>
                     <div className="flex items-center justify-between">
-                       <p className="text-pink-600 font-black text-sm md:text-2xl italic leading-none whitespace-nowrap">PKR {product.price.toLocaleString()}</p>
-                       <span className="text-[8px] md:text-[10px] font-bold text-gray-400 uppercase">Stock: {product.stock || 0}</span>
+                       <p className="text-pink-600 font-black text-lg md:text-3xl italic leading-none whitespace-nowrap">PKR {product.price.toLocaleString()}</p>
+                       <span className="text-[10px] md:text-xs font-bold text-gray-400 uppercase">Stock: {product.stock || 0}</span>
                     </div>
                   </div>
-                  <button onClick={() => setCheckoutProduct(product)} className="w-full bg-gray-900 text-white font-black py-3 md:py-6 rounded-xl md:rounded-2xl text-[10px] md:text-sm uppercase tracking-widest shadow-xl active:scale-95 transition-all hover:bg-pink-600">ORDER NOW</button>
+                  <button onClick={() => setCheckoutProduct(product)} className="w-full bg-gray-900 text-white font-black py-4 md:py-8 rounded-xl md:rounded-2xl text-xs md:text-base uppercase tracking-widest shadow-xl active:scale-95 transition-all hover:bg-pink-600">ORDER NOW</button>
                 </div>
               </div>
             );
