@@ -9,6 +9,9 @@ const getEnv = (key: string) => {
 const supabaseUrl = getEnv('VITE_SUPABASE_URL') || 'https://fiubihnroqvwaaeglcnd.supabase.co';
 const supabaseAnonKey = getEnv('VITE_SUPABASE_ANON_KEY') || 'sb_publishable_P7Yj4EYFqtFuyXjyyU_RUg_gzCWbkhA';
 
+// Production URLs for redirect handling
+const SITE_URL = 'https://www.ghotkibazar.com';
+
 if (!supabaseUrl.startsWith('http')) {
   console.warn("Supabase URL is missing or invalid. Check environment variables.");
 }
