@@ -29,6 +29,7 @@ const App: React.FC = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showForceLoad, setShowForceLoad] = useState(false);
   const [activeEvent, setActiveEvent] = useState<AppEvent>(PK_EVENTS[0]);
   
@@ -58,6 +59,15 @@ const App: React.FC = () => {
   const loadMarketplace = useCallback(async () => {
     if (!supabase) return;
     try {
+      console.log("Attempting to connect to Supabase project...");
+      
+      // Verification check: Try to reach Supabase
+      const { error: pingError } = await supabase.from('categories').select('count', { count: 'exact', head: true });
+      if (pingError) {
+        console.error("Supabase Connection Failed:", pingError);
+        throw new Error(`Connection failed: ${pingError.message}`);
+      }
+
       console.log("Fetching Marketplace Data from Supabase...");
       const [pRes, sRes, cRes] = await Promise.all([
         supabase.from('products').select('*'),
@@ -67,6 +77,7 @@ const App: React.FC = () => {
       
       if (sRes.error) console.error("Shops Fetch Error:", sRes.error);
       if (pRes.error) console.error("Products Fetch Error:", pRes.error);
+      if (cRes.error) console.error("Categories Fetch Error:", cRes.error);
 
       const mappedShops = (sRes.data || []).map((s: any) => ({ 
         ...s, 
@@ -93,8 +104,10 @@ const App: React.FC = () => {
       
       console.log(`Sync Complete: ${mappedShops.length} shops, ${mappedProducts.length} products found.`);
       setLoading(false);
-    } catch (err) { 
+      setError(null);
+    } catch (err: any) { 
       console.error("Critical Marketplace Fetch Error:", err); 
+      setError(err.message || "Failed to load bazar data. Please check your internet connection.");
       setLoading(false);
     }
   }, []);
@@ -287,6 +300,32 @@ const App: React.FC = () => {
           Enter Marketplace Anyway
         </button>
       )}
+    </div>
+  );
+
+  if (error && shops.length === 0) return (
+    <div className="h-screen w-full flex flex-col items-center justify-center bg-gray-50 p-8 text-center space-y-6">
+       <div className="w-20 h-20 bg-red-50 text-red-600 rounded-full flex items-center justify-center">
+          <ShieldAlert className="w-10 h-10" />
+       </div>
+       <div className="max-w-xs space-y-2">
+         <h2 className="text-xl font-black uppercase tracking-tighter text-gray-900 italic">Connection Error</h2>
+         <p className="text-sm text-gray-400 font-medium leading-relaxed italic">{error}</p>
+       </div>
+       <div className="space-y-3 w-full max-w-[200px]">
+          <button 
+            onClick={() => { setError(null); loadMarketplace(); }}
+            className="w-full py-4 bg-pink-600 text-white font-black rounded-2xl uppercase tracking-widest text-[10px] shadow-xl shadow-pink-200 active:scale-95 transition-all"
+          >
+            Retry Connection
+          </button>
+          <button 
+            onClick={() => { setError(null); setLoading(false); }}
+            className="w-full py-4 bg-white text-gray-400 font-bold rounded-2xl border border-gray-100 uppercase tracking-widest text-[10px] active:scale-95 transition-all"
+          >
+            Stay Offline
+          </button>
+       </div>
     </div>
   );
 
