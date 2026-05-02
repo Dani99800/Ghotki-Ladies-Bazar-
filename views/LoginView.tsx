@@ -73,6 +73,19 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
     if (!supabase) return;
     setLoading(true);
     try {
+      if (!supabase) return;
+
+      // Check if email already exists as a seller
+      if (role === 'SELLER') {
+        const { data: exists, error: checkError } = await supabase
+          .rpc('check_seller_exists', { checked_email: formData.email });
+        
+        if (checkError) console.error("Check failed:", checkError);
+        if (exists) {
+          throw new Error("This email is already registered as a seller. Please login instead.");
+        }
+      }
+
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,

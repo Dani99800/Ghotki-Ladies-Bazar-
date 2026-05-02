@@ -336,25 +336,23 @@ const App: React.FC = () => {
               onDeleteAccount={async () => {
                 if (!supabase || !user) return;
                 
-                // 1. Delete all related data first (Best effort client-side)
-                // In production, use the SQL trigger I'll provide to ensure atomic deletion
                 try {
-                  // Delete profile
-                  await supabase.from('profiles').delete().eq('id', user.id);
+                  // This will trigger the cascading deletes in SQL for Shops, Products, etc.
+                  const { error } = await supabase
+                    .from('profiles')
+                    .delete()
+                    .eq('id', user.id);
+
+                  if (error) throw error;
                   
-                  // If seller, delete shop (handled by cascading deletes in SQL usually)
-                  const myShop = shops.find(s => s.owner_id === user.id);
-                  if (myShop) {
-                    await supabase.from('shops').delete().eq('id', myShop.id);
-                  }
-                  
-                  // Sign out
+                  // Sign out immediately
                   await supabase.auth.signOut();
                   setUser(null);
                   navigate('/login');
-                  alert("Your account data has been successfully marked for deletion.");
-                } catch (err) {
+                  alert("Account deleted. You can now create a new account with the same email if you wish.");
+                } catch (err: any) {
                   console.error("Deletion Error:", err);
+                  alert("Could not delete account: " + err.message);
                   throw err;
                 }
               }}
