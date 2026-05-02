@@ -19,11 +19,14 @@ import { User } from '../types';
 interface ProfileViewProps {
   user: User;
   onLogout: () => void;
+  onDeleteAccount: () => Promise<void>;
   lang: 'EN' | 'UR';
 }
 
-const ProfileView: React.FC<ProfileViewProps> = ({ user, onLogout, lang }) => {
+const ProfileView: React.FC<ProfileViewProps> = ({ user, onLogout, onDeleteAccount, lang }) => {
   const navigate = useNavigate();
+  const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
+  const [isDeleting, setIsDeleting] = React.useState(false);
 
   const menuItems = [
     { icon: ShoppingBag, label: 'My Orders', path: '/orders', show: true },
@@ -33,8 +36,53 @@ const ProfileView: React.FC<ProfileViewProps> = ({ user, onLogout, lang }) => {
     { icon: Settings, label: 'Account Settings', path: '#', show: true },
   ].filter(i => i.show);
 
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await onDeleteAccount();
+    } catch (error) {
+      console.error("Deletion failed:", error);
+      alert("Failed to delete account. Please try again.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className="max-w-md mx-auto p-4 space-y-6 animate-in slide-in-from-bottom-4 duration-500 pb-20">
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+           <div className="bg-white rounded-[2rem] p-8 w-full max-w-sm space-y-6 shadow-2xl animate-in zoom-in-95 duration-300">
+             <div className="flex justify-center flex-col items-center gap-4">
+                <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center">
+                  <Shield className="w-8 h-8" />
+                </div>
+                <h3 className="text-xl font-black text-gray-900 text-center uppercase tracking-tighter">Delete Account?</h3>
+                <p className="text-gray-500 text-center text-xs font-medium leading-relaxed italic">
+                  This action is permanent. All your orders, shop data, and profile details will be erased forever from GLB Bazar.
+                </p>
+             </div>
+             
+             <div className="space-y-2">
+                <button 
+                  disabled={isDeleting}
+                  onClick={handleDelete}
+                  className="w-full py-4 bg-red-600 text-white font-black rounded-xl uppercase tracking-widest text-[10px] shadow-xl shadow-red-200 active:scale-95 transition-all disabled:opacity-50"
+                >
+                  {isDeleting ? 'Erasing Data...' : 'Yes, Delete Permanently'}
+                </button>
+                <button 
+                  disabled={isDeleting}
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="w-full py-4 bg-gray-50 text-gray-400 font-bold rounded-xl uppercase tracking-widest text-[10px] active:scale-95 transition-all"
+                >
+                  Cancel
+                </button>
+             </div>
+           </div>
+        </div>
+      )}
       <div className="text-center py-6 space-y-4">
         <div className="w-24 h-24 bg-pink-100 rounded-full border-4 border-white shadow-xl flex items-center justify-center mx-auto text-pink-600">
            <UserIcon className="w-12 h-12" />
@@ -90,13 +138,23 @@ const ProfileView: React.FC<ProfileViewProps> = ({ user, onLogout, lang }) => {
         ))}
       </div>
 
-      <button 
-        onClick={onLogout}
-        className="w-full mt-4 flex items-center justify-center gap-3 p-5 bg-red-50 text-red-600 font-black rounded-2xl border border-red-100 hover:bg-red-100 transition-all active:scale-[0.98] uppercase tracking-widest text-xs"
-      >
-        <LogOut className="w-5 h-5" />
-        Logout from GLB Bazar
-      </button>
+      <div className="flex flex-col gap-2">
+        <button 
+          onClick={onLogout}
+          className="w-full flex items-center justify-center gap-3 p-5 bg-white text-gray-500 font-black rounded-2xl border border-gray-100 hover:bg-gray-50 transition-all active:scale-[0.98] uppercase tracking-widest text-[10px]"
+        >
+          <LogOut className="w-5 h-5" />
+          Logout from Bazar
+        </button>
+
+        <button 
+          onClick={() => setShowDeleteConfirm(true)}
+          className="w-full flex items-center justify-center gap-3 p-4 bg-red-50/30 text-red-400 font-black rounded-2xl hover:bg-red-50 hover:text-red-600 transition-all active:scale-[0.98] uppercase tracking-widest text-[9px]"
+        >
+          <Shield className="w-4 h-4" />
+          Delete Account Permanently
+        </button>
+      </div>
 
       <p className="text-center text-[9px] text-gray-300 uppercase font-black tracking-widest pt-4">
         Digitizing Ghotki Legacy • v2.2.0

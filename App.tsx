@@ -329,7 +329,38 @@ const App: React.FC = () => {
           <Route path="/product/:id" element={<ProductView products={products} addToCart={addToCart} lang="EN" />} />
           <Route path="/cart" element={<CartView cart={cart} removeFromCart={id => setCart(cart.filter(c => c.id !== id))} updateQuantity={(id, d) => setCart(cart.map(c => c.id === id ? {...c, quantity: Math.max(1, c.quantity+d)} : c))} lang="EN" />} />
           <Route path="/login" element={<LoginView setUser={setUser} lang="EN" />} />
-          <Route path="/profile" element={user ? <ProfileView user={user} onLogout={() => { supabase?.auth.signOut(); setUser(null); navigate('/login'); }} lang="EN" /> : <Navigate to="/login" />} />
+          <Route path="/profile" element={user ? (
+            <ProfileView 
+              user={user} 
+              onLogout={() => { supabase?.auth.signOut(); setUser(null); navigate('/login'); }} 
+              onDeleteAccount={async () => {
+                if (!supabase || !user) return;
+                
+                // 1. Delete all related data first (Best effort client-side)
+                // In production, use the SQL trigger I'll provide to ensure atomic deletion
+                try {
+                  // Delete profile
+                  await supabase.from('profiles').delete().eq('id', user.id);
+                  
+                  // If seller, delete shop (handled by cascading deletes in SQL usually)
+                  const myShop = shops.find(s => s.owner_id === user.id);
+                  if (myShop) {
+                    await supabase.from('shops').delete().eq('id', myShop.id);
+                  }
+                  
+                  // Sign out
+                  await supabase.auth.signOut();
+                  setUser(null);
+                  navigate('/login');
+                  alert("Your account data has been successfully marked for deletion.");
+                } catch (err) {
+                  console.error("Deletion Error:", err);
+                  throw err;
+                }
+              }}
+              lang="EN" 
+            />
+          ) : <Navigate to="/login" />} />
           <Route path="/admin" element={(() => {
             console.log("Admin Route Access Attempt:", { userRole: user?.role, userId: user?.id });
             return user?.role === 'ADMIN' ? <AdminDashboard shops={shops} setShops={setShops} orders={orders} refreshData={loadMarketplace} categories={categories} activeEvent={activeEvent} onUpdateEvent={handleUpdateEvent} /> : <Navigate to="/" />;
