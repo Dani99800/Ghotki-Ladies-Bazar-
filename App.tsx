@@ -83,8 +83,8 @@ const App: React.FC = () => {
         ...s, 
         owner_id: s.owner_id || s.ownerId || s.user_id,
         name: s.name || s.shop_name || 'Ghotki Merchant',
-        logo: s.logo_url || s.logo || s.image_url || 'https://via.placeholder.com/150', 
-        banner: s.banner_url || s.banner || 'https://via.placeholder.com/800x400' 
+        logo: s.logo_url || s.logo || s.image_url || 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=100&q=80', 
+        banner: s.banner_url || s.banner || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80' 
       }));
       setShops(mappedShops);
       
@@ -101,7 +101,8 @@ const App: React.FC = () => {
         category: p.category || 'Shoes',
         is_new_arrival: p.is_new_arrival !== undefined ? Boolean(p.is_new_arrival) : true, 
         sort_priority: p.sort_priority || 0
-      })).sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      })).filter((p: any) => p.name && p.price > 0 && p.images.length > 0)
+         .sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
       
       setProducts(mappedProducts);
       setCategories(cRes.data && cRes.data.length > 0 ? cRes.data : FALLBACK_CATEGORIES);

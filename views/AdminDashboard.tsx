@@ -403,7 +403,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
            {adminProducts.map(product => (
              <div key={product.id} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm flex items-center justify-between gap-4">
                 <div className="flex items-center gap-4 flex-1 min-w-0">
-                  <img src={product.images?.[0] || undefined} referrerPolicy="no-referrer" className="w-14 h-14 rounded-2xl object-cover shadow-sm bg-gray-50" />
+                  <img src={(Array.isArray(product.images) ? product.images[0] : (product as any).image_url) || undefined} referrerPolicy="no-referrer" className="w-14 h-14 rounded-2xl object-cover shadow-sm bg-gray-50" />
                   <div className="truncate">
                     <p className="font-black text-sm uppercase italic text-gray-900 truncate tracking-tight">{product.name}</p>
                     <p className="text-[9px] font-black text-gray-400 uppercase">PKR {product.price.toLocaleString()}</p>

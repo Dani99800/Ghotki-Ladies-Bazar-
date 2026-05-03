@@ -96,16 +96,19 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
             mobile: formData.mobile,
             role: role,
             tier: role === 'SELLER' ? formData.tier : 'NONE',
-            shop_name: formData.shopName,
-            address: formData.shopAddress,
-            bazaar: formData.bazaar,
-            category: formData.category
+            shop_name: formData.shopName || 'New Shop',
+            address: formData.shopAddress || '',
+            bazaar: formData.bazaar || 'General',
+            category: formData.category || 'General'
           }
         }
       });
 
-      if (authError) throw authError;
-      if (!authData.user) throw new Error("Auth failed.");
+      if (authError) {
+        console.error("Signup Error Details:", authError);
+        throw authError;
+      }
+      if (!authData.user) throw new Error("Registration failed to create user. Please check your Supabase logs.");
 
       if (role === 'SELLER') {
         setView('PENDING');
