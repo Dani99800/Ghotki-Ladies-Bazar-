@@ -71,7 +71,7 @@ const OrdersView: React.FC<OrdersViewProps> = ({ orders, user, shops }) => {
                 <div className="p-5 space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <img src={shop?.logo} className="w-10 h-10 rounded-lg object-cover border" />
+                      <img src={shop?.logo || undefined} className="w-10 h-10 rounded-lg object-cover border" />
                       <div>
                         <p className="font-black text-sm text-gray-900">{shop?.name}</p>
                         <p className="text-[10px] text-gray-400 font-bold uppercase">{order.items.length} Item{order.items.length > 1 ? 's' : ''}</p>
@@ -87,7 +87,7 @@ const OrdersView: React.FC<OrdersViewProps> = ({ orders, user, shops }) => {
 
                   <div className="flex gap-1 overflow-x-auto py-2 no-scrollbar">
                     {order.items.map((item, i) => (
-                      <img key={i} src={item.images[0]} className="w-12 h-12 rounded-lg object-cover border-2 border-white shadow-sm" />
+                      <img key={i} src={item.images[0] || undefined} className="w-12 h-12 rounded-lg object-cover border-2 border-white shadow-sm" />
                     ))}
                   </div>
 

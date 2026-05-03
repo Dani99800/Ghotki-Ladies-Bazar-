@@ -29,6 +29,7 @@ const App: React.FC = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showForceLoad, setShowForceLoad] = useState(false);
   const [activeEvent, setActiveEvent] = useState<AppEvent>(PK_EVENTS[0]);
   
@@ -58,6 +59,15 @@ const App: React.FC = () => {
   const loadMarketplace = useCallback(async () => {
     if (!supabase) return;
     try {
+      console.log("Attempting to connect to Supabase project...");
+      
+      // Verification check: Try to reach Supabase (resilient check)
+      const { error: pingError } = await supabase.from('shops').select('id', { head: true, count: 'exact' });
+      if (pingError && pingError.code !== 'PGRST116' && pingError.code !== '42P01') { 
+        // 42P01 is "relation does not exist", which is fine if they haven't run SQL yet
+        console.error("Supabase Connection Failed:", pingError);
+      }
+
       console.log("Fetching Marketplace Data from Supabase...");
       const [pRes, sRes, cRes] = await Promise.all([
         supabase.from('products').select('*'),
@@ -67,24 +77,29 @@ const App: React.FC = () => {
       
       if (sRes.error) console.error("Shops Fetch Error:", sRes.error);
       if (pRes.error) console.error("Products Fetch Error:", pRes.error);
+      if (cRes.error) console.error("Categories Fetch Error:", cRes.error);
 
       const mappedShops = (sRes.data || []).map((s: any) => ({ 
         ...s, 
-        owner_id: s.owner_id || s.ownerId,
-        logo: s.logo_url || s.logo || 'https://via.placeholder.com/150', 
+        owner_id: s.owner_id || s.ownerId || s.user_id,
+        name: s.name || s.shop_name || 'Ghotki Merchant',
+        logo: s.logo_url || s.logo || s.image_url || 'https://via.placeholder.com/150', 
         banner: s.banner_url || s.banner || 'https://via.placeholder.com/800x400' 
       }));
       setShops(mappedShops);
       
       const mappedProducts = (pRes.data || []).map((p: any) => ({ 
         ...p, 
-        id: p.id.toString(),
-        shopId: (p.shop_id || p.shopId).toString(), 
-        images: Array.isArray(p.image_urls) ? p.image_urls : (p.image_url ? [p.image_url] : (p.images || [])),
+        id: (p.id || p._id || '').toString(),
+        name: p.name || p.title || 'Product',
+        price: parseFloat(p.price || 0),
+        shopId: (p.shop_id || p.shopId || p.owner_id || '').toString(), 
+        images: Array.isArray(p.image_urls) ? p.image_urls : (p.image_url ? [p.image_url] : (p.images ? (Array.isArray(p.images) ? p.images : [p.images]) : [])),
         videoUrl: p.video_url || p.videoUrl,
-        createdAt: p.created_at || p.createdAt,
+        createdAt: p.created_at || p.createdAt || p.inserted_at,
         tags: p.tags || [],
-        is_new_arrival: Boolean(p.is_new_arrival), // CRITICAL: Strict boolean mapping for curation
+        category: p.category || 'Shoes',
+        is_new_arrival: p.is_new_arrival !== undefined ? Boolean(p.is_new_arrival) : true, 
         sort_priority: p.sort_priority || 0
       })).sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
       
@@ -93,8 +108,10 @@ const App: React.FC = () => {
       
       console.log(`Sync Complete: ${mappedShops.length} shops, ${mappedProducts.length} products found.`);
       setLoading(false);
-    } catch (err) { 
+      setError(null);
+    } catch (err: any) { 
       console.error("Critical Marketplace Fetch Error:", err); 
+      setError(err.message || "Failed to load bazar data. Please check your internet connection.");
       setLoading(false);
     }
   }, []);
@@ -290,6 +307,32 @@ const App: React.FC = () => {
     </div>
   );
 
+  if (error && shops.length === 0) return (
+    <div className="h-screen w-full flex flex-col items-center justify-center bg-gray-50 p-8 text-center space-y-6">
+       <div className="w-20 h-20 bg-red-50 text-red-600 rounded-full flex items-center justify-center">
+          <ShieldAlert className="w-10 h-10" />
+       </div>
+       <div className="max-w-xs space-y-2">
+         <h2 className="text-xl font-black uppercase tracking-tighter text-gray-900 italic">Connection Error</h2>
+         <p className="text-sm text-gray-400 font-medium leading-relaxed italic">{error}</p>
+       </div>
+       <div className="space-y-3 w-full max-w-[200px]">
+          <button 
+            onClick={() => { setError(null); loadMarketplace(); }}
+            className="w-full py-4 bg-pink-600 text-white font-black rounded-2xl uppercase tracking-widest text-[10px] shadow-xl shadow-pink-200 active:scale-95 transition-all"
+          >
+            Retry Connection
+          </button>
+          <button 
+            onClick={() => { setError(null); setLoading(false); }}
+            className="w-full py-4 bg-white text-gray-400 font-bold rounded-2xl border border-gray-100 uppercase tracking-widest text-[10px] active:scale-95 transition-all"
+          >
+            Stay Offline
+          </button>
+       </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col" style={{ '--primary-event': activeEvent.primaryColor, '--accent-event': activeEvent.accentColor } as React.CSSProperties}>
       <nav className="fixed top-0 left-0 right-0 h-16 bg-white/80 backdrop-blur-xl border-b flex items-center justify-between px-6 z-50 shadow-sm">
@@ -337,23 +380,26 @@ const App: React.FC = () => {
                 if (!supabase || !user) return;
                 
                 try {
-                  // This will trigger the cascading deletes in SQL for Shops, Products, etc.
-                  const { error } = await supabase
+                  // Actually delete the user's profile and cascading data in Supabase
+                  // This is the correct way to wipe data permanently
+                  const { error: profileError } = await supabase
                     .from('profiles')
                     .delete()
                     .eq('id', user.id);
 
-                  if (error) throw error;
-                  
-                  // Sign out immediately
+                  if (profileError) throw profileError;
+
+                  // Sign out from Auth
                   await supabase.auth.signOut();
+                  
+                  // Clear everything
                   setUser(null);
+                  setCart([]);
                   navigate('/login');
-                  alert("Account deleted. You can now create a new account with the same email if you wish.");
+                  alert("Your account and all related data have been permanently deleted.");
                 } catch (err: any) {
                   console.error("Deletion Error:", err);
-                  alert("Could not delete account: " + err.message);
-                  throw err;
+                  alert("Could not delete account. If you just logged in, please logout and login again before deleting.");
                 }
               }}
               lang="EN" 

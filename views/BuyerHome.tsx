@@ -58,6 +58,24 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
     return categoryMatch && searchMatch;
   });
 
+  if (shops.length === 0 && !searchTerm && selectedCategory === 'All') {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-32 text-center space-y-8 animate-in fade-in duration-700">
+        <div className="w-24 h-24 bg-pink-50 rounded-[3rem] flex items-center justify-center mx-auto text-pink-600 shadow-inner">
+          <Map className="w-12 h-12" />
+        </div>
+        <div className="space-y-3">
+          <h2 className="text-3xl font-black uppercase italic tracking-tighter text-gray-900 leading-none">Bazar is Quiet</h2>
+          <p className="text-sm font-medium text-gray-400 italic max-w-xs mx-auto">No shops or products are currently live in the Ghotki marketplace. Please check your Supabase tables or register as a merchant.</p>
+        </div>
+        <div className="pt-8 grid grid-cols-1 gap-4 max-w-xs mx-auto">
+          <button onClick={() => navigate('/login')} className="w-full py-6 bg-pink-600 text-white font-black rounded-3xl uppercase tracking-widest text-xs shadow-xl shadow-pink-200 active:scale-95 transition-all">Start Selling Now</button>
+          {!user && <button onClick={() => navigate('/login')} className="w-full py-6 bg-white text-gray-400 font-black rounded-3xl border-2 border-gray-100 uppercase tracking-widest text-[10px]">Merchant Login</button>}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-12 pb-32 animate-in fade-in duration-700">
       
@@ -96,7 +114,7 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
           {categories.map((cat) => (
             <div key={cat.id} onClick={() => setSelectedCategory(cat.id)} className="flex flex-col items-center gap-3 cursor-pointer group flex-shrink-0">
               <div className={`w-16 h-16 rounded-[1.8rem] overflow-hidden transition-all border-4 ${selectedCategory === cat.id ? 'border-pink-600 shadow-xl scale-110' : 'border-white shadow-md'}`}>
-                <img src={cat.image_url} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                <img src={cat.image_url || undefined} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
               </div>
               <span className={`text-[10px] font-black uppercase tracking-widest ${selectedCategory === cat.id ? 'text-pink-600' : 'text-gray-400'}`}>{cat.name}</span>
             </div>
@@ -117,7 +135,7 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
             {featuredShops.map((shop) => (
               <div key={shop.id} onClick={() => navigate(`/shop/${shop.id}`)} className="flex-shrink-0 w-32 space-y-2 group cursor-pointer text-center snap-start">
                 <div className="relative aspect-square rounded-[2rem] overflow-hidden border-4 border-white shadow-xl bg-white group-hover:scale-105 transition-transform duration-500">
-                  <img src={shop.logo} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                  <img src={shop.logo || undefined} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                   <div className="absolute top-1.5 right-1.5">
                     {shop.is_top_seller && <div className="bg-pink-600 p-1 rounded-full shadow-lg border border-white"><Trophy className="w-3 h-3 text-white" /></div>}
                   </div>
@@ -143,8 +161,8 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
           <div className="flex gap-4 overflow-x-auto no-scrollbar pb-6 px-1 snap-x">
             {newArrivals.map((product) => (
               <div key={product.id} onClick={() => navigate(`/product/${product.id}`)} className="flex-shrink-0 w-40 md:w-56 space-y-3 group cursor-pointer snap-start">
-                <div className="relative aspect-[3/4] rounded-2xl md:rounded-[3rem] overflow-hidden border border-gray-100 shadow-xl bg-gray-50 group-hover:scale-[1.02] transition-transform duration-500">
-                  <img src={product.images[0]} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                <div className="relative aspect-[4/5] rounded-2xl md:rounded-[3rem] overflow-hidden border border-gray-100 shadow-xl bg-gray-50 group-hover:scale-[1.02] transition-transform duration-500">
+                  <img src={(Array.isArray(product.images) ? product.images[0] : (product as any).image_url) || undefined} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                   <div className="absolute top-3 left-3 flex flex-col gap-1.5">
                      {product.event_name && (
                        <span className="bg-pink-600 text-white text-[7px] md:text-[9px] font-black px-3 py-1.5 md:px-4 md:py-2 rounded-xl md:rounded-2xl uppercase shadow-xl border border-pink-500 flex items-center gap-2">
@@ -186,16 +204,16 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
             const hasOff = product.discount_percentage && product.discount_percentage > 0;
             return (
               <div key={product.id} className="bg-white rounded-2xl md:rounded-[3rem] overflow-hidden shadow-md border border-gray-100 flex flex-col group transition-all hover:shadow-2xl">
-                <div className="relative aspect-square overflow-hidden cursor-pointer" onClick={() => navigate(`/product/${product.id}`)}>
-                  <img src={product.images[0]} referrerPolicy="no-referrer" className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700" />
+                <div className="relative aspect-[4/5] overflow-hidden cursor-pointer" onClick={() => navigate(`/product/${product.id}`)}>
+                  <img src={(Array.isArray(product.images) ? product.images[0] : (product as any).image_url) || undefined} referrerPolicy="no-referrer" className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700" />
                   <div className="absolute top-2 right-2 flex flex-col gap-1 z-10">
                     {product.event_name && (
-                      <div className="bg-white/90 backdrop-blur-md text-pink-600 text-[8px] font-black px-2 py-1 rounded-lg uppercase tracking-widest shadow-lg border border-pink-100 flex items-center gap-1">
-                        <Sparkles className="w-2 h-2 animate-pulse" /> {product.event_name}
+                      <div className="bg-white/90 backdrop-blur-md text-pink-600 text-[9px] font-black px-2.5 py-1.5 rounded-lg uppercase tracking-tight shadow-lg border border-pink-100 flex items-center gap-1.5">
+                        <Sparkles className="w-2.5 h-2.5 animate-pulse" /> {product.event_name}
                       </div>
                     )}
                     {hasOff && (
-                      <div className="bg-red-600 text-white text-[9px] font-black px-2 py-1 rounded-lg shadow-xl uppercase italic text-center">
+                      <div className="bg-red-600 text-white text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-xl uppercase italic text-center">
                         {product.discount_percentage}% OFF
                       </div>
                     )}
@@ -203,13 +221,13 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
                 </div>
                 <div className="p-4 md:p-7 flex-1 space-y-2 md:space-y-4 flex flex-col justify-between bg-white">
                   <div onClick={() => navigate(`/product/${product.id}`)}>
-                    <h3 className="font-bold text-xs md:text-lg text-gray-900 truncate uppercase tracking-tight mb-1 hover:text-pink-600 transition-colors">{product.name}</h3>
+                    <h3 className="font-bold text-sm md:text-xl text-gray-900 truncate uppercase tracking-tight mb-1 hover:text-pink-600 transition-colors">{product.name}</h3>
                     <div className="flex items-center justify-between">
-                       <p className="text-pink-600 font-black text-sm md:text-2xl italic leading-none whitespace-nowrap">PKR {product.price.toLocaleString()}</p>
-                       <span className="text-[8px] md:text-[10px] font-bold text-gray-400 uppercase">Stock: {product.stock || 0}</span>
+                       <p className="text-pink-600 font-black text-lg md:text-3xl italic leading-none whitespace-nowrap">PKR {product.price.toLocaleString()}</p>
+                       <span className="text-[10px] md:text-xs font-bold text-gray-400 uppercase">Stock: {product.stock || 0}</span>
                     </div>
                   </div>
-                  <button onClick={() => setCheckoutProduct(product)} className="w-full bg-gray-900 text-white font-black py-3 md:py-6 rounded-xl md:rounded-2xl text-[10px] md:text-sm uppercase tracking-widest shadow-xl active:scale-95 transition-all hover:bg-pink-600">ORDER NOW</button>
+                  <button onClick={() => setCheckoutProduct(product)} className="w-full bg-gray-900 text-white font-black py-4 md:py-8 rounded-xl md:rounded-2xl text-xs md:text-base uppercase tracking-widest shadow-xl active:scale-95 transition-all hover:bg-pink-600">ORDER NOW</button>
                 </div>
               </div>
             );

@@ -34,7 +34,7 @@ const ShopView: React.FC<ShopViewProps> = ({ shops, products, addToCart, lang, u
         >
           <ArrowLeft className="w-5 h-5 text-gray-900" />
         </button>
-        <img src={shop.banner} className="w-full h-full object-cover" alt={shop.name} />
+        <img src={shop.banner || undefined} className="w-full h-full object-cover" alt={shop.name} />
         <div className="absolute inset-0 bg-black/30" />
       </div>
 
@@ -43,7 +43,7 @@ const ShopView: React.FC<ShopViewProps> = ({ shops, products, addToCart, lang, u
         <div className="bg-white rounded-[2.5rem] p-6 shadow-2xl shadow-pink-100/50 border border-white">
           <div className="flex items-start gap-5">
             <div className="w-24 h-24 rounded-3xl overflow-hidden border-4 border-white shadow-xl bg-white -mt-12 flex-shrink-0">
-              <img src={shop.logo} className="w-full h-full object-cover" alt={shop.name} />
+              <img src={shop.logo || undefined} className="w-full h-full object-cover" alt={shop.name} />
             </div>
             <div className="flex-1 space-y-1">
               <h1 className="text-2xl font-black italic uppercase tracking-tighter text-gray-900 leading-none">{shop.name}</h1>
@@ -86,16 +86,16 @@ const ShopView: React.FC<ShopViewProps> = ({ shops, products, addToCart, lang, u
           <div className="grid grid-cols-2 gap-4">
             {shopProducts.map(product => (
               <div key={product.id} className="bg-white rounded-2xl md:rounded-[2rem] overflow-hidden shadow-md border border-gray-100 group flex flex-col">
-                <div className="relative aspect-square overflow-hidden cursor-pointer" onClick={() => navigate(`/product/${product.id}`)}>
-                  <img src={product.images[0]} referrerPolicy="no-referrer" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                  {product.discount_percentage ? <span className="absolute top-2 left-2 bg-red-600 text-white text-[9px] font-black px-2 py-1 rounded shadow-lg uppercase">SALE</span> : null}
+                <div className="relative aspect-[4/5] overflow-hidden cursor-pointer" onClick={() => navigate(`/product/${product.id}`)}>
+                  <img src={(Array.isArray(product.images) ? product.images[0] : (product as any).image_url) || undefined} referrerPolicy="no-referrer" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                  {product.discount_percentage ? <span className="absolute top-2 left-2 bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded shadow-lg uppercase">SALE</span> : null}
                 </div>
-                <div className="p-4 flex-1 flex flex-col justify-between space-y-2 md:space-y-4">
+                <div className="p-5 flex-1 flex flex-col justify-between space-y-2 md:space-y-4">
                   <div onClick={() => navigate(`/product/${product.id}`)}>
-                    <h3 className="font-bold text-xs md:text-lg text-gray-900 truncate mb-1 uppercase tracking-tight">{product.name}</h3>
-                    <span className="text-pink-600 font-black text-sm md:text-xl italic leading-none">PKR {product.price.toLocaleString()}</span>
+                    <h3 className="font-bold text-sm md:text-xl text-gray-900 truncate mb-1 uppercase tracking-tight">{product.name}</h3>
+                    <span className="text-pink-600 font-black text-lg md:text-3xl italic leading-none">PKR {product.price.toLocaleString()}</span>
                   </div>
-                  <button onClick={(e) => { e.stopPropagation(); setCheckoutProduct(product); }} className="w-full bg-pink-600 text-white py-3 md:py-6 rounded-xl md:rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all">ORDER</button>
+                  <button onClick={(e) => { e.stopPropagation(); setCheckoutProduct(product); }} className="w-full bg-pink-600 text-white py-4 md:py-8 rounded-xl md:rounded-2xl text-xs md:text-base font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all">ORDER</button>
                 </div>
               </div>
             ))}
