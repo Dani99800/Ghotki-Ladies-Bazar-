@@ -108,15 +108,19 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- 8. TRIGGER: AUTOMATIC PROFILE CREATION ON SIGNUP
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
+DECLARE
+    user_role TEXT;
 BEGIN
+    user_role := UPPER(COALESCE(new.raw_user_meta_data->>'role', 'BUYER'));
+
     INSERT INTO public.profiles (id, name, email, role, mobile, subscription_tier, city, address)
     VALUES (
         new.id,
         COALESCE(new.raw_user_meta_data->>'full_name', 'Bazar User'),
-        new.email,
-        COALESCE(new.raw_user_meta_data->>'role', 'BUYER'),
+        COALESCE(new.email, ''),
+        user_role,
         COALESCE(new.raw_user_meta_data->>'mobile', ''),
-        COALESCE(new.raw_user_meta_data->>'tier', 'NONE'),
+        UPPER(COALESCE(new.raw_user_meta_data->>'tier', 'NONE')),
         COALESCE(new.raw_user_meta_data->>'city', 'Ghotki'),
         COALESCE(new.raw_user_meta_data->>'address', '')
     )
@@ -127,16 +131,17 @@ BEGIN
         subscription_tier = EXCLUDED.subscription_tier;
     
     -- If user is a seller, also create or update a shop record
-    IF COALESCE(new.raw_user_meta_data->>'role', 'BUYER') = 'SELLER' THEN
-        INSERT INTO public.shops (owner_id, name, bazaar, category, subscription_tier, address, mobile)
+    IF user_role = 'SELLER' THEN
+        INSERT INTO public.shops (owner_id, name, bazaar, category, subscription_tier, address, mobile, status)
         VALUES (
             new.id,
             COALESCE(new.raw_user_meta_data->>'shop_name', 'New Boutique'),
             COALESCE(new.raw_user_meta_data->>'bazaar', 'Ladies Bazar'),
             COALESCE(new.raw_user_meta_data->>'category', 'Women''s Clothes'),
-            COALESCE(new.raw_user_meta_data->>'tier', 'BASIC'),
+            UPPER(COALESCE(new.raw_user_meta_data->>'tier', 'BASIC')),
             COALESCE(new.raw_user_meta_data->>'address', ''),
-            COALESCE(new.raw_user_meta_data->>'mobile', '')
+            COALESCE(new.raw_user_meta_data->>'mobile', ''),
+            'PENDING'
         )
         ON CONFLICT (owner_id) DO UPDATE SET
             name = EXCLUDED.name,
@@ -167,8 +172,10 @@ CREATE POLICY "Public Read Products" ON public.products FOR SELECT USING (true);
 CREATE POLICY "Public Read Categories" ON public.categories FOR SELECT USING (true);
 
 -- User specific write access
+CREATE POLICY "Users Insert Own Profile" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
 CREATE POLICY "Users Update Own Profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
 CREATE POLICY "Sellers Manage Own Shop" ON public.shops FOR ALL USING (auth.uid() = owner_id);
+CREATE POLICY "Sellers Insert Own Shop" ON public.shops FOR INSERT WITH CHECK (auth.uid() = owner_id);
 CREATE POLICY "Sellers Manage Own Products" ON public.products FOR ALL USING (
     EXISTS (SELECT 1 FROM public.shops WHERE id = shop_id AND owner_id = auth.uid())
 );
