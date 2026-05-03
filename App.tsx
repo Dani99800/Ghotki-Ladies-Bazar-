@@ -130,50 +130,13 @@ const App: React.FC = () => {
       
       if (authUser) {
         const meta = authUser.user_metadata || {};
-        
-        // RECOVERY LOGIC: If profile is missing but user exists, recreate it
-        if (!profile && !profileErr && authUser.email) {
-          console.warn("GLB: Profile missing for user, attempting recovery...");
-          try {
-            const { data: newProfile } = await supabase.from('profiles').upsert({
-              id: id,
-              name: meta.full_name || 'Bazar User',
-              email: authUser.email,
-              role: meta.role || 'BUYER',
-              mobile: meta.mobile || '',
-              city: meta.city || 'Ghotki'
-            }).select().single();
-            
-            if (newProfile) {
-              console.log("GLB: Profile recovered.");
-              // If seller, check if shop is also missing
-              if ((newProfile.role === 'SELLER' || meta.role === 'SELLER')) {
-                const { data: existingShop } = await supabase.from('shops').select('id').eq('owner_id', id).maybeSingle();
-                if (!existingShop) {
-                  console.warn("GLB: Shop missing for seller, attempting recovery...");
-                  await supabase.from('shops').insert({
-                    owner_id: id,
-                    name: meta.shop_name || 'New Boutique',
-                    category: meta.category || 'General',
-                    mobile: meta.mobile || '',
-                    status: 'PENDING'
-                  });
-                }
-              }
-              loadMarketplace();
-            }
-          } catch (recoveryErr) {
-            console.error("GLB: Recovery failed:", recoveryErr);
-          }
-        }
-
-        const finalRole = profile?.role || meta?.role || 'BUYER';
+        const userRole = (profile?.role || meta.role || 'BUYER').toUpperCase();
         
         setUser({
           id,
           name: profile?.name || meta.full_name || 'Bazar User',
-          email: authUser.email,
-          role: finalRole as any,
+          email: authUser.email || '',
+          role: userRole as any,
           mobile: profile?.mobile || meta.mobile || '',
           address: profile?.address || meta.address || '',
           city: profile?.city || meta.city || 'Ghotki',
@@ -183,23 +146,18 @@ const App: React.FC = () => {
     } catch (e) { 
       console.error("GLB: Profile Fetch Error:", e); 
     }
-  }, [loadMarketplace]);
+  }, []); // Removed shops from dependencies to stop the loop
 
   useEffect(() => {
     const init = async () => {
-      setLoading(true);
       try {
-        if (!supabase) {
-          setLoading(false);
-          return;
-        }
+        if (!supabase) return;
         
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
-          console.error("Session initialization error:", sessionError);
-          // If the refresh token is invalid, clear the session locally
-          if (sessionError.message.includes('refresh_token_not_found') || sessionError.message.includes('Refresh Token Not Found')) {
+          console.error("Session error:", sessionError);
+          if (sessionError.message.includes('refresh_token_not_found')) {
             await supabase.auth.signOut();
           }
         }
@@ -210,7 +168,7 @@ const App: React.FC = () => {
         
         await loadMarketplace();
       } catch (e) {
-        console.error("App Initialization Failed:", e);
+        console.error("App Init Error:", e);
       } finally {
         setLoading(false);
       }
@@ -218,11 +176,10 @@ const App: React.FC = () => {
     init();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_OUT') {
-        setUser(null);
-        localStorage.removeItem('supabase.auth.token'); // Force clean up
-      } else if (session) {
+      console.log("GLB: Auth Event:", event);
+      if (session) {
         await fetchProfile(session.user.id);
+        if (event === 'SIGNED_IN') await loadMarketplace();
       } else {
         setUser(null);
       }

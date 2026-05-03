@@ -111,18 +111,18 @@ RETURNS TRIGGER AS $$
 DECLARE
     user_role TEXT;
 BEGIN
-    user_role := UPPER(COALESCE(new.raw_user_meta_data->>'role', 'BUYER'));
+    user_role := UPPER(COALESCE(NULLIF(new.raw_user_meta_data->>'role', ''), 'BUYER'));
 
     INSERT INTO public.profiles (id, name, email, role, mobile, subscription_tier, city, address)
     VALUES (
         new.id,
-        COALESCE(new.raw_user_meta_data->>'full_name', 'Bazar User'),
+        COALESCE(NULLIF(new.raw_user_meta_data->>'full_name', ''), 'Bazar User'),
         COALESCE(new.email, ''),
         user_role,
-        COALESCE(new.raw_user_meta_data->>'mobile', ''),
-        UPPER(COALESCE(new.raw_user_meta_data->>'tier', 'NONE')),
-        COALESCE(new.raw_user_meta_data->>'city', 'Ghotki'),
-        COALESCE(new.raw_user_meta_data->>'address', '')
+        COALESCE(NULLIF(new.raw_user_meta_data->>'mobile', ''), ''),
+        UPPER(COALESCE(NULLIF(new.raw_user_meta_data->>'tier', ''), 'NONE')),
+        COALESCE(NULLIF(new.raw_user_meta_data->>'city', ''), 'Ghotki'),
+        COALESCE(NULLIF(new.raw_user_meta_data->>'address', ''), '')
     )
     ON CONFLICT (id) DO UPDATE SET
         name = EXCLUDED.name,
@@ -135,12 +135,12 @@ BEGIN
         INSERT INTO public.shops (owner_id, name, bazaar, category, subscription_tier, address, mobile, status)
         VALUES (
             new.id,
-            COALESCE(new.raw_user_meta_data->>'shop_name', 'New Boutique'),
-            COALESCE(new.raw_user_meta_data->>'bazaar', 'Ladies Bazar'),
-            COALESCE(new.raw_user_meta_data->>'category', 'Women''s Clothes'),
-            UPPER(COALESCE(new.raw_user_meta_data->>'tier', 'BASIC')),
-            COALESCE(new.raw_user_meta_data->>'address', ''),
-            COALESCE(new.raw_user_meta_data->>'mobile', ''),
+            COALESCE(NULLIF(new.raw_user_meta_data->>'shop_name', ''), 'New Boutique'),
+            COALESCE(NULLIF(new.raw_user_meta_data->>'bazaar', ''), 'Ladies Bazar'),
+            COALESCE(NULLIF(new.raw_user_meta_data->>'category', ''), 'Women''s Clothes'),
+            UPPER(COALESCE(NULLIF(new.raw_user_meta_data->>'tier', ''), 'BASIC')),
+            COALESCE(NULLIF(new.raw_user_meta_data->>'address', ''), ''),
+            COALESCE(NULLIF(new.raw_user_meta_data->>'mobile', ''), ''),
             'PENDING'
         )
         ON CONFLICT (owner_id) DO UPDATE SET
