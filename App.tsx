@@ -88,21 +88,30 @@ const App: React.FC = () => {
       }));
       setShops(mappedShops);
       
-      const mappedProducts = (pRes.data || []).map((p: any) => ({ 
-        ...p, 
-        id: (p.id || p._id || '').toString(),
-        name: p.name || p.title || 'Product',
-        price: parseFloat(p.price || 0),
-        shopId: (p.shop_id || p.shopId || p.owner_id || '').toString(), 
-        images: Array.isArray(p.image_urls) ? p.image_urls : (p.image_url ? [p.image_url] : (p.images ? (Array.isArray(p.images) ? p.images : [p.images]) : [])),
-        videoUrl: p.video_url || p.videoUrl,
-        createdAt: p.created_at || p.createdAt || p.inserted_at,
-        tags: p.tags || [],
-        category: p.category || 'Shoes',
-        is_new_arrival: p.is_new_arrival !== undefined ? Boolean(p.is_new_arrival) : true, 
-        sort_priority: p.sort_priority || 0
-      })).filter((p: any) => p.name && p.price > 0 && p.images.length > 0)
-         .sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      const mappedProducts = (pRes.data || []).map((p: any) => {
+        // Robust image extraction
+        let images: string[] = [];
+        if (Array.isArray(p.image_urls)) images = p.image_urls;
+        else if (Array.isArray(p.images)) images = p.images;
+        else if (p.image_url) images = [p.image_url];
+        else if (p.images && typeof p.images === 'string') images = [p.images];
+        else if (p.image) images = [p.image];
+        
+        return { 
+          ...p, 
+          id: (p.id || p._id || Math.random().toString()).toString(),
+          name: p.name || p.title || 'Product',
+          price: parseFloat(p.price || 0),
+          shopId: (p.shop_id || p.shopId || p.owner_id || '').toString(), 
+          images: images,
+          videoUrl: p.video_url || p.videoUrl,
+          createdAt: p.created_at || p.createdAt || p.inserted_at || new Date().toISOString(),
+          tags: p.tags || [],
+          category: p.category || 'Shoes',
+          is_new_arrival: p.is_new_arrival !== undefined ? Boolean(p.is_new_arrival) : true, 
+          sort_priority: p.sort_priority || 0
+        };
+      }).sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
       
       setProducts(mappedProducts);
       setCategories(cRes.data && cRes.data.length > 0 ? cRes.data : FALLBACK_CATEGORIES);
@@ -112,15 +121,22 @@ const App: React.FC = () => {
       setError(null);
     } catch (err: any) { 
       console.error("Critical Marketplace Fetch Error:", err); 
-      setError(err.message || "Failed to load bazar data. Please check your internet connection.");
+      // If we have some data but one query failed, don't break everything
       setLoading(false);
+      if (shops.length === 0 && products.length === 0) {
+        setError(err.message || "Failed to load bazar data.");
+      }
     }
   }, []);
 
   const fetchProfile = useCallback(async (id: string) => {
     if (!supabase) return;
     try {
-      const { data: profile } = await supabase.from('profiles').select('*').eq('id', id).maybeSingle();
+      // Be careful with the 'email' column check to prevent crash if missing
+      const { data: profile, error: profileErr } = await supabase.from('profiles').select('*').eq('id', id).maybeSingle();
+      
+      if (profileErr) console.warn("Profile fetch warning (expected if schema is updating):", profileErr);
+
       const { data: { user: authUser } } = await supabase.auth.getUser();
       
       if (authUser) {
@@ -135,7 +151,7 @@ const App: React.FC = () => {
           mobile: profile?.mobile || meta.mobile || '',
           address: profile?.address || meta.address || '',
           city: profile?.city || meta.city || 'Ghotki',
-          subscription_tier: profile?.subscription_tier || meta.tier || 'NONE'
+          subscription_tier: (profile as any)?.subscription_tier || meta.tier || 'NONE'
         });
       }
     } catch (e) { 
