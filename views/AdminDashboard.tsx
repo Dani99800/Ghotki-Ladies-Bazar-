@@ -122,12 +122,39 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-8 pb-32 animate-in fade-in duration-500">
       {/* Admin Header */}
-      <div className="flex justify-between items-center bg-white p-8 rounded-[3.5rem] border border-gray-100 shadow-sm">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-black uppercase italic tracking-tighter text-gray-900 leading-none">Admin Authority</h1>
-          <p className="text-[10px] font-black text-pink-600 uppercase tracking-[0.2em]">Curation & Merchant Control</p>
+      <div className="flex flex-col md:flex-row justify-between items-stretch gap-4">
+        <div className="flex-1 bg-white p-8 rounded-[3.5rem] border border-gray-100 shadow-sm flex items-center justify-between">
+          <div className="space-y-1">
+            <h1 className="text-3xl font-black uppercase italic tracking-tighter text-gray-900 leading-none">Admin Authority</h1>
+            <p className="text-[10px] font-black text-pink-600 uppercase tracking-[0.2em]">Curation & Merchant Control</p>
+          </div>
+          <div className="w-16 h-16 bg-pink-100 rounded-[2rem] flex items-center justify-center text-pink-600 shadow-inner"><Shield className="w-8 h-8" /></div>
         </div>
-        <div className="w-16 h-16 bg-pink-100 rounded-[2rem] flex items-center justify-center text-pink-600 shadow-inner"><Shield className="w-8 h-8" /></div>
+
+        {/* System Stats Card */}
+        <div className="bg-gray-900 p-8 rounded-[3.5rem] text-white flex items-center gap-6 shadow-2xl">
+           <div className="text-center">
+              <p className="text-[8px] font-black uppercase tracking-[0.3em] text-gray-400 mb-1">Live Shops</p>
+              <p className="text-2xl font-black italic">{shops.filter(s => s.status === 'APPROVED').length}</p>
+           </div>
+           <div className="w-px h-10 bg-gray-700"></div>
+           <div className="text-center">
+              <p className="text-[8px] font-black uppercase tracking-[0.3em] text-gray-400 mb-1">Pending</p>
+              <p className="text-2xl font-black italic text-orange-400">{shops.filter(s => s.status === 'PENDING').length}</p>
+           </div>
+           <button onClick={() => refreshData?.()} className="ml-auto w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center hover:bg-white/20 transition-all active:rotate-180 duration-500">
+              <Clock className="w-5 h-5 text-pink-400" />
+           </button>
+        </div>
+      </div>
+
+      {/* RLS Warning for Admin (Helpful if they forgot to run SQL) */}
+      <div className="bg-blue-50 p-6 rounded-[2.5rem] border border-blue-100 flex items-start gap-4">
+         <Shield className="w-6 h-6 text-blue-600 flex-shrink-0" />
+         <div className="space-y-1">
+            <p className="text-[11px] font-black uppercase text-blue-900 tracking-tight leading-none">RLS Policy Verification</p>
+            <p className="text-[9px] font-medium text-blue-700 leading-relaxed italic">If you cannot approve merchants, please ensure you have applied the Admin RLS Bypass policies in your Supabase SQL Editor.</p>
+         </div>
       </div>
 
       {/* Navigation Tabs */}

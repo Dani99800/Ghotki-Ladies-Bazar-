@@ -25,7 +25,10 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
 
   const isShopActive = (shopId: string) => {
     const shop = shops.find(s => s.id === shopId);
-    return shop?.status === 'APPROVED';
+    // If shop is not found, we still show the product but mark it as a general item
+    if (!shop) return true; 
+    // Allow PENDING and APPROVED during development/initial setup
+    return shop.status === 'APPROVED' || shop.status === 'PENDING';
   };
 
   const featuredShops = useMemo(() => {

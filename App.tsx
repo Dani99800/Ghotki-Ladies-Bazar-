@@ -59,51 +59,46 @@ const App: React.FC = () => {
   const loadMarketplace = useCallback(async () => {
     if (!supabase) return;
     try {
-      console.log("Attempting to connect to Supabase project...");
+      console.log("GLB: Fetching Marketplace Data...");
+      setLoading(true);
       
-      // Verification check: Try to reach Supabase (resilient check)
-      const { error: pingError } = await supabase.from('shops').select('id', { head: true, count: 'exact' });
-      if (pingError && pingError.code !== 'PGRST116' && pingError.code !== '42P01') { 
-        // 42P01 is "relation does not exist", which is fine if they haven't run SQL yet
-        console.error("Supabase Connection Failed:", pingError);
-      }
-
-      console.log("Fetching Marketplace Data from Supabase...");
       const [pRes, sRes, cRes] = await Promise.all([
         supabase.from('products').select('*'),
         supabase.from('shops').select('*'),
         supabase.from('categories').select('*')
       ]);
       
-      if (sRes.error) console.error("Shops Fetch Error:", sRes.error);
-      if (pRes.error) console.error("Products Fetch Error:", pRes.error);
-      if (cRes.error) console.error("Categories Fetch Error:", cRes.error);
+      if (sRes.error) console.error("GLB: Shops Fetch Error:", sRes.error);
+      if (pRes.error) console.error("GLB: Products Fetch Error:", pRes.error);
+      if (cRes.error) console.error("GLB: Categories Fetch Error:", cRes.error);
 
-      const mappedShops = (sRes.data || []).map((s: any) => ({ 
+      // Mapped Data Processing
+      const shopsData = sRes.data || [];
+      const productsData = pRes.data || [];
+      const categoriesData = cRes.data || [];
+
+      const mappedShops = shopsData.map((s: any) => ({ 
         ...s, 
+        id: s.id.toString(),
         owner_id: s.owner_id || s.ownerId || s.user_id,
         name: s.name || s.shop_name || 'Ghotki Merchant',
         logo: s.logo_url || s.logo || s.image_url || 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=100&q=80', 
         banner: s.banner_url || s.banner || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80' 
       }));
-      setShops(mappedShops);
       
-      const mappedProducts = (pRes.data || []).map((p: any) => {
-        // Robust image extraction
-        let images: string[] = [];
-        if (Array.isArray(p.image_urls)) images = p.image_urls;
-        else if (Array.isArray(p.images)) images = p.images;
-        else if (p.image_url) images = [p.image_url];
-        else if (p.images && typeof p.images === 'string') images = [p.images];
-        else if (p.image) images = [p.image];
-        
+      const mappedProducts = productsData.map((p: any) => {
+        let rawImages = p.image_urls || p.images || p.image_url || p.image || [];
+        if (typeof rawImages === 'string') rawImages = [rawImages];
+        const images = Array.isArray(rawImages) ? rawImages.filter(Boolean) : [];
+        const price = parseFloat(p.price || 0);
+
         return { 
           ...p, 
-          id: (p.id || p._id || Math.random().toString()).toString(),
-          name: p.name || p.title || 'Product',
-          price: parseFloat(p.price || 0),
+          id: p.id.toString(),
+          name: p.name || p.title || 'Style Item',
+          price: price,
           shopId: (p.shop_id || p.shopId || p.owner_id || '').toString(), 
-          images: images,
+          images: images.length > 0 ? images : ['https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80'],
           videoUrl: p.video_url || p.videoUrl,
           createdAt: p.created_at || p.createdAt || p.inserted_at || new Date().toISOString(),
           tags: p.tags || [],
@@ -113,34 +108,60 @@ const App: React.FC = () => {
         };
       }).sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
       
+      setShops(mappedShops);
       setProducts(mappedProducts);
-      setCategories(cRes.data && cRes.data.length > 0 ? cRes.data : FALLBACK_CATEGORIES);
+      setCategories(categoriesData.length > 0 ? categoriesData : FALLBACK_CATEGORIES);
       
-      console.log(`Sync Complete: ${mappedShops.length} shops, ${mappedProducts.length} products found.`);
-      setLoading(false);
+      console.log(`GLB: Sync Complete. ${mappedShops.length} shops, ${mappedProducts.length} products.`);
       setError(null);
     } catch (err: any) { 
-      console.error("Critical Marketplace Fetch Error:", err); 
-      // If we have some data but one query failed, don't break everything
+      console.error("GLB: Critical Fetch Error:", err); 
+      setError("Marketplace synchronization failed. " + (err.message || ""));
+    } finally {
       setLoading(false);
-      if (shops.length === 0 && products.length === 0) {
-        setError(err.message || "Failed to load bazar data.");
-      }
     }
   }, []);
 
   const fetchProfile = useCallback(async (id: string) => {
     if (!supabase) return;
     try {
-      // Be careful with the 'email' column check to prevent crash if missing
       const { data: profile, error: profileErr } = await supabase.from('profiles').select('*').eq('id', id).maybeSingle();
-      
-      if (profileErr) console.warn("Profile fetch warning (expected if schema is updating):", profileErr);
-
       const { data: { user: authUser } } = await supabase.auth.getUser();
       
       if (authUser) {
         const meta = authUser.user_metadata || {};
+        
+        // RECOVERY LOGIC: If profile is missing but user exists, recreate it
+        if (!profile && !profileErr) {
+          console.warn("GLB: Profile missing for user, attempting recovery...");
+          const { data: newProfile } = await supabase.from('profiles').insert({
+            id: id,
+            name: meta.full_name || 'Bazar User',
+            email: authUser.email,
+            role: meta.role || 'BUYER',
+            mobile: meta.mobile || '',
+            city: meta.city || 'Ghotki'
+          }).select().single();
+          
+          if (newProfile) {
+            console.log("GLB: Profile recovered.");
+            // If seller, check if shop is also missing
+            if (newProfile.role === 'SELLER') {
+              const { data: existingShop } = await supabase.from('shops').select('id').eq('owner_id', id).maybeSingle();
+              if (!existingShop) {
+                console.warn("GLB: Shop missing for seller, attempting recovery...");
+                await supabase.from('shops').insert({
+                  owner_id: id,
+                  name: meta.shop_name || 'New Boutique',
+                  category: meta.category || 'General',
+                  mobile: meta.mobile || ''
+                });
+                loadMarketplace();
+              }
+            }
+          }
+        }
+
         const finalRole = profile?.role || meta?.role || 'BUYER';
         
         setUser({
@@ -155,9 +176,9 @@ const App: React.FC = () => {
         });
       }
     } catch (e) { 
-      console.error("Profile Fetch Error:", e); 
+      console.error("GLB: Profile Fetch Error:", e); 
     }
-  }, []);
+  }, [loadMarketplace]);
 
   useEffect(() => {
     const init = async () => {
