@@ -132,33 +132,38 @@ const App: React.FC = () => {
         const meta = authUser.user_metadata || {};
         
         // RECOVERY LOGIC: If profile is missing but user exists, recreate it
-        if (!profile && !profileErr) {
+        if (!profile && !profileErr && authUser.email) {
           console.warn("GLB: Profile missing for user, attempting recovery...");
-          const { data: newProfile } = await supabase.from('profiles').insert({
-            id: id,
-            name: meta.full_name || 'Bazar User',
-            email: authUser.email,
-            role: meta.role || 'BUYER',
-            mobile: meta.mobile || '',
-            city: meta.city || 'Ghotki'
-          }).select().single();
-          
-          if (newProfile) {
-            console.log("GLB: Profile recovered.");
-            // If seller, check if shop is also missing
-            if (newProfile.role === 'SELLER') {
-              const { data: existingShop } = await supabase.from('shops').select('id').eq('owner_id', id).maybeSingle();
-              if (!existingShop) {
-                console.warn("GLB: Shop missing for seller, attempting recovery...");
-                await supabase.from('shops').insert({
-                  owner_id: id,
-                  name: meta.shop_name || 'New Boutique',
-                  category: meta.category || 'General',
-                  mobile: meta.mobile || ''
-                });
-                loadMarketplace();
+          try {
+            const { data: newProfile } = await supabase.from('profiles').upsert({
+              id: id,
+              name: meta.full_name || 'Bazar User',
+              email: authUser.email,
+              role: meta.role || 'BUYER',
+              mobile: meta.mobile || '',
+              city: meta.city || 'Ghotki'
+            }).select().single();
+            
+            if (newProfile) {
+              console.log("GLB: Profile recovered.");
+              // If seller, check if shop is also missing
+              if ((newProfile.role === 'SELLER' || meta.role === 'SELLER')) {
+                const { data: existingShop } = await supabase.from('shops').select('id').eq('owner_id', id).maybeSingle();
+                if (!existingShop) {
+                  console.warn("GLB: Shop missing for seller, attempting recovery...");
+                  await supabase.from('shops').insert({
+                    owner_id: id,
+                    name: meta.shop_name || 'New Boutique',
+                    category: meta.category || 'General',
+                    mobile: meta.mobile || '',
+                    status: 'PENDING'
+                  });
+                }
               }
+              loadMarketplace();
             }
+          } catch (recoveryErr) {
+            console.error("GLB: Recovery failed:", recoveryErr);
           }
         }
 
