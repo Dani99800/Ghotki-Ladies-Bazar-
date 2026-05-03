@@ -95,7 +95,7 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
             full_name: formData.name,
             mobile: formData.mobile,
             role: role,
-            tier: formData.tier,
+            tier: role === 'SELLER' ? formData.tier : 'NONE',
             shop_name: formData.shopName,
             address: formData.shopAddress,
             bazaar: formData.bazaar,

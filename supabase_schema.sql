@@ -2,7 +2,7 @@
 CREATE TABLE IF NOT EXISTS public.profiles (
     id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
     name TEXT,
-    email TEXT UNIQUE,
+    email TEXT,
     role TEXT DEFAULT 'BUYER' CHECK (role IN ('ADMIN', 'SELLER', 'BUYER', 'GUEST')),
     mobile TEXT,
     address TEXT,
@@ -112,32 +112,36 @@ BEGIN
     INSERT INTO public.profiles (id, name, email, role, mobile, subscription_tier, city, address)
     VALUES (
         new.id,
-        new.raw_user_meta_data->>'full_name',
+        COALESCE(new.raw_user_meta_data->>'full_name', 'Bazar User'),
         new.email,
-        new.raw_user_meta_data->>'role',
-        new.raw_user_meta_data->>'mobile',
-        new.raw_user_meta_data->>'tier',
+        COALESCE(new.raw_user_meta_data->>'role', 'BUYER'),
+        COALESCE(new.raw_user_meta_data->>'mobile', ''),
+        COALESCE(new.raw_user_meta_data->>'tier', 'NONE'),
         COALESCE(new.raw_user_meta_data->>'city', 'Ghotki'),
         COALESCE(new.raw_user_meta_data->>'address', '')
     )
     ON CONFLICT (id) DO UPDATE SET
         name = EXCLUDED.name,
         role = EXCLUDED.role,
-        mobile = EXCLUDED.mobile;
+        mobile = EXCLUDED.mobile,
+        subscription_tier = EXCLUDED.subscription_tier;
     
     -- If user is a seller, also create or update a shop record
-    IF new.raw_user_meta_data->>'role' = 'SELLER' THEN
+    IF COALESCE(new.raw_user_meta_data->>'role', 'BUYER') = 'SELLER' THEN
         INSERT INTO public.shops (owner_id, name, bazaar, category, subscription_tier, address, mobile)
         VALUES (
             new.id,
-            new.raw_user_meta_data->>'shop_name',
-            new.raw_user_meta_data->>'bazaar',
-            new.raw_user_meta_data->>'category',
-            new.raw_user_meta_data->>'tier',
-            new.raw_user_meta_data->>'address',
-            new.raw_user_meta_data->>'mobile'
+            COALESCE(new.raw_user_meta_data->>'shop_name', 'New Boutique'),
+            COALESCE(new.raw_user_meta_data->>'bazaar', 'Ladies Bazar'),
+            COALESCE(new.raw_user_meta_data->>'category', 'Women''s Clothes'),
+            COALESCE(new.raw_user_meta_data->>'tier', 'BASIC'),
+            COALESCE(new.raw_user_meta_data->>'address', ''),
+            COALESCE(new.raw_user_meta_data->>'mobile', '')
         )
-        ON CONFLICT (owner_id) DO NOTHING; -- Keep original shop if they re-signup (unlikely)
+        ON CONFLICT (owner_id) DO UPDATE SET
+            name = EXCLUDED.name,
+            address = EXCLUDED.address,
+            mobile = EXCLUDED.mobile;
     END IF;
     
     RETURN new;
