@@ -151,6 +151,51 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* Merchants Tab */}
       {activeAdminTab === 'SHOPS' && (
         <div className="space-y-12 animate-in slide-in-from-bottom-4">
+          {/* NEW: Pending Approvals Section */}
+          {shops.some(s => s.status === 'PENDING') && (
+            <div className="space-y-6 bg-orange-50/50 p-6 rounded-[4rem] border-2 border-dashed border-orange-100">
+               <div className="flex items-center gap-4 px-2">
+                  <div className="h-px flex-1 bg-orange-200"></div>
+                  <h2 className="text-[12px] font-black uppercase tracking-[0.4em] text-orange-600 italic flex items-center gap-2">
+                    <Clock className="w-4 h-4 animate-pulse" /> Pending Approval
+                  </h2>
+                  <div className="h-px flex-1 bg-orange-200"></div>
+                </div>
+                <div className="space-y-4">
+                  {shops.filter(s => s.status === 'PENDING').map(shop => (
+                    <div key={shop.id} className="bg-white p-6 rounded-[3rem] border-2 border-orange-200 shadow-xl flex flex-col gap-6 transform hover:scale-[1.01] transition-all">
+                       <div className="flex items-center justify-between gap-4">
+                         <div className="flex items-center gap-4 flex-1 min-w-0">
+                            <img src={shop.logo || undefined} className="w-14 h-14 rounded-[1.5rem] object-cover bg-gray-50 border-2 border-white shadow-sm" />
+                            <div className="truncate">
+                              <p className="font-black text-sm uppercase italic text-gray-900 truncate tracking-tight">{shop.name}</p>
+                              <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest">{shop.category || 'New Boutique'}</p>
+                            </div>
+                         </div>
+                         <button 
+                            disabled={loadingId === shop.id + 'approve'}
+                            onClick={() => updateShopField(shop.id, 'status', 'APPROVED')}
+                            className="bg-green-600 text-white px-8 py-4 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest shadow-xl shadow-green-200 active:scale-95 transition-all flex items-center gap-2"
+                          >
+                           {loadingId === shop.id + 'approve' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Approve Live
+                         </button>
+                       </div>
+                       <div className="grid grid-cols-2 gap-4 text-[9px] font-bold text-gray-400 p-4 bg-gray-50 rounded-2xl">
+                          <div className="space-y-1">
+                             <p className="uppercase tracking-widest opacity-50">Mobile</p>
+                             <p className="text-gray-900">{shop.mobile || 'No Mobile'}</p>
+                          </div>
+                          <div className="space-y-1">
+                             <p className="uppercase tracking-widest opacity-50">Address</p>
+                             <p className="text-gray-900 truncate">{shop.address || 'No Address'}</p>
+                          </div>
+                       </div>
+                    </div>
+                  ))}
+                </div>
+            </div>
+          )}
+
           {categories.map(cat => {
             const catNorm = normalize(cat.id);
             const catNameNorm = normalize(cat.name);
