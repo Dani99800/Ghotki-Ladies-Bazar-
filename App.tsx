@@ -23,17 +23,52 @@ const App: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [user, setUser] = useState<UserType | null>(null);
-  const [shops, setShops] = useState<Shop[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [shops, setShops] = useState<Shop[]>(() => {
+    try {
+      const cached = localStorage.getItem('glb_cache_shops');
+      return cached ? JSON.parse(cached) : [];
+    } catch { return []; }
+  });
+  const [products, setProducts] = useState<Product[]>(() => {
+    try {
+      const cached = localStorage.getItem('glb_cache_products');
+      return cached ? JSON.parse(cached) : [];
+    } catch { return []; }
+  });
+  const [categories, setCategories] = useState<Category[]>(() => {
+    try {
+      const cached = localStorage.getItem('glb_cache_categories');
+      return cached ? JSON.parse(cached) : [];
+    } catch { return []; }
+  });
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loyaltyPlans, setLoyaltyPlans] = useState<any[]>([]);
+  const [loading, setLoading] = useState(() => {
+    // If we have any data at all, skip the heavy splash screen on refresh
+    const hasCache = localStorage.getItem('glb_cache_shops');
+    return !hasCache;
+  });
   const [error, setError] = useState<string | null>(null);
   const [showForceLoad, setShowForceLoad] = useState(false);
   const [activeEvent, setActiveEvent] = useState<AppEvent>(PK_EVENTS[0]);
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Load from cache immediately
+  useEffect(() => {
+    try {
+      const cachedShops = localStorage.getItem('glb_cache_shops');
+      const cachedProducts = localStorage.getItem('glb_cache_products');
+      const cachedCategories = localStorage.getItem('glb_cache_categories');
+      
+      if (cachedShops) setShops(JSON.parse(cachedShops));
+      if (cachedProducts) setProducts(JSON.parse(cachedProducts));
+      if (cachedCategories) setCategories(JSON.parse(cachedCategories));
+    } catch (e) {
+      console.warn("GLB: Cache load failed", e);
+    }
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -56,37 +91,72 @@ const App: React.FC = () => {
     localStorage.setItem('glb_active_event', event.id);
   };
 
-  const loadMarketplace = useCallback(async () => {
-    if (!supabase) return;
+  const purchaseLoyaltyCard = async (plan: any) => {
+    if (!supabase || !user) return;
+    if (user.id.startsWith('guest_')) {
+      alert("Please login to purchase a loyalty card.");
+      return;
+    }
+
+    const expiry = new Date();
+    expiry.setDate(expiry.getDate() + (plan.duration_days || 30));
+
     try {
-      console.log("GLB: Fetching Marketplace Data...");
-      setLoading(true);
+      const { error } = await supabase.from('profiles').update({
+        loyalty_plan_id: plan.id,
+        loyalty_expiry: expiry.toISOString()
+      }).eq('id', user.id);
+
+      if (error) throw error;
+      await fetchProfile(user.id);
+      alert(`🎉 Congratulations! You are now a ${plan.name} member.`);
+      navigate('/profile');
+    } catch (err: any) {
+      alert("Purchase failed: " + err.message);
+    }
+  };
+
+  const authInitialized = useRef(false);
+
+  const loadMarketplace = useCallback(async (silent = false, force = false) => {
+    if (!supabase) {
+      setError("Database configuration missing.");
+      if (!silent) setLoading(false);
+      return;
+    }
+
+    // Prevent concurrent loads unless forced
+    if ((window as any)._glb_loading_marketplace && !force) return;
+    (window as any)._glb_loading_marketplace = true;
+    
+    try {
+      console.log(`GLB: Fetching Marketplace Data (silent: ${silent}, force: ${force})...`);
+      if (!silent) setLoading(true);
+      setError(null);
       
-      const [pRes, sRes, cRes] = await Promise.all([
+      if (!navigator.onLine) {
+        throw new Error("No internet connection detected. Please check your network.");
+      }
+      
+      // Load all data in parallel for speed
+      const [pRes, sRes, cRes, lRes] = await Promise.all([
         supabase.from('products').select('*'),
         supabase.from('shops').select('*'),
-        supabase.from('categories').select('*')
+        supabase.from('categories').select('*'),
+        supabase.from('loyalty_plans').select('*')
       ]);
-      
-      if (sRes.error) console.error("GLB: Shops Fetch Error:", sRes.error);
-      if (pRes.error) console.error("GLB: Products Fetch Error:", pRes.error);
-      if (cRes.error) console.error("GLB: Categories Fetch Error:", cRes.error);
 
-      // Mapped Data Processing
-      const shopsData = sRes.data || [];
-      const productsData = pRes.data || [];
+      if (pRes.error) throw pRes.error;
+      if (sRes.error) throw sRes.error;
+      if (cRes.error) throw cRes.error;
+
+      setLoyaltyPlans(lRes.data || []);
+      const allShops = sRes.data || [];
+      const allProducts = pRes.data || [];
       const categoriesData = cRes.data || [];
 
-      const mappedShops = shopsData.map((s: any) => ({ 
-        ...s, 
-        id: s.id.toString(),
-        owner_id: s.owner_id || s.ownerId || s.user_id,
-        name: s.name || s.shop_name || 'Ghotki Merchant',
-        logo: s.logo_url || s.logo || s.image_url || 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=100&q=80', 
-        banner: s.banner_url || s.banner || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80' 
-      }));
-      
-      const mappedProducts = productsData.map((p: any) => {
+      // Filter products based on shop status and ownership
+      const mappedProducts = allProducts.map((p: any) => {
         let rawImages = p.image_urls || p.images || p.image_url || p.image || [];
         if (typeof rawImages === 'string') rawImages = [rawImages];
         const images = Array.isArray(rawImages) ? rawImages.filter(Boolean) : [];
@@ -99,7 +169,6 @@ const App: React.FC = () => {
           price: price,
           shopId: (p.shop_id || p.shopId || p.owner_id || '').toString(), 
           images: images.length > 0 ? images : ['https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80'],
-          videoUrl: p.video_url || p.videoUrl,
           createdAt: p.created_at || p.createdAt || p.inserted_at || new Date().toISOString(),
           tags: p.tags || [],
           category: p.category || 'Shoes',
@@ -107,84 +176,183 @@ const App: React.FC = () => {
           sort_priority: p.sort_priority || 0
         };
       }).sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+
+      const mappedShops = allShops.map((s: any) => ({ 
+        ...s, 
+        id: s.id.toString(),
+        owner_id: s.owner_id || s.ownerId || s.user_id,
+        name: s.name || s.shop_name || 'Ghotki Merchant',
+        logo: s.logo_url || s.logo || s.image_url || 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=100&q=80', 
+        banner: s.banner_url || s.banner || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80',
+        whatsapp: s.whatsapp || s.mobile || ''
+      }));
       
       setShops(mappedShops);
       setProducts(mappedProducts);
       setCategories(categoriesData.length > 0 ? categoriesData : FALLBACK_CATEGORIES);
       
+      // Update Cache
+      localStorage.setItem('glb_cache_shops', JSON.stringify(mappedShops));
+      localStorage.setItem('glb_cache_products', JSON.stringify(mappedProducts));
+      localStorage.setItem('glb_cache_categories', JSON.stringify(categoriesData.length > 0 ? categoriesData : FALLBACK_CATEGORIES));
+      
       console.log(`GLB: Sync Complete. ${mappedShops.length} shops, ${mappedProducts.length} products.`);
       setError(null);
     } catch (err: any) { 
       console.error("GLB: Critical Fetch Error:", err); 
-      setError("Marketplace synchronization failed. " + (err.message || ""));
+      setError("Marketplace synchronization failed: " + (err.message || "Unknown error"));
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
+      (window as any)._glb_loading_marketplace = false;
     }
-  }, []);
+  }, []); // Remove user dependency to stabilize marketplace loads
 
-  const fetchProfile = useCallback(async (id: string) => {
+  const fetchProfile = useCallback(async (id: string, existingAuthUser?: any) => {
     if (!supabase) return;
     try {
-      const { data: profile, error: profileErr } = await supabase.from('profiles').select('*').eq('id', id).maybeSingle();
-      const { data: { user: authUser } } = await supabase.auth.getUser();
+      // Use a lock ref to prevent multiple concurrent fetches for the same request
+      if ((window as any)._glb_fetching === id) return;
+      (window as any)._glb_fetching = id;
+
+      console.log("GLB: Syncing Profile for", id);
       
-      if (authUser) {
-        const meta = authUser.user_metadata || {};
-        const userRole = (profile?.role || meta.role || 'BUYER').toUpperCase();
-        
-        setUser({
-          id,
-          name: profile?.name || meta.full_name || 'Bazar User',
-          email: authUser.email || '',
-          role: userRole as any,
-          mobile: profile?.mobile || meta.mobile || '',
-          address: profile?.address || meta.address || '',
-          city: profile?.city || meta.city || 'Ghotki',
-          subscription_tier: (profile as any)?.subscription_tier || meta.tier || 'NONE'
-        });
+      // 1. Get auth user metadata (prefer passed user to avoid lock contention)
+      let authUser = existingAuthUser;
+      if (!authUser) {
+        const { data: uRes } = await supabase.auth.getUser();
+        authUser = uRes.user;
       }
+      
+      if (!authUser) {
+        (window as any)._glb_fetching = null;
+        return;
+      }
+
+      // 2. Try to get the profile
+      const { data: profile, error: pError } = await supabase.from('profiles').select('*').eq('id', id).maybeSingle();
+      
+      const meta = authUser.user_metadata || {};
+      const userEmail = authUser.email?.toLowerCase();
+      const isMasterEmail = userEmail === 'd46050573@gmail.com';
+      let userRole = (profile?.role || meta.role || 'BUYER').toUpperCase();
+      
+      if (isMasterEmail) userRole = 'ADMIN';
+      
+      // RECOVERY: If profile missing but auth user exists, create it
+      let activeProfile = profile;
+      if (!profile && authUser.email) {
+        console.warn("GLB: Profile missing in DB, recovering...");
+        const recoveryData = {
+          id: id,
+          name: meta.full_name || 'Bazar User',
+          email: authUser.email,
+          role: userRole,
+          mobile: meta.mobile || '',
+          city: meta.city || 'Ghotki',
+          subscription_tier: (meta.tier || 'NONE').toUpperCase()
+        };
+        
+        const { error: upsertErr } = await supabase.from('profiles').upsert(recoveryData);
+        if (!upsertErr) {
+          activeProfile = recoveryData as any;
+          
+          if (userRole === 'SELLER') {
+            const { data: existingShop } = await supabase.from('shops').select('id').eq('owner_id', id).maybeSingle();
+            if (!existingShop) {
+              console.warn("GLB: Shop missing in DB, recovering...");
+              await supabase.from('shops').insert({
+                owner_id: id,
+                name: meta.shop_name || 'My Boutique',
+                bazaar: meta.bazaar || 'Ladies Bazar',
+                category: meta.category || 'Women\'s Clothes',
+                status: 'PENDING'
+              });
+            }
+          }
+        } else {
+          console.error("GLB: Recovery failed:", upsertErr);
+        }
+      }
+
+      setUser({
+        id,
+        name: activeProfile?.name || meta.full_name || 'Bazar User',
+        email: authUser.email || '',
+        role: userRole as any,
+        mobile: activeProfile?.mobile || meta.mobile || '',
+        address: activeProfile?.address || meta.address || '',
+        city: activeProfile?.city || meta.city || 'Ghotki',
+        subscription_tier: (activeProfile as any)?.subscription_tier || meta.tier || 'NONE',
+        points: Number(activeProfile?.points || 0),
+        loyalty_plan_id: activeProfile?.loyalty_plan_id,
+        loyalty_expiry: activeProfile?.loyalty_expiry
+      });
+      
+      (window as any)._glb_fetching = null;
     } catch (e) { 
-      console.error("GLB: Profile Fetch Error:", e); 
+      console.error("GLB: Profile Fetch Error:", e);
+      (window as any)._glb_fetching = null;
     }
-  }, []); // Removed shops from dependencies to stop the loop
+  }, [loadMarketplace]);
+
+  const lastSessionId = useRef('');
+  const mounted = useRef(true);
 
   useEffect(() => {
-    const init = async () => {
-      try {
-        if (!supabase) return;
-        
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          console.error("Session error:", sessionError);
-          if (sessionError.message.includes('refresh_token_not_found')) {
-            await supabase.auth.signOut();
-          }
-        }
+    mounted.current = true;
 
-        if (session) {
-          await fetchProfile(session.user.id);
+    // Use separate initialization to ensure marketplace loads first and alone
+    const initialize = async () => {
+      let isSettled = false;
+      const settle = () => {
+        if (!isSettled && mounted.current) {
+          setLoading(false);
+          isSettled = true;
+          console.log("GLB: Interface Settled");
         }
+      };
+
+      // 1. If we have any data (from useState cache init), show UI immediately
+      if (localStorage.getItem('glb_cache_shops')) {
+        settle();
+      }
+
+      try {
+        // 2. Check current session (concurrent with marketplace sync)
+        const sessionPromise = supabase.auth.getSession();
         
-        await loadMarketplace();
+        // 3. Start marketplace sync in background
+        loadMarketplace(true);
+
+        const { data: { session } } = await sessionPromise;
+        if (session && mounted.current) {
+          await fetchProfile(session.user.id, session.user);
+        }
       } catch (e) {
-        console.error("App Init Error:", e);
+        console.error("GLB: Auth init error", e);
       } finally {
-        setLoading(false);
+        settle(); // Final settle if not already done
       }
     };
-    init();
+    
+    initialize();
 
+    // 3. Listen for future auth changes (login/logout/refresh)
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("GLB: Auth Event:", event);
-      if (session) {
-        await fetchProfile(session.user.id);
-        if (event === 'SIGNED_IN') await loadMarketplace();
-      } else {
-        setUser(null);
+      console.log("GLB: Auth Change Event:", event);
+      if (mounted.current) {
+        if (session) {
+          await fetchProfile(session.user.id, session.user);
+        } else {
+          setUser(null);
+        }
       }
     });
-    return () => authListener.subscription.unsubscribe();
+
+    return () => {
+      mounted.current = false;
+      authListener.subscription.unsubscribe();
+    };
   }, [loadMarketplace, fetchProfile]);
 
   const fetchOrders = useCallback(async () => {
@@ -196,21 +364,34 @@ const App: React.FC = () => {
       query = query.or(`buyer_id.eq.${user.id},seller_id.eq.${myShop.id}`);
     } else if (user.role === 'ADMIN') {
       // Admin sees everything
-    } else {
+    } else if (user.id) {
       query = query.eq('buyer_id', user.id);
+    } else {
+      return;
     }
 
-    const { data } = await query;
+    const { data, error } = await query;
+    if (error) {
+      console.error("Fetch orders error:", error);
+      return;
+    }
+
     if (data) {
       setOrders(data.map(o => ({ 
-        ...o, 
-        id: o.id.toString(),
-        buyerId: o.buyer_id?.toString(), 
-        sellerId: o.seller_id?.toString(), 
-        createdAt: o.created_at,
-        buyerName: o.buyer_name, 
-        buyerMobile: o.buyer_mobile, 
-        buyerAddress: o.buyer_address
+        id: o.id,
+        buyerId: o.buyer_id,
+        sellerId: o.seller_id,
+        items: o.items,
+        subtotal: o.subtotal,
+        deliveryFee: o.delivery_fee,
+        platformFee: o.platform_fee,
+        total: o.total,
+        status: o.status,
+        paymentMethod: o.payment_method,
+        buyerName: o.buyer_name,
+        buyerMobile: o.buyer_mobile,
+        buyerAddress: o.buyer_address,
+        createdAt: o.created_at
       })));
     }
   }, [user, shops]);
@@ -251,22 +432,25 @@ const App: React.FC = () => {
 
   const handlePlaceOrder = async (order: Order) => {
     if (!supabase) return;
-    const isGuest = order.buyerId.startsWith('guest_');
+    const isGuest = !order.buyerId || order.buyerId.startsWith('guest_');
     const { error } = await supabase.from('orders').insert({
       buyer_id: isGuest ? null : order.buyerId,
       seller_id: order.sellerId, 
       items: order.items,
-      subtotal: order.subtotal,
-      delivery_fee: order.deliveryFee,
-      platform_fee: order.platformFee || 1000,
-      total: order.total,
+      subtotal: Number(order.subtotal),
+      delivery_fee: Number(order.deliveryFee || 0),
+      platform_fee: Number(order.platformFee || 0),
+      total: Number(order.total),
       status: 'PENDING',
       payment_method: order.paymentMethod,
       buyer_name: order.buyerName,
       buyer_mobile: order.buyerMobile,
       buyer_address: order.buyerAddress
     });
-    if (error) throw error;
+    if (error) {
+      console.error("GLB: Order Placement Error", error);
+      throw error;
+    }
     fetchOrders(); 
   };
 
@@ -278,13 +462,45 @@ const App: React.FC = () => {
     });
   };
 
-  const navItems = [
+  const isAdmin = React.useMemo(() => {
+    const isMasterAdmin = user?.email?.toLowerCase() === 'd46050573@gmail.com';
+    return isMasterAdmin || user?.role === 'ADMIN';
+  }, [user]);
+
+  const filteredShops = React.useMemo(() => {
+    return shops.filter(s => {
+      const userEmail = user?.email?.toLowerCase();
+      const isMasterAdmin = userEmail === 'd46050573@gmail.com';
+      const isAdmin = isMasterAdmin || user?.role === 'ADMIN';
+      const isOwner = user?.id === s.owner_id;
+      
+      if (isMasterAdmin) return true;
+      if (isAdmin) return true;
+      if (isOwner) return true;
+      return s.status === 'APPROVED';
+    });
+  }, [shops, user]);
+
+  const filteredProducts = React.useMemo(() => {
+    const approvedShopIds = new Set(shops.filter(s => s.status === 'APPROVED').map(s => s.id));
+    return products.filter(p => {
+      const isApproved = approvedShopIds.has(p.shopId);
+      const isMine = user && shops.find(s => s.id === p.shopId)?.owner_id === user.id;
+      return isApproved || isMine;
+    });
+  }, [products, shops, user]);
+
+  const navItems = React.useMemo(() => [
     { icon: Home, label: 'Home', path: '/' },
-    { icon: PlayCircle, label: 'Live', path: '/explore' },
     { icon: ShoppingBag, label: 'Shops', path: '/shops' },
+    ...(isAdmin ? [{ icon: ShieldAlert, label: 'Admin', path: '/admin' }] : []),
     { icon: Package, label: 'Request', path: '/custom-request' },
-    { icon: user?.role === 'SELLER' ? LayoutDashboard : ShoppingCart, label: user?.role === 'SELLER' ? 'Dashboard' : 'Cart', path: user?.role === 'SELLER' ? '/seller' : '/cart' },
-  ];
+    { 
+      icon: user?.role === 'SELLER' ? LayoutDashboard : ShoppingCart, 
+      label: user?.role === 'SELLER' ? 'Store' : 'Cart', 
+      path: user?.role === 'SELLER' ? '/seller' : '/cart' 
+    },
+  ], [user, isAdmin]);
 
   if (loading) return (
     <div className="h-screen w-full flex flex-col items-center justify-center bg-white space-y-6">
@@ -298,7 +514,11 @@ const App: React.FC = () => {
       </div>
       {showForceLoad && (
         <button 
-          onClick={() => setLoading(false)} 
+          onClick={() => {
+            console.log("GLB: Force loading marketplace...");
+            setLoading(false);
+            if (shops.length === 0) loadMarketplace(false, true);
+          }} 
           className="mt-8 px-6 py-2 bg-pink-600 text-white text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg animate-bounce"
         >
           Enter Marketplace Anyway
@@ -314,7 +534,12 @@ const App: React.FC = () => {
        </div>
        <div className="max-w-xs space-y-2">
          <h2 className="text-xl font-black uppercase tracking-tighter text-gray-900 italic">Connection Error</h2>
-         <p className="text-sm text-gray-400 font-medium leading-relaxed italic">{error}</p>
+         <p className="text-sm text-gray-400 font-medium leading-relaxed italic">
+            {error}<br/>
+           <span className="text-[10px] mt-2 block text-pink-600 font-bold uppercase tracking-wider">
+             Tip: Ensure your Supabase project is active and your environment variables are correct.
+           </span>
+         </p>
        </div>
        <div className="space-y-3 w-full max-w-[200px]">
           <button 
@@ -324,8 +549,17 @@ const App: React.FC = () => {
             Retry Connection
           </button>
           <button 
-            onClick={() => { setError(null); setLoading(false); }}
+            onClick={() => {
+              const url = (import.meta as any).env?.VITE_SUPABASE_URL || 'Using hardcoded fallback';
+              alert(`Supabase Debug Info:\nURL: ${url}\nKey starts with: ${(import.meta as any).env?.VITE_SUPABASE_ANON_KEY?.slice(0, 8) || 'No Key'}\nStatus: ${navigator.onLine ? 'Online' : 'Offline'}`);
+            }}
             className="w-full py-4 bg-white text-gray-400 font-bold rounded-2xl border border-gray-100 uppercase tracking-widest text-[10px] active:scale-95 transition-all"
+          >
+            Show Diagnostics
+          </button>
+          <button 
+            onClick={() => { setError(null); setLoading(false); }}
+            className="w-full py-2 text-gray-300 font-bold uppercase tracking-widest text-[8px] active:scale-95 transition-all"
           >
             Stay Offline
           </button>
@@ -365,16 +599,18 @@ const App: React.FC = () => {
 
       <main className="flex-1 pt-16 pb-24 md:pb-10">
         <Routes>
-          <Route path="/" element={<BuyerHome shops={shops} products={products} categories={categories} addToCart={addToCart} lang="EN" user={user} onPlaceOrder={handlePlaceOrder} activeEvent={activeEvent} />} />
-          <Route path="/explore" element={<ExploreView products={products} addToCart={addToCart} onPlaceOrder={handlePlaceOrder} user={user} savedProductIds={[]} onToggleSave={() => {}} />} />
-          <Route path="/shops" element={<ShopsListView shops={shops} categories={categories} lang="EN" />} />
-          <Route path="/shop/:id" element={<ShopView shops={shops} products={products} addToCart={addToCart} lang="EN" user={user} onPlaceOrder={handlePlaceOrder} />} />
-          <Route path="/product/:id" element={<ProductView products={products} addToCart={addToCart} lang="EN" />} />
+          <Route path="/" element={<BuyerHome shops={filteredShops} products={filteredProducts} categories={categories} addToCart={addToCart} lang="EN" user={user} onPlaceOrder={handlePlaceOrder} activeEvent={activeEvent} />} />
+          <Route path="/explore" element={<ExploreView products={filteredProducts} addToCart={addToCart} onPlaceOrder={handlePlaceOrder} user={user} savedProductIds={[]} onToggleSave={() => {}} />} />
+          <Route path="/shops" element={<ShopsListView shops={filteredShops} categories={categories} lang="EN" />} />
+          <Route path="/shop/:id" element={<ShopView shops={filteredShops} products={filteredProducts} addToCart={addToCart} lang="EN" user={user} onPlaceOrder={handlePlaceOrder} />} />
+          <Route path="/product/:id" element={<ProductView products={filteredProducts} addToCart={addToCart} lang="EN" />} />
           <Route path="/cart" element={<CartView cart={cart} removeFromCart={id => setCart(cart.filter(c => c.id !== id))} updateQuantity={(id, d) => setCart(cart.map(c => c.id === id ? {...c, quantity: Math.max(1, c.quantity+d)} : c))} lang="EN" />} />
           <Route path="/login" element={<LoginView setUser={setUser} lang="EN" />} />
           <Route path="/profile" element={user ? (
             <ProfileView 
               user={user} 
+              loyaltyPlans={loyaltyPlans}
+              purchaseLoyaltyCard={purchaseLoyaltyCard}
               onLogout={() => { supabase?.auth.signOut(); setUser(null); navigate('/login'); }} 
               onDeleteAccount={async () => {
                 if (!supabase || !user) return;
@@ -406,11 +642,13 @@ const App: React.FC = () => {
             />
           ) : <Navigate to="/login" />} />
           <Route path="/admin" element={(() => {
-            console.log("Admin Route Access Attempt:", { userRole: user?.role, userId: user?.id });
-            return user?.role === 'ADMIN' ? <AdminDashboard shops={shops} setShops={setShops} orders={orders} refreshData={loadMarketplace} categories={categories} activeEvent={activeEvent} onUpdateEvent={handleUpdateEvent} /> : <Navigate to="/" />;
+            const isMasterAdmin = user?.email?.toLowerCase() === 'd46050573@gmail.com';
+            const isAdmin = isMasterAdmin || user?.role === 'ADMIN';
+            console.log("Admin Route Access Attempt:", { isAdmin, isMasterAdmin, userRole: user?.role });
+            return isAdmin ? <AdminDashboard shops={filteredShops} setShops={setShops} orders={orders} refreshData={loadMarketplace} categories={categories} activeEvent={activeEvent} onUpdateEvent={handleUpdateEvent} /> : <Navigate to="/" />;
           })()} />
-          <Route path="/seller/*" element={user?.role === 'SELLER' ? <SellerDashboard products={products} user={user} addProduct={loadMarketplace} orders={orders} shops={shops} refreshShop={loadMarketplace} refreshOrders={fetchOrders} /> : <Navigate to="/login" />} />
-          <Route path="/checkout" element={<CheckoutView cart={cart} clearCart={() => setCart([])} user={user} lang="EN" onPlaceOrder={handlePlaceOrder} shops={shops} />} />
+          <Route path="/seller/*" element={user?.role === 'SELLER' ? <SellerDashboard products={filteredProducts} user={user} addProduct={loadMarketplace} orders={orders} shops={filteredShops} refreshShop={loadMarketplace} refreshOrders={fetchOrders} categories={categories} /> : <Navigate to="/login" />} />
+          <Route path="/checkout" element={<CheckoutView cart={cart} clearCart={() => setCart([])} user={user} lang="EN" onPlaceOrder={handlePlaceOrder} shops={filteredShops} loyaltyPlans={loyaltyPlans} />} />
           <Route path="/orders" element={user ? <OrdersView orders={orders} user={user} shops={shops} /> : <Navigate to="/login" />} />
           <Route path="/custom-request" element={user ? <CustomRequestView user={user} /> : <Navigate to="/login" />} />
         </Routes>

@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Truck, Store, CreditCard, ShieldCheck, CheckCircle2, AlertCircle, User, Phone, MapPin } from 'lucide-react';
-import { CartItem, User as UserType, Order, Shop } from '../types';
+import { Truck, Store, CreditCard, ShieldCheck, CheckCircle2, AlertCircle, User, Phone, MapPin, Trophy, Star } from 'lucide-react';
+import { CartItem, User as UserType, Order, Shop, LoyaltyPlan } from '../types';
 import { PLATFORM_FEE_PKR, NOTIFICATION_SOUND } from '../constants';
 
 interface CheckoutViewProps {
@@ -12,13 +12,19 @@ interface CheckoutViewProps {
   lang: 'EN' | 'UR';
   onPlaceOrder: (o: Order) => void;
   shops: Shop[];
+  loyaltyPlans: LoyaltyPlan[];
 }
 
-const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, clearCart, user, lang, onPlaceOrder, shops }) => {
+const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, clearCart, user, lang, onPlaceOrder, shops, loyaltyPlans = [] }) => {
   const navigate = useNavigate();
   const [method, setMethod] = useState<'DELIVERY' | 'PICKUP'>('DELIVERY');
   const [payment, setPayment] = useState<'EasyPaisa' | 'JazzCash' | 'COD'>('EasyPaisa');
   const [orderComplete, setOrderComplete] = useState(false);
+
+  // Check Loyalty
+  const activePlan = loyaltyPlans.find(p => p.id === user?.loyalty_plan_id);
+  const isLoyaltyExpired = user?.loyalty_expiry ? new Date(user.loyalty_expiry) < new Date() : false;
+  const effectiveLoyalty = isLoyaltyExpired ? null : activePlan;
   
   const [guestInfo, setGuestInfo] = useState({
     name: user?.name || '',
@@ -27,8 +33,15 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, clearCart, user, lang
   });
 
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const deliveryFee = method === 'DELIVERY' ? 150 : 0;
-  const total = subtotal + deliveryFee;
+  
+  // Calculate Loyalty Discount
+  const loyaltyDiscount = effectiveLoyalty ? Math.round(subtotal * (effectiveLoyalty.discount_percentage / 100)) : 0;
+  
+  // Calculate Delivery Fee
+  const standardDelivery = method === 'DELIVERY' ? 150 : 0;
+  const deliveryFee = (method === 'DELIVERY' && effectiveLoyalty?.free_delivery) ? 0 : standardDelivery;
+
+  const total = subtotal - loyaltyDiscount + deliveryFee;
 
   const playNotification = () => {
     const audio = new Audio(NOTIFICATION_SOUND);
@@ -150,8 +163,35 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, clearCart, user, lang
       <section className="bg-gray-900 rounded-[3rem] p-8 text-white space-y-6 shadow-2xl relative overflow-hidden">
         <div className="absolute -top-10 -right-10 w-40 h-40 bg-pink-600/10 rounded-full blur-3xl"></div>
         <div className="space-y-3 relative z-10">
+          {!user || user.id.startsWith('guest_') ? (
+            <div className="p-4 bg-pink-600/20 border border-pink-600/30 rounded-2xl mb-4 space-y-2 animate-pulse">
+               <div className="flex items-center gap-2 text-pink-400">
+                  <Star className="w-4 h-4" />
+                  <span className="text-[10px] font-black uppercase tracking-widest">Login Opportunity!</span>
+               </div>
+               <p className="text-[10px] font-medium text-pink-100 italic leading-relaxed">
+                 By logging in before placing this order, you would earn <span className="font-black text-pink-400">{Math.floor(subtotal / 1000) * 12} Points</span> worth <span className="font-black text-white">PKR {(Math.floor(subtotal / 1000) * 12 * 0.25).toLocaleString()}</span> in future credit!
+               </p>
+               <button 
+                 onClick={() => navigate('/login')}
+                 className="w-full py-2 bg-pink-600 text-white text-[8px] font-black uppercase tracking-widest rounded-lg shadow-lg"
+               >
+                 Login / Signup Now
+               </button>
+            </div>
+          ) : null}
           <div className="flex justify-between text-white/50 text-xs font-black uppercase tracking-widest"><span>Subtotal</span><span>PKR {subtotal.toLocaleString()}</span></div>
-          <div className="flex justify-between text-white/50 text-xs font-black uppercase tracking-widest"><span>Delivery</span><span>PKR {deliveryFee}</span></div>
+          {loyaltyDiscount > 0 && (
+            <div className="flex justify-between text-pink-400 text-xs font-black uppercase tracking-widest italic flex items-center gap-2">
+               <Trophy className="w-3 h-3" />
+               <span>Loyalty Discount (-{effectiveLoyalty?.discount_percentage}%)</span>
+               <span className="ml-auto">-PKR {loyaltyDiscount.toLocaleString()}</span>
+            </div>
+          )}
+          <div className="flex justify-between text-white/50 text-xs font-black uppercase tracking-widest">
+            <span>Delivery</span>
+            <span>{deliveryFee === 0 && method === 'DELIVERY' ? <span className="text-green-400 italic">FREE (LOYALTY)</span> : `PKR ${deliveryFee}`}</span>
+          </div>
           <div className="flex justify-between text-2xl font-black pt-4 border-t border-white/10 italic tracking-tighter"><span>Total Due</span><span className="text-pink-500">PKR {total.toLocaleString()}</span></div>
         </div>
         

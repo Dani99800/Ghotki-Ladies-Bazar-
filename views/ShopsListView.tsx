@@ -15,7 +15,7 @@ const ShopsListView: React.FC<ShopsListViewProps> = ({ shops, categories, lang }
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | 'ALL'>('ALL');
 
-  const normalize = (str: string) => (str || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+  const normalize = (str: string) => (str || '').toLowerCase().replace(/[^a-z0-9]/g, '').replace(/s(?=clothes|footwear|wear|store|$)/g, '').trim();
 
   const filtered = shops
     .filter(s => {

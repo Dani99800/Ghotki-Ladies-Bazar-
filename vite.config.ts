@@ -5,7 +5,9 @@ export default defineConfig({
   plugins: [react()],
   define: {
     // Inject environment variables safely for the browser
+    // @ts-ignore
     'process.env.VITE_SUPABASE_URL': JSON.stringify(process.env.VITE_SUPABASE_URL || ''),
+    // @ts-ignore
     'process.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(process.env.VITE_SUPABASE_ANON_KEY || ''),
     // Provide a global process object to prevent ReferenceErrors
     'process.env': '{}',

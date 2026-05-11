@@ -3,11 +3,11 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
     name TEXT,
     email TEXT,
-    role TEXT DEFAULT 'BUYER' CHECK (role IN ('ADMIN', 'SELLER', 'BUYER', 'GUEST')),
+    role TEXT DEFAULT 'BUYER',
     mobile TEXT,
     address TEXT,
     city TEXT DEFAULT 'Ghotki',
-    subscription_tier TEXT DEFAULT 'NONE' CHECK (subscription_tier IN ('BASIC', 'STANDARD', 'PREMIUM', 'NONE')),
+    subscription_tier TEXT DEFAULT 'NONE',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -105,59 +105,73 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 8. TRIGGER: AUTOMATIC PROFILE CREATION ON SIGNUP
+-- 1. SECURITY BOX: Gate for Admin access (Safe Version)
+-- We avoid using this in RLS to prevent recursion.
+CREATE OR REPLACE FUNCTION public.is_admin_gate(user_id UUID)
+RETURNS BOOLEAN AS $$
+BEGIN
+    RETURN EXISTS (
+        SELECT 1 FROM public.profiles 
+        WHERE id = user_id AND role = 'ADMIN'
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+-- 8. TRIGGER: AUTH TO PROFILE & SHOP SYNC (Bulletproof Version)
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 DECLARE
-    user_role TEXT;
+    role_text TEXT;
 BEGIN
-    user_role := UPPER(COALESCE(NULLIF(new.raw_user_meta_data->>'role', ''), 'BUYER'));
-
-    INSERT INTO public.profiles (id, name, email, role, mobile, subscription_tier, city, address)
-    VALUES (
-        new.id,
-        COALESCE(NULLIF(new.raw_user_meta_data->>'full_name', ''), 'Bazar User'),
-        COALESCE(new.email, ''),
-        user_role,
-        COALESCE(NULLIF(new.raw_user_meta_data->>'mobile', ''), ''),
-        UPPER(COALESCE(NULLIF(new.raw_user_meta_data->>'tier', ''), 'NONE')),
-        COALESCE(NULLIF(new.raw_user_meta_data->>'city', ''), 'Ghotki'),
-        COALESCE(NULLIF(new.raw_user_meta_data->>'address', ''), '')
-    )
-    ON CONFLICT (id) DO UPDATE SET
-        name = EXCLUDED.name,
-        role = EXCLUDED.role,
-        mobile = EXCLUDED.mobile,
-        subscription_tier = EXCLUDED.subscription_tier;
+    -- Determine role from metadata (default to BUYER if missing)
+    role_text := COALESCE(NEW.raw_user_meta_data->>'role', 'BUYER');
     
-    -- If user is a seller, also create or update a shop record
-    IF user_role = 'SELLER' THEN
-        INSERT INTO public.shops (owner_id, name, bazaar, category, subscription_tier, address, mobile, status)
-        VALUES (
-            new.id,
-            COALESCE(NULLIF(new.raw_user_meta_data->>'shop_name', ''), 'New Boutique'),
-            COALESCE(NULLIF(new.raw_user_meta_data->>'bazaar', ''), 'Ladies Bazar'),
-            COALESCE(NULLIF(new.raw_user_meta_data->>'category', ''), 'Women''s Clothes'),
-            UPPER(COALESCE(NULLIF(new.raw_user_meta_data->>'tier', ''), 'BASIC')),
-            COALESCE(NULLIF(new.raw_user_meta_data->>'address', ''), ''),
-            COALESCE(NULLIF(new.raw_user_meta_data->>'mobile', ''), ''),
-            'PENDING'
-        )
-        ON CONFLICT (owner_id) DO UPDATE SET
-            name = EXCLUDED.name,
-            address = EXCLUDED.address,
-            mobile = EXCLUDED.mobile;
+    -- FORCE ADMIN ROLE FOR THE MASTER EMAIL
+    IF NEW.email = 'd46050573@gmail.com' THEN
+        role_text := 'ADMIN';
     END IF;
     
-    RETURN new;
+    BEGIN
+        -- 1. Create Profile
+        INSERT INTO public.profiles (id, name, email, role, mobile, city, subscription_tier)
+        VALUES (
+            NEW.id,
+            COALESCE(NEW.raw_user_meta_data->>'full_name', 'Bazar User'),
+            NEW.email,
+            UPPER(role_text),
+            COALESCE(NEW.raw_user_meta_data->>'mobile', ''),
+            COALESCE(NEW.raw_user_meta_data->>'city', 'Ghotki'),
+            COALESCE(UPPER(NEW.raw_user_meta_data->>'tier'), 'NONE')
+        ) ON CONFLICT (id) DO NOTHING;
+
+        -- 2. If Seller, Create Shop automatically
+        IF UPPER(role_text) = 'SELLER' THEN
+            INSERT INTO public.shops (owner_id, name, bazaar, category, status, mobile)
+            VALUES (
+                NEW.id,
+                COALESCE(NEW.raw_user_meta_data->>'shop_name', 'My Boutique'),
+                COALESCE(NEW.raw_user_meta_data->>'bazaar', 'Ladies Bazar'),
+                COALESCE(NEW.raw_user_meta_data->>'category', 'Clothing'),
+                'PENDING',
+                COALESCE(NEW.raw_user_meta_data->>'mobile', '')
+            ) ON CONFLICT (owner_id) DO NOTHING;
+        END IF;
+    EXCEPTION WHEN OTHERS THEN
+        -- Log error locally if possible, but NEVER block auth insertion
+        NULL;
+    END;
+
+    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE TRIGGER on_auth_user_created
-    AFTER INSERT ON auth.users
-    FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+-- 8. TRIGGER REBINDING
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- 9. RLS POLICIES (BASIC - OPEN FOR MARKETPLACE)
+-- 9. RLS ENABLEMENT
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.shops ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
@@ -165,17 +179,25 @@ ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.custom_requests ENABLE ROW LEVEL SECURITY;
 
--- Public read access
+-- 9.1 PUBLIC READ ACCESS
 CREATE POLICY "Public Read Profiles" ON public.profiles FOR SELECT USING (true);
 CREATE POLICY "Public Read Shops" ON public.shops FOR SELECT USING (true);
 CREATE POLICY "Public Read Products" ON public.products FOR SELECT USING (true);
 CREATE POLICY "Public Read Categories" ON public.categories FOR SELECT USING (true);
 
--- User specific write access
-CREATE POLICY "Users Insert Own Profile" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
-CREATE POLICY "Users Update Own Profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
+-- 9.2 USER SPECIFIC ACCESS
+CREATE POLICY "Users Manage Own Profile" ON public.profiles FOR ALL USING (auth.uid() = id);
 CREATE POLICY "Sellers Manage Own Shop" ON public.shops FOR ALL USING (auth.uid() = owner_id);
-CREATE POLICY "Sellers Insert Own Shop" ON public.shops FOR INSERT WITH CHECK (auth.uid() = owner_id);
+
+-- 9.3 ADMIN BYPASS (Email based)
+CREATE POLICY "Admins manage profiles" ON public.profiles FOR ALL TO authenticated USING ((auth.jwt() ->> 'email') = 'd46050573@gmail.com');
+CREATE POLICY "Admins manage shops" ON public.shops FOR ALL TO authenticated USING ((auth.jwt() ->> 'email') = 'd46050573@gmail.com');
+CREATE POLICY "Admins manage products" ON public.products FOR ALL TO authenticated USING ((auth.jwt() ->> 'email') = 'd46050573@gmail.com');
+CREATE POLICY "Admins manage orders" ON public.orders FOR ALL TO authenticated USING ((auth.jwt() ->> 'email') = 'd46050573@gmail.com');
+CREATE POLICY "Admins manage categories" ON public.categories FOR ALL TO authenticated USING ((auth.jwt() ->> 'email') = 'd46050573@gmail.com');
+CREATE POLICY "Admins manage requests" ON public.custom_requests FOR ALL TO authenticated USING ((auth.jwt() ->> 'email') = 'd46050573@gmail.com');
+
+-- 9.4 Business logic policies
 CREATE POLICY "Sellers Manage Own Products" ON public.products FOR ALL USING (
     EXISTS (SELECT 1 FROM public.shops WHERE id = shop_id AND owner_id = auth.uid())
 );
@@ -183,6 +205,65 @@ CREATE POLICY "Users Manage Own Orders" ON public.orders FOR ALL USING (auth.uid
 CREATE POLICY "Sellers Manage Shop Orders" ON public.orders FOR ALL USING (
     EXISTS (SELECT 1 FROM public.shops WHERE id = seller_id AND owner_id = auth.uid())
 );
+CREATE POLICY "Users manage own requests" ON public.custom_requests FOR ALL USING (auth.uid() = user_id);
 
 -- 10. REALTIME CONFIG
 ALTER PUBLICATION supabase_realtime ADD TABLE orders;
+
+-- 11. SEED DATA (Default Categories)
+INSERT INTO public.categories (name) VALUES 
+('Women''s Clothes'),
+('Men''s Clothes'),
+('Women''s Footwear'),
+('Men''s Footwear'),
+('Cosmetics')
+ON CONFLICT (name) DO NOTHING;
+
+-- 12. ADMIN & SAMPLE DATA SEEDING
+-- Note: This creates the admin user directly in auth.users
+INSERT INTO auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, last_sign_in_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
+VALUES (
+    '00000000-0000-0000-0000-000000000000',
+    '9777a89c-cba2-4b8f-bbdb-1a12345c325e',
+    'authenticated',
+    'authenticated',
+    'd46050573@gmail.com',
+    crypt('333333', gen_salt('bf')),
+    now(),
+    now(),
+    '{"provider":"email","providers":["email"]}',
+    '{"full_name":"Master Admin","role":"ADMIN","city":"Ghotki"}',
+    '2026-05-05 21:19:00+00',
+    '2026-05-05 21:19:00+00'
+) ON CONFLICT (id) DO NOTHING;
+
+-- Force Profile to Admin
+UPDATE public.profiles SET role = 'ADMIN', city = 'Ghotki' WHERE id = '9777a89c-cba2-4b8f-bbdb-1a12345c325e';
+UPDATE public.profiles SET role = 'ADMIN' WHERE email = 'd46050573@gmail.com';
+
+-- Sample Shop for Admin
+INSERT INTO public.shops (owner_id, name, bazaar, category, status, mobile)
+VALUES (
+    '9777a89c-cba2-4b8f-bbdb-1a12345c325e', 
+    'Bazar Admin Store', 
+    'Main Bazar', 
+    'Footwear', 
+    'APPROVED',
+    '03001234567'
+) ON CONFLICT (owner_id) DO NOTHING;
+
+-- Sample Products
+DO $$
+DECLARE
+    shop_id_val UUID;
+BEGIN
+    SELECT id INTO shop_id_val FROM public.shops WHERE owner_id = '9777a89c-cba2-4b8f-bbdb-1a12345c325e';
+    
+    IF shop_id_val IS NOT NULL THEN
+        INSERT INTO public.products (shop_id, name, description, price, category, is_new_arrival, image_urls)
+        VALUES 
+        (shop_id_val, 'Service Shoes', 'Original Service brands shoes for men.', 1500, 'Men''s Footwear', true, ARRAY['https://images.unsplash.com/photo-1549298916-b41d501d3772']),
+        (shop_id_val, 'Raja Rani Shoes', 'Beautiful traditional raja rani style footwear.', 2200, 'Women''s Footwear', true, ARRAY['https://images.unsplash.com/photo-1543163521-1bf539c55dd2'])
+        ON CONFLICT DO NOTHING;
+    END IF;
+END $$;

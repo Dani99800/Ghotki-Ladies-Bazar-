@@ -21,9 +21,36 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   shops, setShops, orders, categories, refreshData, activeEvent, onUpdateEvent 
 }) => {
   const [loadingId, setLoadingId] = useState<string | null>(null);
-  const [activeAdminTab, setActiveAdminTab] = useState<'SHOPS' | 'INVENTORY' | 'THEME' | 'CUSTOM_REQUESTS'>('SHOPS');
+  const [activeAdminTab, setActiveAdminTab] = useState<'SHOPS' | 'PENDING' | 'INVENTORY' | 'THEME' | 'CUSTOM_REQUESTS' | 'LOYALTY'>('PENDING'); // Default to pending if there are any
   const [adminProducts, setAdminProducts] = useState<Product[]>([]);
   const [customRequests, setCustomRequests] = useState<CustomRequest[]>([]);
+  const [loyaltyPlans, setLoyaltyPlans] = useState<any[]>([]);
+
+  const pendingCount = shops.filter(s => s.status === 'PENDING').length;
+
+  // Auto-switch tab if no pending, but first time only
+  useEffect(() => {
+    if (pendingCount === 0 && activeAdminTab === 'PENDING') {
+      setActiveAdminTab('SHOPS');
+    }
+  }, []);
+
+  const deleteShop = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this merchant and all their associated data? This is irreversible.")) return;
+    if (!supabase) return;
+    
+    setLoadingId(id + 'delete');
+    try {
+      // Products usually cascade or need manual delete depending on FK setup
+      const { error } = await supabase.from('shops').delete().eq('id', id);
+      if (error) throw error;
+      if (refreshData) await refreshData();
+    } catch (err: any) {
+      alert(`Delete Failed: ` + err.message);
+    } finally {
+      setLoadingId(null);
+    }
+  };
 
   useEffect(() => {
     const fetchAdminProducts = async () => {
@@ -66,6 +93,34 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     };
     if (activeAdminTab === 'CUSTOM_REQUESTS') fetchCustomRequests();
   }, [activeAdminTab, loadingId]);
+
+  useEffect(() => {
+    const fetchLoyaltyPlans = async () => {
+      if (!supabase) return;
+      try {
+        const { data, error } = await supabase.from('loyalty_plans').select('*');
+        if (error) throw error;
+        setLoyaltyPlans(data || []);
+      } catch (err) {
+        console.error("Loyalty plans fetch failed:", err);
+      }
+    };
+    if (activeAdminTab === 'LOYALTY') fetchLoyaltyPlans();
+  }, [activeAdminTab, loadingId]);
+
+  const updateLoyaltyField = async (id: string, field: string, value: any) => {
+    if (!supabase) return;
+    setLoadingId(id + field);
+    try {
+      const { error } = await supabase.from('loyalty_plans').update({ [field]: value }).eq('id', id);
+      if (error) throw error;
+      setLoyaltyPlans(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
+    } catch (err: any) {
+      alert(`Update Failed: ` + err.message);
+    } finally {
+      setLoadingId(null);
+    }
+  };
 
   const updateRequestStatus = async (id: string, status: string) => {
     if (!supabase) return;
@@ -115,9 +170,27 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     await updateShopField(shop.id, 'sort_priority', newPriority);
   };
 
-  const normalize = (str: string) => (str || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+  const normalize = (str: string) => (str || '').toLowerCase().replace(/[^a-z0-9]/g, '').replace(/s(?=clothes|footwear|wear|store|$)/g, '').trim();
 
   const sortedShops = [...shops].sort((a, b) => (b.sort_priority || 0) - (a.sort_priority || 0));
+
+  if (shops.length === 0) {
+    return (
+      <div className="max-w-4xl mx-auto p-8 text-center space-y-6">
+        <div className="bg-white p-12 rounded-[4rem] border shadow-sm space-y-4">
+          <Store className="w-16 h-16 text-gray-200 mx-auto" />
+          <h2 className="text-xl font-black uppercase italic tracking-tighter">No Shops Detected</h2>
+          <p className="text-xs font-medium text-gray-500 max-w-xs mx-auto italic">We couldn't find any shops in the database. If you just added a seller, wait a moment or click sync.</p>
+          <button 
+            onClick={() => refreshData?.()}
+            className="px-8 py-4 bg-pink-600 text-white text-[10px] font-black uppercase tracking-widest rounded-[1.5rem] shadow-xl shadow-pink-200 active:scale-95 transition-all"
+          >
+            Sync Database Now
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-8 pb-32 animate-in fade-in duration-500">
@@ -158,70 +231,115 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex gap-2 p-1.5 bg-gray-200 rounded-[2.5rem]">
+      <div className="flex gap-2 p-1.5 bg-gray-200 rounded-[2.5rem] overflow-x-auto no-scrollbar">
         {[
-          { id: 'SHOPS', icon: Store, label: 'Merchants' },
-          { id: 'INVENTORY', icon: ShoppingBag, label: 'New Arrivals' },
+          { id: 'PENDING', icon: Shield, label: 'Approvals', badge: pendingCount },
+          { id: 'SHOPS', icon: Store, label: 'Directory' },
+          { id: 'INVENTORY', icon: ShoppingBag, label: 'Arrivals' },
           { id: 'CUSTOM_REQUESTS', icon: Package, label: 'Requests' },
+          { id: 'LOYALTY', icon: Trophy, label: 'Loyalty' },
           { id: 'THEME', icon: Palette, label: 'Themes' }
         ].map((tab) => (
           <button 
             key={tab.id}
             onClick={() => setActiveAdminTab(tab.id as any)} 
-            className={`flex-1 py-4 rounded-[2rem] text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${activeAdminTab === tab.id ? 'bg-white text-pink-600 shadow-lg' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`relative flex-1 min-w-[90px] py-4 rounded-[2rem] text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${activeAdminTab === tab.id ? 'bg-white text-pink-600 shadow-lg' : 'text-gray-500 hover:text-gray-700'}`}
           >
-            <tab.icon className="w-4 h-4" /> {tab.label}
+            <tab.icon className="w-4 h-4" /> 
+            {tab.label}
+            {tab.badge !== undefined && tab.badge > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-pink-600 text-white rounded-full flex items-center justify-center text-[8px] border-2 border-white animate-bounce">
+                {tab.badge}
+              </span>
+            )}
           </button>
         ))}
       </div>
 
+      {/* Approvals Tab */}
+      {activeAdminTab === 'PENDING' && (
+        <div className="space-y-6 animate-in slide-in-from-bottom-4">
+          <div className="flex items-center justify-between px-4">
+             <div className="space-y-1">
+               <h2 className="text-xl font-black uppercase italic tracking-tighter">Queue</h2>
+               <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest">Merchants waiting for verification</p>
+             </div>
+             <div className="bg-orange-100 text-orange-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest">
+                {pendingCount} Pending
+             </div>
+          </div>
+
+          {pendingCount === 0 ? (
+            <div className="bg-white p-12 rounded-[4rem] border shadow-sm text-center space-y-4">
+              <Check className="w-16 h-16 text-green-500 mx-auto" />
+              <h3 className="text-lg font-black uppercase italic">All Caught Up</h3>
+              <p className="text-xs font-medium text-gray-500 italic">There are no new merchant applications to review at this time.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {shops.filter(s => s.status === 'PENDING').map(shop => (
+                <div key={shop.id} className="bg-white p-8 rounded-[4rem] border-2 border-orange-200 shadow-xl space-y-6 transition-all hover:scale-[1.01]">
+                   <div className="flex items-center justify-between gap-6">
+                      <div className="flex items-center gap-6">
+                         <img src={shop.logo || undefined} className="w-20 h-20 rounded-[2.5rem] object-cover bg-gray-50 border-4 border-white shadow-xl" />
+                         <div className="space-y-1">
+                            <h3 className="text-xl font-black uppercase italic tracking-tighter">{shop.name || 'New Merchant'}</h3>
+                            <div className="flex gap-2">
+                               <span className="bg-pink-100 text-pink-600 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest">{shop.category || 'Clothing'}</span>
+                               <span className="bg-gray-100 text-gray-500 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest">{shop.bazaar || 'Ladies Bazar'}</span>
+                            </div>
+                         </div>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                         <button 
+                           onClick={() => updateShopField(shop.id, 'status', 'APPROVED')}
+                           disabled={loadingId === shop.id + 'status'}
+                           className="px-8 py-4 bg-green-600 text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest shadow-xl shadow-green-600/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+                         >
+                            {loadingId === shop.id + 'status' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} 
+                            Approve
+                         </button>
+                         <button 
+                           onClick={() => deleteShop(shop.id)}
+                           disabled={loadingId === shop.id + 'delete'}
+                           className="px-8 py-4 bg-red-50 text-red-600 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all flex items-center justify-center gap-2"
+                         >
+                            {loadingId === shop.id + 'delete' ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />} 
+                            Reject
+                         </button>
+                      </div>
+                   </div>
+
+                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-6 border-t border-gray-50">
+                      <div className="space-y-1">
+                         <p className="text-[8px] font-black uppercase text-gray-400 tracking-widest">Contact Mobile</p>
+                         <p className="text-sm font-bold text-gray-900">{shop.mobile || 'N/A'}</p>
+                      </div>
+                      <div className="space-y-1">
+                         <p className="text-[8px] font-black uppercase text-gray-400 tracking-widest">Whatsapp</p>
+                         <p className="text-sm font-bold text-gray-900">{shop.whatsapp || shop.mobile || 'N/A'}</p>
+                      </div>
+                      <div className="space-y-1">
+                         <p className="text-[8px] font-black uppercase text-gray-400 tracking-widest">Merchant Address</p>
+                         <p className="text-sm font-bold text-gray-900 truncate">{shop.address || 'Ghotki'}</p>
+                      </div>
+                   </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Merchants Tab */}
       {activeAdminTab === 'SHOPS' && (
         <div className="space-y-12 animate-in slide-in-from-bottom-4">
-          {/* NEW: Pending Approvals Section */}
-          {shops.some(s => s.status === 'PENDING') && (
-            <div className="space-y-6 bg-orange-50/50 p-6 rounded-[4rem] border-2 border-dashed border-orange-100">
-               <div className="flex items-center gap-4 px-2">
-                  <div className="h-px flex-1 bg-orange-200"></div>
-                  <h2 className="text-[12px] font-black uppercase tracking-[0.4em] text-orange-600 italic flex items-center gap-2">
-                    <Clock className="w-4 h-4 animate-pulse" /> Pending Approval
-                  </h2>
-                  <div className="h-px flex-1 bg-orange-200"></div>
-                </div>
-                <div className="space-y-4">
-                  {shops.filter(s => s.status === 'PENDING').map(shop => (
-                    <div key={shop.id} className="bg-white p-6 rounded-[3rem] border-2 border-orange-200 shadow-xl flex flex-col gap-6 transform hover:scale-[1.01] transition-all">
-                       <div className="flex items-center justify-between gap-4">
-                         <div className="flex items-center gap-4 flex-1 min-w-0">
-                            <img src={shop.logo || undefined} className="w-14 h-14 rounded-[1.5rem] object-cover bg-gray-50 border-2 border-white shadow-sm" />
-                            <div className="truncate">
-                              <p className="font-black text-sm uppercase italic text-gray-900 truncate tracking-tight">{shop.name}</p>
-                              <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest">{shop.category || 'New Boutique'}</p>
-                            </div>
-                         </div>
-                         <button 
-                            disabled={loadingId === shop.id + 'approve'}
-                            onClick={() => updateShopField(shop.id, 'status', 'APPROVED')}
-                            className="bg-green-600 text-white px-8 py-4 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest shadow-xl shadow-green-200 active:scale-95 transition-all flex items-center gap-2"
-                          >
-                           {loadingId === shop.id + 'approve' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Approve Live
-                         </button>
-                       </div>
-                       <div className="grid grid-cols-2 gap-4 text-[9px] font-bold text-gray-400 p-4 bg-gray-50 rounded-2xl">
-                          <div className="space-y-1">
-                             <p className="uppercase tracking-widest opacity-50">Mobile</p>
-                             <p className="text-gray-900">{shop.mobile || 'No Mobile'}</p>
-                          </div>
-                          <div className="space-y-1">
-                             <p className="uppercase tracking-widest opacity-50">Address</p>
-                             <p className="text-gray-900 truncate">{shop.address || 'No Address'}</p>
-                          </div>
-                       </div>
-                    </div>
-                  ))}
-                </div>
-            </div>
-          )}
+          <div className="flex items-center justify-between px-4">
+             <div className="space-y-1">
+               <h2 className="text-xl font-black uppercase italic tracking-tighter">Directory</h2>
+               <p className="text-[9px] font-black text-pink-500 uppercase tracking-widest">Active marketplace merchants</p>
+             </div>
+          </div>
 
           {categories.map(cat => {
             const catNorm = normalize(cat.id);
@@ -491,6 +609,126 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </button>
              </div>
            ))}
+        </div>
+      )}
+
+      {/* Loyalty Management Tab */}
+      {activeAdminTab === 'LOYALTY' && (
+        <div className="space-y-8 animate-in slide-in-from-bottom-4">
+          <div className="flex items-center justify-between px-4">
+             <div className="space-y-1">
+               <h2 className="text-xl font-black uppercase italic tracking-tighter">Loyalty Cards</h2>
+               <p className="text-[9px] font-black text-pink-500 uppercase tracking-widest">Manage benefits & features</p>
+             </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {loyaltyPlans.map((plan) => (
+              <div key={plan.id} className="bg-white p-8 rounded-[3.5rem] border border-gray-100 shadow-xl space-y-6">
+                <div className="flex items-center gap-4">
+                   <div className="w-12 h-12 bg-pink-100 rounded-2xl flex items-center justify-center text-pink-600 shadow-inner">
+                      <Trophy className="w-6 h-6" />
+                   </div>
+                   <div className="flex-1">
+                      <input 
+                        className="w-full text-lg font-black uppercase italic tracking-tighter outline-none focus:text-pink-600"
+                        value={plan.name}
+                        onChange={(e) => updateLoyaltyField(plan.id, 'name', e.target.value)}
+                      />
+                      <div className="flex items-center gap-2">
+                         <span className="text-[10px] font-bold text-gray-400">PRICE: PKR</span>
+                         <input 
+                           type="number"
+                           className="w-20 text-[10px] font-black bg-gray-50 px-2 py-1 rounded-lg outline-none"
+                           value={plan.price}
+                           onChange={(e) => updateLoyaltyField(plan.id, 'price', Number(e.target.value))}
+                         />
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                         <span className="text-[10px] font-bold text-gray-400">COLOR:</span>
+                         <input 
+                           type="color"
+                           className="w-8 h-6 rounded-md cursor-pointer border-none p-0"
+                           value={plan.color || '#ec4899'}
+                           onChange={(e) => updateLoyaltyField(plan.id, 'color', e.target.value)}
+                         />
+                      </div>
+                   </div>
+                </div>
+
+                <div className="space-y-4 pt-4 border-t border-gray-50">
+                   <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest">Discount %</span>
+                      <input 
+                        type="number"
+                        className="w-16 text-right font-black text-pink-600 px-2 py-1 bg-pink-50 rounded-lg outline-none"
+                        value={plan.discount_percentage}
+                        onChange={(e) => updateLoyaltyField(plan.id, 'discount_percentage', Number(e.target.value))}
+                      />
+                   </div>
+
+                   <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest">Free Delivery</span>
+                      <button 
+                        onClick={() => updateLoyaltyField(plan.id, 'free_delivery', !plan.free_delivery)}
+                        className={`w-12 h-6 rounded-full transition-all relative ${plan.free_delivery ? 'bg-green-500' : 'bg-gray-200'}`}
+                      >
+                         <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${plan.free_delivery ? 'right-1' : 'left-1'}`}></div>
+                      </button>
+                   </div>
+
+                   <div className="space-y-1">
+                      <p className="text-[8px] font-black uppercase text-gray-400 tracking-widest">Gift Information</p>
+                      <input 
+                        className="w-full text-xs font-bold text-gray-700 bg-gray-50 px-3 py-2 rounded-xl border-none"
+                        value={plan.gift_info || ''}
+                        placeholder="e.g. Free Makeup Kit"
+                        onChange={(e) => updateLoyaltyField(plan.id, 'gift_info', e.target.value)}
+                      />
+                   </div>
+
+                   <div className="space-y-1">
+                      <p className="text-[8px] font-black uppercase text-gray-400 tracking-widest">Free Item Offer</p>
+                      <input 
+                        className="w-full text-xs font-bold text-gray-700 bg-gray-50 px-3 py-2 rounded-xl border-none"
+                        value={plan.free_item_info || ''}
+                        placeholder="e.g. Buy 1 Khussa Get 1 Free"
+                        onChange={(e) => updateLoyaltyField(plan.id, 'free_item_info', e.target.value)}
+                      />
+                   </div>
+
+                   <div className="space-y-2">
+                      <p className="text-[8px] font-black uppercase text-gray-400 tracking-widest">Custom Benefits (Enter one per line)</p>
+                      <textarea 
+                        className="w-full text-[10px] font-bold text-pink-600 bg-pink-50 p-4 rounded-3xl min-h-[120px] outline-none border-2 border-transparent focus:border-pink-200 transition-all placeholder:text-pink-200"
+                        value={(plan.custom_benefits || []).filter(Boolean).join('\n')}
+                        placeholder="Lucky Draw Entry&#10;Win Umra Ticket&#10;VIP Access"
+                        onChange={(e) => updateLoyaltyField(plan.id, 'custom_benefits', e.target.value.split('\n').map(s => s.trim()))}
+                      />
+                      <p className="text-[7px] font-bold text-gray-400 uppercase italic">Benefits appear as bullet points on the user profile.</p>
+                   </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="bg-gradient-to-br from-gray-800 to-gray-900 p-8 rounded-[3.5rem] text-white space-y-4 shadow-2xl border-t-4 border-pink-500">
+              <div className="flex items-center gap-4">
+                 <div className="w-12 h-12 bg-pink-600 rounded-2xl flex items-center justify-center shadow-lg shadow-pink-600/30"><Star className="w-6 h-6" /></div>
+                 <h3 className="text-xl font-black uppercase italic tracking-tighter">Points System Status</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-6">
+                 <div className="bg-white/10 p-6 rounded-3xl space-y-1 border border-white/10">
+                    <p className="text-[8px] font-black uppercase tracking-widest text-pink-400">Conversion Rate</p>
+                    <p className="text-sm font-bold text-white">1k PKR = 12 Points</p>
+                 </div>
+                 <div className="bg-white/10 p-6 rounded-3xl space-y-1 border border-white/10">
+                    <p className="text-[8px] font-black uppercase tracking-widest text-pink-400">Award Type</p>
+                    <p className="text-sm font-bold text-white">Post-Completion</p>
+                 </div>
+              </div>
+              <p className="text-[9px] font-medium text-gray-400 italic">Buyers earn roughly PKR 3.00 value for every PKR 1000 spent (standard scale). points are added once seller marks order as completed.</p>
+          </div>
         </div>
       )}
 

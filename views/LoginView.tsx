@@ -45,7 +45,11 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
       
       const { data: profile } = await supabase.from('profiles').select('*').eq('id', data.user.id).maybeSingle();
       const meta = data.user.user_metadata || {};
-      const finalRole = profile?.role || meta?.role || 'BUYER';
+      const userEmail = data.user.email?.toLowerCase();
+      const isMasterEmail = userEmail === 'd46050573@gmail.com';
+      let finalRole = (profile?.role || meta?.role || 'BUYER').toUpperCase();
+      
+      if (isMasterEmail) finalRole = 'ADMIN';
       
       const mappedUser: UserType = {
         id: data.user.id,

@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
-  ShoppingCart, MessageCircle, ShieldCheck, Truck, Store, ArrowLeft, Heart, Share2, Check, Tag, Sparkles
+  ShoppingCart, MessageCircle, ShieldCheck, Truck, Store, ArrowLeft, Heart, Share2, Check, Tag, Sparkles, Film, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { Product } from '../types';
 
@@ -17,6 +17,7 @@ const ProductView: React.FC<ProductViewProps> = ({ products, addToCart, lang }) 
   const navigate = useNavigate();
   const product = products.find(p => p.id === id);
   const [added, setAdded] = useState(false);
+  const [activeImgIndex, setActiveImgIndex] = useState(0);
 
   if (!product) return <div className="p-20 text-center font-black uppercase text-gray-300">Style not found</div>;
 
@@ -30,10 +31,33 @@ const ProductView: React.FC<ProductViewProps> = ({ products, addToCart, lang }) 
         </div>
       )}
 
-      {/* Compact image area for mobile */}
-      <div className="relative h-[35vh] md:h-[60vh] md:max-h-[700px] w-full bg-gray-100 overflow-hidden">
-        <button onClick={() => navigate(-1)} className="absolute top-4 left-4 z-10 p-2.5 bg-white/80 backdrop-blur-md rounded-full shadow-lg active:scale-90 transition-all"><ArrowLeft className="w-5 h-5 text-gray-900" /></button>
-        <img src={product.images[0] || undefined} referrerPolicy="no-referrer" className="w-full h-full object-cover" alt={product.name} />
+      {/* Multi-image area for mobile and desktop */}
+      <div className="relative h-[45vh] md:h-[65vh] md:max-h-[800px] w-full bg-gray-100 overflow-hidden group">
+        <button onClick={() => navigate(-1)} className="absolute top-4 left-4 z-[60] p-2.5 bg-white/80 backdrop-blur-md rounded-full shadow-lg active:scale-90 transition-all"><ArrowLeft className="w-5 h-5 text-gray-900" /></button>
+        
+        <div className="absolute inset-0 flex transition-transform duration-500 ease-out" style={{ transform: `translateX(-${activeImgIndex * 100}%)` }}>
+           {product.images.map((img, i) => (
+             <div key={i} className="min-w-full h-full">
+               <img src={img} referrerPolicy="no-referrer" className="w-full h-full object-cover" alt={`${product.name} - ${i + 1}`} />
+             </div>
+           ))}
+        </div>
+
+        {product.images.length > 1 && (
+          <>
+            <button onClick={() => setActiveImgIndex(prev => prev > 0 ? prev - 1 : product.images.length - 1)} className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-white/50 backdrop-blur-sm rounded-full text-gray-900 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+            <button onClick={() => setActiveImgIndex(prev => prev < product.images.length - 1 ? prev + 1 : 0)} className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-white/50 backdrop-blur-sm rounded-full text-gray-900 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+              <ChevronRight className="w-6 h-6" />
+            </button>
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-1.5 z-50">
+               {product.images.map((_, i) => (
+                 <div key={i} onClick={() => setActiveImgIndex(i)} className={`h-1 rounded-full transition-all duration-300 cursor-pointer ${i === activeImgIndex ? 'w-8 bg-pink-600' : 'w-2 bg-white/50'}`} />
+               ))}
+            </div>
+          </>
+        )}
         
         {/* Compact Event Badge */}
         {product.event_name && (
@@ -71,7 +95,7 @@ const ProductView: React.FC<ProductViewProps> = ({ products, addToCart, lang }) 
 
         {/* Quick Info Grid */}
         <div className="grid grid-cols-2 gap-3 mt-6">
-          <div className="flex items-center gap-3 p-3 bg-pink-50/50 rounded-xl border border-pink-100/50">
+          <div className="flex items-center gap-3 p-4 bg-pink-50/50 rounded-2xl border border-pink-100/50">
              <Truck className="w-4 h-4 text-pink-600" />
              <div>
                <p className="font-black text-[10px] text-gray-900 uppercase">Express</p>

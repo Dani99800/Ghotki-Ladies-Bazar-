@@ -2,23 +2,24 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   PlusCircle, X, Loader2, Settings, Trash2, 
-  Check, MessageCircle, Sparkles, Film, Camera, Save, UploadCloud, Store, Trophy, CreditCard, Smartphone, Building2, Edit2, MapPin, Box, Package, History, AlertTriangle
+  Check, MessageCircle, Sparkles, Camera, Save, UploadCloud, Store, Trophy, CreditCard, Smartphone, Building2, Edit2, MapPin, Box, Package, History, AlertTriangle
 } from 'lucide-react';
-import { Product, Order, User as UserType, Shop } from '../types';
+import { Product, Order, User as UserType, Shop, Category } from '../types';
 import { CATEGORIES, BAZAARS } from '../constants';
-import { supabase } from '../services/supabase';
+import { supabase, uploadFile } from '../services/supabase';
 
 interface SellerDashboardProps {
   products: Product[];
   user: UserType;
-  addProduct: () => void;
+  addProduct: (silent?: boolean) => void;
   orders: Order[];
   shops: Shop[];
-  refreshShop: () => void;
+  refreshShop: (silent?: boolean) => void;
   refreshOrders?: () => void;
+  categories: Category[];
 }
 
-const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addProduct, orders, shops, refreshShop, refreshOrders }) => {
+const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addProduct, orders, shops, refreshShop, refreshOrders, categories = [] }) => {
   const [activeTab, setActiveTab] = useState<'Inventory' | 'Orders' | 'Settings'>('Inventory');
   const [orderSubTab, setOrderSubTab] = useState<'ACTIVE' | 'HISTORY'>('ACTIVE');
   const [showModal, setShowModal] = useState(false);
@@ -27,7 +28,6 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
   const [uploadingType, setUploadingType] = useState<'LOGO' | 'BANNER' | null>(null);
 
   const imgInputRef = useRef<HTMLInputElement>(null);
-  const videoInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
 
@@ -39,11 +39,10 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
     originalPrice: '',
     discountPercentage: '0',
     price: '', 
-    category: CATEGORIES[0].name,
+    category: categories[0]?.name || CATEGORIES[0].name,
     description: '',
     eventName: '',
     images: [] as string[],
-    videoUrl: '',
     stock: '1'
   });
 
@@ -62,7 +61,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
   });
 
   useEffect(() => {
-    if (myShop) {
+    if (myShop && !loading) {
       setSettingsForm({
         name: myShop.name,
         whatsapp: myShop.whatsapp || '',
@@ -90,11 +89,10 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         description: editingProduct.description || '',
         eventName: editingProduct.event_name || '',
         images: editingProduct.images || [],
-        videoUrl: editingProduct.videoUrl || '',
         stock: (editingProduct.stock || 1).toString()
       });
     } else {
-      setProductForm({ name: '', originalPrice: '', discountPercentage: '0', price: '', category: CATEGORIES[0].name, description: '', eventName: '', images: [], videoUrl: '', stock: '1' });
+      setProductForm({ name: '', originalPrice: '', discountPercentage: '0', price: '', category: categories[0]?.name || CATEGORIES[0].name, description: '', eventName: '', images: [], stock: '1' });
     }
   }, [editingProduct, showModal]);
 
@@ -110,10 +108,10 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
     }
   }, [productForm.originalPrice, productForm.discountPercentage]);
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'IMAGE' | 'VIDEO' | 'LOGO' | 'BANNER') => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'IMAGE' | 'LOGO' | 'BANNER', replaceIndex?: number) => {
     if (!supabase || !e.target.files?.[0] || !myShop) return;
     const file = e.target.files[0];
-    const bucket = type === 'VIDEO' ? 'videos' : 'marketplace';
+    const bucket = 'marketplace';
     
     setLoading(true);
     if (type === 'LOGO' || type === 'BANNER') setUploadingType(type);
@@ -123,22 +121,34 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
       const filePath = `${user.id}/${fileName}`;
       
-      const { error: uploadError } = await supabase.storage.from(bucket).upload(filePath, file);
-      if (uploadError) throw uploadError;
-      
-      const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(filePath);
-      const finalUrl = `${publicUrl}?v=${Date.now()}`;
+      const finalUrl = await uploadFile(bucket, filePath, file);
       
       if (type === 'IMAGE') {
-        setProductForm(p => ({ ...p, images: [...p.images, finalUrl] }));
-      } else if (type === 'VIDEO') {
-        setProductForm(p => ({ ...p, videoUrl: finalUrl }));
+        if (replaceIndex !== undefined) {
+           setProductForm(p => {
+             const newImages = [...p.images];
+             newImages[replaceIndex] = finalUrl;
+             return { ...p, images: newImages };
+           });
+        } else {
+          if (productForm.images.length >= 3) {
+            alert("Maximum 3 images allowed per product.");
+            return;
+          }
+          setProductForm(p => ({ ...p, images: [...p.images, finalUrl] }));
+        }
       } else if (type === 'LOGO' || type === 'BANNER') {
-        const field = type.toLowerCase() === 'logo' ? 'logo_url' : 'banner_url';
+        const field = type === 'LOGO' ? 'logo' : 'banner';
+        
+        // Update Supabase
         const { error: updateError } = await supabase.from('shops').update({ [field]: finalUrl }).eq('id', myShop.id);
         if (updateError) throw updateError;
+        
+        // Update local settings form immediately for instant feel
         setSettingsForm(prev => ({ ...prev, [type.toLowerCase()]: finalUrl }));
-        await refreshShop();
+        
+        // Silent refresh to update the global app state
+        await refreshShop(true);
       }
     } catch (err: any) {
       alert(`Upload Failed: ${err.message}`);
@@ -175,7 +185,6 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         category: productForm.category,
         description: productForm.description,
         image_urls: productForm.images,
-        video_url: productForm.videoUrl,
         stock: parseInt(productForm.stock) || 0,
         tags: productForm.discountPercentage !== '0' ? [`${productForm.discountPercentage}% OFF`] : ['New Arrival']
       };
@@ -186,8 +195,8 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
 
       if (error) throw error;
       
-      // Refresh data
-      await addProduct();
+      // Silent refresh data
+      await addProduct(true);
       
       // Close modal and reset
       setShowModal(false);
@@ -215,8 +224,9 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
       }).eq('id', myShop.id);
 
       if (error) throw error;
+      
+      await refreshShop(true);
       alert("Basic Information Updated Successfully!");
-      await refreshShop();
     } catch (err: any) {
       alert("Update Failed: " + err.message);
     } finally {
@@ -236,8 +246,9 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
       }).eq('id', myShop.id);
 
       if (error) throw error;
+      
+      await refreshShop(true);
       alert("Payment Information Updated Successfully!");
-      await refreshShop();
     } catch (err: any) {
       alert("Update Failed: " + err.message);
     } finally {
@@ -253,6 +264,21 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
       const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', orderId);
       if (error) throw error;
       
+      // AWARD POINTS ON COMPLETION
+      if (newStatus === 'COMPLETED') {
+        const order = orders.find(o => o.id === orderId);
+        if (order && order.buyerId && !order.buyerId.startsWith('guest_')) {
+          const pointsAwarded = Math.floor(Number(order.subtotal) / 1000) * 12;
+          if (pointsAwarded > 0) {
+            console.log(`Awarding ${pointsAwarded} points to buyer ${order.buyerId}`);
+            await supabase.rpc('award_order_points', { 
+              user_id: order.buyerId, 
+              points_to_add: pointsAwarded 
+            });
+          }
+        }
+      }
+
       alert(`Order updated to ${newStatus} successfully!`);
       if (refreshOrders) await refreshOrders();
     } catch (err: any) {
@@ -345,7 +371,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
                   <img src={(Array.isArray(p.images) ? p.images[0] : (p as any).image_url) || undefined} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                   <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                      <button onClick={() => { setEditingProduct(p); setShowModal(true); }} className="p-3 bg-white text-pink-600 rounded-xl shadow-lg"><Edit2 className="w-4 h-4" /></button>
-                     <button onClick={() => { if(window.confirm("Delete style?")) supabase?.from('products').delete().eq('id', p.id).then(addProduct); }} className="p-3 bg-white text-red-600 rounded-xl shadow-lg"><Trash2 className="w-4 h-4" /></button>
+                     <button onClick={() => { if(window.confirm("Delete style?")) supabase?.from('products').delete().eq('id', p.id).then(() => addProduct(true)); }} className="p-3 bg-white text-red-600 rounded-xl shadow-lg"><Trash2 className="w-4 h-4" /></button>
                   </div>
                   {p.discount_percentage && p.discount_percentage > 0 && (
                     <div className="absolute top-2 left-2 bg-red-600 text-white text-[7px] font-black px-2 py-1 rounded-lg uppercase shadow-lg">-{p.discount_percentage}% OFF</div>
@@ -449,7 +475,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
                  <div className="space-y-1">
                     <p className="text-[9px] font-black uppercase text-gray-400 ml-4">Shop Category</p>
                     <select className="w-full p-5 bg-gray-50 rounded-2xl font-bold text-sm outline-none cursor-pointer" value={settingsForm.category} onChange={e => setSettingsForm({...settingsForm, category: e.target.value})}>
-                       {CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                       {(categories.length > 0 ? categories : CATEGORIES).map(c => <option key={c.id || c.name} value={c.name}>{c.name}</option>)}
                     </select>
                  </div>
                  <div className="space-y-1">
@@ -497,27 +523,57 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
               </div>
 
               <form onSubmit={handleProductSubmit} className="space-y-6 pb-12">
-                 {/* Media Section */}
-                 <div className="grid grid-cols-2 gap-4">
-                   <div onClick={() => imgInputRef.current?.click()} className="aspect-square bg-gray-50 rounded-[2.5rem] border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-3 cursor-pointer overflow-hidden group">
-                      {productForm.images.length > 0 ? <img src={productForm.images[0] || undefined} className="w-full h-full object-cover" /> : <><Camera className="w-8 h-8 text-gray-300" /><span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Main Photo</span></>}
-                      <input type="file" hidden ref={imgInputRef} accept="image/*" onChange={(e) => handleFileUpload(e, 'IMAGE')} />
-                   </div>
-                   <div 
-                    onClick={() => canUploadVideo ? videoInputRef.current?.click() : alert("Video upload is only for Standard/Premium merchants.")} 
-                    className={`aspect-square rounded-[2.5rem] border-2 border-dashed flex flex-col items-center justify-center gap-3 cursor-pointer overflow-hidden group transition-all ${canUploadVideo ? 'bg-gray-50 border-gray-200' : 'bg-gray-100 border-gray-100 opacity-60'}`}
-                   >
-                      {productForm.videoUrl ? <div className="text-pink-600 flex flex-col items-center"><Film className="w-8 h-8" /><span className="text-[9px] font-black uppercase mt-1">Reel Ready</span></div> : (
-                        <>
-                          <Film className={`w-8 h-8 ${canUploadVideo ? 'text-gray-300' : 'text-gray-200'}`} />
-                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-4 text-center">
-                            {canUploadVideo ? 'Product Reel' : 'Pro Feature'}
-                          </span>
-                        </>
-                      )}
-                      {canUploadVideo && <input type="file" hidden ref={videoInputRef} accept="video/*" onChange={(e) => handleFileUpload(e, 'VIDEO')} />}
-                   </div>
-                 </div>
+                  <div className="space-y-4">
+                    <p className="text-[10px] font-black uppercase text-gray-400 ml-4">Product Images (Max 3)</p>
+                    <div className="grid grid-cols-3 gap-3">
+                      {[0, 1, 2].map((idx) => (
+                        <div 
+                          key={idx}
+                          onClick={() => {
+                            if (!productForm.images[idx]) {
+                              (imgInputRef.current as any)._glb_target_idx = idx;
+                              imgInputRef.current?.click();
+                            }
+                          }} 
+                          className="aspect-square bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-2 cursor-pointer overflow-hidden group relative"
+                        >
+                          {productForm.images[idx] ? (
+                            <>
+                              <img src={productForm.images[idx]} className="w-full h-full object-cover" />
+                              <button 
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setProductForm(p => ({ ...p, images: p.images.filter((_, i) => i !== idx) }));
+                                }} 
+                                className="absolute top-1 right-1 bg-white/80 p-1 rounded-lg text-red-600 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                              <div 
+                                onClick={(e) => {
+                                   e.stopPropagation();
+                                   (imgInputRef.current as any)._glb_target_idx = idx;
+                                   imgInputRef.current?.click();
+                                }}
+                                className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+                              >
+                                 <Camera className="w-6 h-6 text-white" />
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <Camera className="w-6 h-6 text-gray-300" />
+                              <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest text-center px-1">
+                                {idx === 0 ? 'Main Photo' : `Angle ${idx + 1}`}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <input type="file" hidden ref={imgInputRef} accept="image/*" onChange={(e) => handleFileUpload(e, 'IMAGE', (e.target as any)._glb_target_idx)} />
+                  </div>
 
                  {/* Basic Details */}
                  <div className="space-y-4">
@@ -534,7 +590,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
                      <div className="space-y-1">
                         <p className="text-[10px] font-black uppercase text-gray-400 ml-4">Category</p>
                         <select className="w-full p-6 bg-gray-50 border border-transparent rounded-[2rem] font-black text-sm outline-none cursor-pointer" value={productForm.category} onChange={e => setProductForm({...productForm, category: e.target.value})}>
-                          {CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                          {(categories.length > 0 ? categories : CATEGORIES).map(c => <option key={c.id || c.name} value={c.name}>{c.name}</option>)}
                         </select>
                      </div>
                    </div>

@@ -43,7 +43,7 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
       .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
   }, [products, shops]);
 
-  const normalize = (str: string) => (str || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+  const normalize = (str: string) => (str || '').toLowerCase().replace(/[^a-z0-9]/g, '').replace(/s(?=clothes|footwear|wear|store|$)/g, '').trim();
 
   const filteredProducts = products.filter(p => {
     if (!isShopActive(p.shopId)) return false;

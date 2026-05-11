@@ -12,6 +12,22 @@ export interface User {
   address?: string;
   city?: string;
   savedProductIds?: string[];
+  points?: number;
+  loyalty_plan_id?: string;
+  loyalty_expiry?: string;
+}
+
+export interface LoyaltyPlan {
+  id: string;
+  name: string;
+  price: number;
+  discount_percentage: number;
+  free_delivery: boolean;
+  gift_info: string;
+  free_item_info: string;
+  custom_benefits: string[]; // e.g. ["Enter Umra Draw", "Lucky Draw Access"]
+  duration_days: number;
+  color?: string;
 }
 
 export interface Category {
@@ -66,7 +82,7 @@ export interface Product {
   event_name?: string;
   category: string;
   images: string[];
-  videoUrl?: string; 
+  videoUrl?: string;
   tags: string[];
   createdAt?: string;
   stock?: number;
