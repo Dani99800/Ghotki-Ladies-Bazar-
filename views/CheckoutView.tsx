@@ -63,17 +63,18 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, clearCart, user, lang
 
         const sellerItems = cart.filter(item => item.shopId === shopId);
         const sellerSubtotal = sellerItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+        const sellerLoyaltyDiscount = effectiveLoyalty ? Math.round(sellerSubtotal * (effectiveLoyalty.discount_percentage / 100)) : 0;
+        const sellerDeliveryFee = (method === 'DELIVERY' && effectiveLoyalty?.free_delivery) ? 0 : (method === 'DELIVERY' ? 150 : 0);
         
         const order: Order = {
           id: 'ord_' + Math.random().toString(36).substr(2, 9),
           buyerId: user?.id || 'guest_' + Date.now(),
-          sellerId: shop.id, // CRITICAL FIX: Use shop.id (UUID) to satisfy database foreign key and ensure visibility in seller dashboard
+          sellerId: shop.id, 
           items: sellerItems,
           subtotal: sellerSubtotal,
-          deliveryFee: method === 'DELIVERY' ? 150 : 0,
+          deliveryFee: sellerDeliveryFee,
           platformFee: PLATFORM_FEE_PKR,
-          total: sellerSubtotal + (method === 'DELIVERY' ? 150 : 0),
-          // Fix: deliveryType is not in Order type, removing it to fix TS error
+          total: sellerSubtotal + sellerDeliveryFee + PLATFORM_FEE_PKR - sellerLoyaltyDiscount,
           status: 'PENDING',
           paymentMethod: payment,
           buyerName: guestInfo.name,

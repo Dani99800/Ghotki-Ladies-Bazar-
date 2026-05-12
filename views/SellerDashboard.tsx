@@ -11,10 +11,10 @@ import { supabase, uploadFile } from '../services/supabase';
 interface SellerDashboardProps {
   products: Product[];
   user: UserType;
-  addProduct: (silent?: boolean) => void;
+  addProduct: (silent?: boolean, force?: boolean) => void;
   orders: Order[];
   shops: Shop[];
-  refreshShop: (silent?: boolean) => void;
+  refreshShop: (silent?: boolean, force?: boolean) => void;
   refreshOrders?: () => void;
   categories: Category[];
 }
@@ -25,6 +25,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(false);
+  const [uploadingIdx, setUploadingIdx] = useState<number | null>(null);
   const [uploadingType, setUploadingType] = useState<'LOGO' | 'BANNER' | null>(null);
 
   const imgInputRef = useRef<HTMLInputElement>(null);
@@ -114,6 +115,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
     const bucket = 'marketplace';
     
     setLoading(true);
+    if (type === 'IMAGE' && replaceIndex !== undefined) setUploadingIdx(replaceIndex);
     if (type === 'LOGO' || type === 'BANNER') setUploadingType(type);
     
     try {
@@ -127,15 +129,17 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         if (replaceIndex !== undefined) {
            setProductForm(p => {
              const newImages = [...p.images];
+             // Ensure array has enough elements to avoid holes
+             while (newImages.length <= replaceIndex) newImages.push('');
              newImages[replaceIndex] = finalUrl;
-             return { ...p, images: newImages };
+             return { ...p, images: newImages.filter(Boolean) };
            });
         } else {
           if (productForm.images.length >= 3) {
             alert("Maximum 3 images allowed per product.");
             return;
           }
-          setProductForm(p => ({ ...p, images: [...p.images, finalUrl] }));
+          setProductForm(p => ({ ...p, images: [...p.images, finalUrl].filter(Boolean) }));
         }
       } else if (type === 'LOGO' || type === 'BANNER') {
         const field = type === 'LOGO' ? 'logo' : 'banner';
@@ -151,9 +155,11 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         await refreshShop(true);
       }
     } catch (err: any) {
+      console.error("Upload Error:", err);
       alert(`Upload Failed: ${err.message}`);
     } finally {
       setLoading(false);
+      setUploadingIdx(null);
       setUploadingType(null);
       if (e.target) e.target.value = '';
     }
@@ -175,6 +181,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
 
     setLoading(true);
     try {
+      const images = productForm.images.filter(Boolean);
       const payload = {
         shop_id: myShop.id,
         name: productForm.name,
@@ -184,7 +191,8 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         event_name: productForm.eventName,
         category: productForm.category,
         description: productForm.description,
-        image_urls: productForm.images,
+        images: images,
+        image_urls: images,
         stock: parseInt(productForm.stock) || 0,
         tags: productForm.discountPercentage !== '0' ? [`${productForm.discountPercentage}% OFF`] : ['New Arrival']
       };
@@ -195,8 +203,8 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
 
       if (error) throw error;
       
-      // Silent refresh data
-      await addProduct(true);
+      // Force refresh data to ensure listing appears immediately
+      await addProduct(true, true);
       
       // Close modal and reset
       setShowModal(false);
@@ -225,7 +233,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
 
       if (error) throw error;
       
-      await refreshShop(true);
+      await refreshShop(true, true);
       alert("Basic Information Updated Successfully!");
     } catch (err: any) {
       alert("Update Failed: " + err.message);
@@ -247,7 +255,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
 
       if (error) throw error;
       
-      await refreshShop(true);
+      await refreshShop(true, true);
       alert("Payment Information Updated Successfully!");
     } catch (err: any) {
       alert("Update Failed: " + err.message);
@@ -530,14 +538,19 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
                         <div 
                           key={idx}
                           onClick={() => {
-                            if (!productForm.images[idx]) {
+                            if (!productForm.images[idx] && !loading) {
                               (imgInputRef.current as any)._glb_target_idx = idx;
                               imgInputRef.current?.click();
                             }
                           }} 
                           className="aspect-square bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-2 cursor-pointer overflow-hidden group relative"
                         >
-                          {productForm.images[idx] ? (
+                          {uploadingIdx === idx ? (
+                             <div className="flex flex-col items-center gap-2">
+                                <Loader2 className="w-6 h-6 text-pink-600 animate-spin" />
+                                <span className="text-[7px] font-black uppercase text-pink-600">Uploading...</span>
+                             </div>
+                          ) : productForm.images[idx] ? (
                             <>
                               <img src={productForm.images[idx]} className="w-full h-full object-cover" />
                               <button 
@@ -553,6 +566,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
                               <div 
                                 onClick={(e) => {
                                    e.stopPropagation();
+                                   if (loading) return;
                                    (imgInputRef.current as any)._glb_target_idx = idx;
                                    imgInputRef.current?.click();
                                 }}

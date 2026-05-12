@@ -32,13 +32,25 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 export const uploadFile = async (bucket: string, path: string, file: File) => {
   if (!supabase) throw new Error("Database connection not established.");
   
-  const { data, error } = await supabase.storage.from(bucket).upload(path, file, { 
-    upsert: true,
-    cacheControl: '3600'
-  });
-  
-  if (error) throw error;
-  
-  const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(data.path);
-  return publicUrl;
+  console.log(`GLB: Uploading to ${bucket}/${path}...`);
+  try {
+    const { data, error } = await supabase.storage.from(bucket).upload(path, file, { 
+      upsert: true,
+      cacheControl: '3600'
+    });
+    
+    if (error) {
+      console.error("GLB: Supabase Storage Error:", error);
+      throw error;
+    }
+    
+    if (!data) throw new Error("No data returned from upload.");
+    
+    const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(data.path);
+    console.log(`GLB: Upload Success. Public URL: ${publicUrl}`);
+    return publicUrl;
+  } catch (err) {
+    console.error("GLB: Storage Exception:", err);
+    throw err;
+  }
 };

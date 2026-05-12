@@ -19,7 +19,8 @@ import {
   Truck,
   Star,
   CheckCircle2,
-  X
+  X,
+  Sparkles
 } from 'lucide-react';
 import { User, LoyaltyPlan } from '../types';
 
@@ -34,6 +35,7 @@ interface ProfileViewProps {
 
 const ProfileView: React.FC<ProfileViewProps> = ({ user, onLogout, onDeleteAccount, lang, loyaltyPlans = [], purchaseLoyaltyCard }) => {
   const navigate = useNavigate();
+  const [activeView, setActiveView] = React.useState<'OVERVIEW' | 'DASHBOARD'>('OVERVIEW');
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [showLoyaltyModal, setShowLoyaltyModal] = React.useState(false);
@@ -99,74 +101,182 @@ const ProfileView: React.FC<ProfileViewProps> = ({ user, onLogout, onDeleteAccou
            </div>
         </div>
       )}
-      <div className="text-center py-6 space-y-4">
-        <div className="relative inline-block">
-          <div className="w-24 h-24 bg-pink-100 rounded-full border-4 border-white shadow-xl flex items-center justify-center mx-auto text-pink-600">
-             <UserIcon className="w-12 h-12" />
-          </div>
-          {effectivePlan && (
-            <div 
-              style={{ backgroundColor: effectivePlan.color || '#facc15' }}
-              className="absolute -bottom-1 -right-1 w-8 h-8 text-white rounded-full flex items-center justify-center border-2 border-white shadow-lg animate-bounce"
-            >
-              <Trophy className="w-4 h-4" />
-            </div>
-          )}
-        </div>
-        <div className="space-y-1">
-          <h1 className="text-2xl font-black text-gray-900 tracking-tight">{user.name}</h1>
-          <div className="flex items-center justify-center gap-2">
-            <span className="px-3 py-1 bg-pink-50 text-pink-600 text-[10px] font-black rounded-full uppercase tracking-widest border border-pink-100">
-              {isAdmin ? 'ADMIN' : user.role} ACCOUNT
-            </span>
-            {effectivePlan && (
-               <span 
-                 style={{ backgroundColor: `${effectivePlan.color}20`, color: effectivePlan.color, borderColor: `${effectivePlan.color}40` }}
-                 className="px-3 py-1 text-[10px] font-black rounded-full uppercase tracking-widest border"
-               >
-                  {effectivePlan.name}
-               </span>
-            )}
-          </div>
-        </div>
-      </div>
 
-      {/* POINTS AND LOYALTY CARD */}
-      <div className="grid grid-cols-2 gap-4">
-         <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-[2.5rem] shadow-xl space-y-2 border-b-4 border-pink-600">
-            <div className="flex items-center gap-2 text-pink-500">
-               <Star className="w-4 h-4" />
-               <span className="text-[8px] font-black uppercase tracking-widest">Bazar Points</span>
-            </div>
-            <p className="text-2xl font-black text-white italic">{(user.points || 0).toLocaleString()}</p>
-            <p className="text-[8px] font-medium text-pink-200/50 uppercase tracking-widest">≈ PKR {((user.points || 0) * 0.25).toLocaleString()} Value</p>
-         </div>
-
-         <div 
-           onClick={() => setShowLoyaltyModal(true)}
-           style={effectivePlan ? { backgroundImage: `linear-gradient(to bottom right, ${effectivePlan.color}, ${effectivePlan.color}dd)`, color: 'white' } : {}}
-           className={`p-6 rounded-[2.5rem] shadow-xl space-y-2 cursor-pointer active:scale-95 transition-all ${effectivePlan ? '' : 'bg-white border border-gray-100'}`}
+      {/* Tab Switcher */}
+      <div className="flex gap-2 p-1.5 bg-gray-100 rounded-[2rem] shadow-inner mb-2">
+         <button 
+           onClick={() => setActiveView('OVERVIEW')}
+           className={`flex-1 py-3 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${activeView === 'OVERVIEW' ? 'bg-white text-pink-600 shadow-lg' : 'text-gray-400'}`}
          >
-            <div className={`flex items-center gap-2 ${effectivePlan ? 'text-white' : 'text-pink-600'}`}>
-               <Trophy className="w-4 h-4" />
-               <span className="text-[8px] font-black uppercase tracking-widest">Loyalty Card</span>
-            </div>
-            {effectivePlan ? (
-              <>
-                <p className="text-xs font-black uppercase italic truncate">{effectivePlan.name}</p>
-                <p className="text-[7px] font-black opacity-80 uppercase">Expiry: {new Date(user.loyalty_expiry!).toLocaleDateString()}</p>
-              </>
-            ) : (
-              <>
-                <p className="text-xs font-black uppercase italic text-gray-400">Get 15% OFF</p>
-                <div className="flex items-center gap-1 text-pink-600">
-                  <span className="text-[8px] font-black uppercase tracking-widest">Purchase Now</span>
-                  <ChevronRight className="w-3 h-3" />
-                </div>
-              </>
-            )}
-         </div>
+            <UserIcon className="w-3 h-3" /> Profile
+         </button>
+         <button 
+           onClick={() => setActiveView('DASHBOARD')}
+           className={`flex-1 py-3 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${activeView === 'DASHBOARD' ? 'bg-white text-pink-600 shadow-lg' : 'text-gray-400'}`}
+         >
+            <LayoutDashboard className="w-3 h-3" /> Dashboard
+         </button>
       </div>
+
+      {activeView === 'OVERVIEW' ? (
+        <>
+          <div className="text-center py-6 space-y-4">
+            <div className="relative inline-block">
+              <div className="w-24 h-24 bg-pink-100 rounded-full border-4 border-white shadow-xl flex items-center justify-center mx-auto text-pink-600">
+                 <UserIcon className="w-12 h-12" />
+              </div>
+              {effectivePlan && (
+                <div 
+                  style={{ backgroundColor: effectivePlan.color || '#facc15' }}
+                  className="absolute -bottom-1 -right-1 w-8 h-8 text-white rounded-full flex items-center justify-center border-2 border-white shadow-lg animate-bounce"
+                >
+                  <Trophy className="w-4 h-4" />
+                </div>
+              )}
+            </div>
+            <div className="space-y-1">
+              <h1 className="text-2xl font-black text-gray-900 tracking-tight">{user.name}</h1>
+              <div className="flex items-center justify-center gap-2">
+                <span className="px-3 py-1 bg-pink-50 text-pink-600 text-[10px] font-black rounded-full uppercase tracking-widest border border-pink-100">
+                  {isAdmin ? 'ADMIN' : user.role} ACCOUNT
+                </span>
+                {effectivePlan && (
+                   <span 
+                     style={{ backgroundColor: `${effectivePlan.color}20`, color: effectivePlan.color, borderColor: `${effectivePlan.color}40` }}
+                     className="px-3 py-1 text-[10px] font-black rounded-full uppercase tracking-widest border"
+                   >
+                      {effectivePlan.name}
+                   </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-gray-100 space-y-6">
+            <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Personal Details</h2>
+            
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-pink-500">
+                  <Phone className="w-5 h-5" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-[10px] font-black text-gray-400 uppercase">Mobile Number</p>
+                  <p className="font-bold text-gray-900">{user.mobile}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-pink-500">
+                  <MapPin className="w-5 h-5" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-[10px] font-black text-gray-400 uppercase">City & Address</p>
+                  <p className="font-bold text-gray-900">{user.city || 'Ghotki'}, {user.address || 'Address not set'}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="space-y-6 animate-in fade-in duration-500">
+          <div className="text-center space-y-1">
+            <h2 className="text-2xl font-black text-gray-900 uppercase italic tracking-tighter">Buyer Dashboard</h2>
+            <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">Rewards & Benefits Hub</p>
+          </div>
+
+          {/* POINTS AND LOYALTY CARD */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-[2.5rem] shadow-xl space-y-2 border-b-4 border-pink-600">
+                <div className="flex items-center gap-2 text-pink-500">
+                   <Star className="w-4 h-4" />
+                   <span className="text-[8px] font-black uppercase tracking-widest">Bazar Points</span>
+                </div>
+                <p className="text-2xl font-black text-white italic">{(user.points || 0).toLocaleString()}</p>
+                <p className="text-[8px] font-medium text-pink-200/50 uppercase tracking-widest">≈ PKR {((user.points || 0) * 0.25).toLocaleString()} Value</p>
+            </div>
+
+            <div 
+              onClick={() => setShowLoyaltyModal(true)}
+              style={effectivePlan ? { backgroundImage: `linear-gradient(to bottom right, ${effectivePlan.color}, ${effectivePlan.color}dd)`, color: 'white' } : {}}
+              className={`p-6 rounded-[2.5rem] shadow-xl space-y-2 cursor-pointer active:scale-95 transition-all ${effectivePlan ? '' : 'bg-white border border-gray-100'}`}
+            >
+                <div className={`flex items-center gap-2 ${effectivePlan ? 'text-white' : 'text-pink-600'}`}>
+                   <Trophy className="w-4 h-4" />
+                   <span className="text-[8px] font-black uppercase tracking-widest">Loyalty Card</span>
+                </div>
+                {effectivePlan ? (
+                  <>
+                    <p className="text-xs font-black uppercase italic truncate">{effectivePlan.name}</p>
+                    <p className="text-[7px] font-black opacity-80 uppercase">Expires: {new Date(user.loyalty_expiry!).toLocaleDateString()}</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-xs font-black uppercase italic text-gray-400">Get 15% OFF</p>
+                    <div className="flex items-center gap-1 text-pink-600">
+                      <span className="text-[8px] font-black uppercase tracking-widest">Activate Now</span>
+                      <ChevronRight className="w-3 h-3" />
+                    </div>
+                  </>
+                )}
+            </div>
+          </div>
+
+          <div className="bg-white p-8 rounded-[3rem] border border-gray-100 shadow-sm space-y-6">
+             <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-pink-50 rounded-xl flex items-center justify-center text-pink-600">
+                   <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                   <h3 className="font-black uppercase text-[11px] tracking-widest text-gray-900 leading-none">Your Benefits</h3>
+                   <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Membership Perks</p>
+                </div>
+             </div>
+
+             <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
+                   <span className="text-[10px] font-black uppercase text-gray-600">Direct Discount</span>
+                   <span className="text-[10px] font-black text-pink-600">{effectivePlan ? `${effectivePlan.discount_percentage}% OFF` : '0%'}</span>
+                </div>
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
+                   <span className="text-[10px] font-black uppercase text-gray-600">Free Delivery</span>
+                   <span className="text-[10px] font-black text-blue-600">{effectivePlan?.free_delivery ? 'ENABLED' : 'DISABLED'}</span>
+                </div>
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
+                   <span className="text-[10px] font-black uppercase text-gray-600">Purchasing Power</span>
+                   <span className="text-[10px] font-black text-green-600">High</span>
+                </div>
+             </div>
+
+             {effectivePlan?.custom_benefits && effectivePlan.custom_benefits.length > 0 && (
+               <div className="pt-4 border-t border-gray-100 space-y-3">
+                  <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Elite Perks</p>
+                  <div className="grid grid-cols-1 gap-2">
+                     {effectivePlan.custom_benefits.map((b, i) => (
+                       <div key={i} className="flex items-center gap-2 text-gray-700">
+                          <CheckCircle2 className="w-3 h-3 text-pink-500" />
+                          <span className="text-[10px] font-bold italic">{b}</span>
+                       </div>
+                     ))}
+                  </div>
+               </div>
+             )}
+          </div>
+          
+          <div className="bg-pink-600 p-8 rounded-[3rem] text-white space-y-4 shadow-xl relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform duration-700"></div>
+            <h3 className="text-xl font-black uppercase italic tracking-tighter flex items-center gap-2">
+              <Gift className="w-6 h-6" /> Points Shop
+            </h3>
+            <p className="text-[10px] font-medium leading-relaxed opacity-90">
+              Redeem your Bazar Points for exclusive lucky draw entries and special gifts. More items coming soon!
+            </p>
+            <button disabled className="w-full py-4 bg-white/20 backdrop-blur-md text-white font-black rounded-2xl uppercase tracking-widest text-[9px] border border-white/30 opacity-50">
+              Coming Soon
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* LOYALTY MODAL */}
       {showLoyaltyModal && (
@@ -177,8 +287,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({ user, onLogout, onDeleteAccou
            >
               <div className="flex items-center justify-between">
                  <div className="space-y-1">
-                   <h2 className="text-3xl font-black uppercase italic tracking-tighter text-gray-900 leading-none">Club Gold</h2>
-                   <p className="text-[10px] font-black text-pink-600 uppercase tracking-widest">Elite Bazar Membership</p>
+                   <h2 className="text-3xl font-black uppercase italic tracking-tighter text-gray-900 leading-none">Club Elite</h2>
+                   <p className="text-[10px] font-black text-pink-600 uppercase tracking-widest">Verified Memberships</p>
                  </div>
                  <button onClick={() => setShowLoyaltyModal(false)} className="p-4 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"><X className="w-6 h-6 text-gray-400 focus:outline-none" /></button>
               </div>
