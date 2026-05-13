@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ShoppingCart, MessageCircle, MapPin, Phone, Star, Info, LayoutGrid, ArrowLeft, Building, Navigation } from 'lucide-react';
+import { ShoppingCart, MessageCircle, MapPin, Phone, Star, Info, LayoutGrid, ArrowLeft, Building, Navigation, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Shop, Product, Order, User as UserType } from '../types';
 import InstantCheckout from '../components/InstantCheckout';
 
@@ -18,9 +18,65 @@ const ShopView: React.FC<ShopViewProps> = ({ shops, products, addToCart, lang, u
   const { id } = useParams();
   const navigate = useNavigate();
   const shop = shops.find(s => s.id === id);
+  // Allow owner to see products even if shop is pending
   const shopProducts = products.filter(p => p.shopId === id);
   const [activeTab, setActiveTab] = useState<'Products' | 'About'>('Products');
-  const [checkoutProduct, setCheckoutProduct] = useState<Product | null>(null);
+  const [checkoutProduct, setCheckoutProduct] = useState<Product|null>(null);
+
+  // Reusable Product Image Scroller for Shop Cards
+  const ProductCardImage = ({ product }: { product: Product }) => {
+    const images = Array.isArray(product.images) ? product.images : [product.images as any];
+    const [idx, setIdx] = useState(0);
+
+    return (
+      <div className="relative w-full h-full group/img">
+        <div 
+          className="flex transition-transform duration-300 ease-out h-full"
+          style={{ transform: `translateX(-${idx * 100}%)` }}
+        >
+          {images.map((img, i) => (
+            <div key={i} className="min-w-full h-full flex-shrink-0">
+              <img 
+                src={img || undefined} 
+                referrerPolicy="no-referrer" 
+                className="w-full h-full object-cover" 
+                alt={`${product.name} - ${i + 1}`}
+              />
+            </div>
+          ))}
+        </div>
+
+        {images.length > 1 && (
+          <>
+            <div className="absolute inset-y-0 left-0 flex items-center pl-2 opacity-0 group-hover/img:opacity-100 transition-opacity">
+              <button 
+                onClick={(e) => { e.stopPropagation(); setIdx(prev => prev > 0 ? prev - 1 : images.length - 1); }}
+                className="p-1.5 bg-white/80 backdrop-blur-md rounded-full shadow-lg text-gray-900 active:scale-90"
+              >
+                <ChevronLeft className="w-3 h-3" />
+              </button>
+            </div>
+            <div className="absolute inset-y-0 right-0 flex items-center pr-2 opacity-0 group-hover/img:opacity-100 transition-opacity">
+              <button 
+                onClick={(e) => { e.stopPropagation(); setIdx(prev => prev < images.length - 1 ? prev + 1 : 0); }}
+                className="p-1.5 bg-white/80 backdrop-blur-md rounded-full shadow-lg text-gray-900 active:scale-90"
+              >
+                <ChevronRight className="w-3 h-3" />
+              </button>
+            </div>
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 z-10">
+              {images.map((_, i) => (
+                <div 
+                  key={i} 
+                  className={`h-1 rounded-full transition-all duration-300 ${i === idx ? 'w-4 bg-pink-600' : 'w-1 bg-white/50'}`}
+                />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
 
   if (!shop) return <div className="h-screen flex items-center justify-center font-black uppercase text-gray-400">Shop not found</div>;
 
@@ -87,8 +143,8 @@ const ShopView: React.FC<ShopViewProps> = ({ shops, products, addToCart, lang, u
             {shopProducts.map(product => (
               <div key={product.id} className="bg-white rounded-2xl md:rounded-[2rem] overflow-hidden shadow-md border border-gray-100 group flex flex-col">
                 <div className="relative aspect-[4/5] overflow-hidden cursor-pointer" onClick={() => navigate(`/product/${product.id}`)}>
-                  <img src={(Array.isArray(product.images) ? product.images[0] : (product as any).image_url) || undefined} referrerPolicy="no-referrer" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                  {product.discount_percentage ? <span className="absolute top-2 left-2 bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded shadow-lg uppercase">SALE</span> : null}
+                  <ProductCardImage product={product} />
+                  {product.discount_percentage ? <span className="absolute top-2 left-2 bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded shadow-lg uppercase z-20">SALE</span> : null}
                 </div>
                 <div className="p-5 flex-1 flex flex-col justify-between space-y-2 md:space-y-4">
                   <div onClick={() => navigate(`/product/${product.id}`)}>

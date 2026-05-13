@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, MapPin, Sparkles, LayoutGrid, Flame, Clock, Star, Trophy, Map, Box } from 'lucide-react';
+import { Search, MapPin, Sparkles, LayoutGrid, Flame, Clock, Star, Trophy, Map, Box, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Shop, Product, Order, User as UserType, Category, AppEvent } from '../types';
 import { BAZAARS } from '../constants';
 import InstantCheckout from '../components/InstantCheckout';
@@ -25,23 +25,28 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
 
   const isShopActive = (shopId: string) => {
     const shop = shops.find(s => s.id === shopId);
-    // If shop is not found, we don't show the product
-    if (!shop) return false; 
+    if (!shop) return false;
+    // Allow owner to see their own shop's products during setup/pending phase
+    if (user && shop.owner_id === user.id) return true;
     // ONLY show APPROVED shops to buyers
     return shop.status === 'APPROVED';
   };
 
   const featuredShops = useMemo(() => {
     return [...shops]
-      .filter(s => s.status === 'APPROVED' && s.featured)
+      .filter(s => {
+        const isApproved = s.status === 'APPROVED';
+        const isMine = user && s.owner_id === user.id;
+        return (isApproved || isMine) && s.featured;
+      })
       .sort((a, b) => (Number(b.sort_priority) || 0) - (Number(a.sort_priority) || 0));
-  }, [shops]);
+  }, [shops, user]);
 
   const newArrivals = useMemo(() => {
     return products
       .filter(p => p.is_new_arrival && isShopActive(p.shopId))
       .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-  }, [products, shops]);
+  }, [products, shops, user]); // Added user to dependency
 
   const normalize = (str: string) => (str || '').toLowerCase().replace(/[^a-z0-9]/g, '').replace(/s(?=clothes|footwear|wear|store|$)/g, '').trim();
 
@@ -60,6 +65,61 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
     const searchMatch = searchTerm === '' || p.name.toLowerCase().includes(searchTerm.toLowerCase());
     return categoryMatch && searchMatch;
   });
+
+  // Reusable Product Image Scroller for Marketplace Cards
+  const ProductCardImage = ({ product }: { product: Product }) => {
+    const images = Array.isArray(product.images) ? product.images : [product.images as any];
+    const [idx, setIdx] = useState(0);
+
+    return (
+      <div className="relative w-full h-full group/img">
+        <div 
+          className="flex transition-transform duration-300 ease-out h-full"
+          style={{ transform: `translateX(-${idx * 100}%)` }}
+        >
+          {images.map((img, i) => (
+            <div key={i} className="min-w-full h-full flex-shrink-0">
+              <img 
+                src={img || undefined} 
+                referrerPolicy="no-referrer" 
+                className="w-full h-full object-cover" 
+                alt={`${product.name} - ${i + 1}`}
+              />
+            </div>
+          ))}
+        </div>
+
+        {images.length > 1 && (
+          <>
+            <div className="absolute inset-y-0 left-0 flex items-center pl-2 opacity-0 group-hover/img:opacity-100 transition-opacity">
+              <button 
+                onClick={(e) => { e.stopPropagation(); setIdx(prev => prev > 0 ? prev - 1 : images.length - 1); }}
+                className="p-1.5 bg-white/80 backdrop-blur-md rounded-full shadow-lg text-gray-900 active:scale-90"
+              >
+                <ChevronLeft className="w-3 h-3" />
+              </button>
+            </div>
+            <div className="absolute inset-y-0 right-0 flex items-center pr-2 opacity-0 group-hover/img:opacity-100 transition-opacity">
+              <button 
+                onClick={(e) => { e.stopPropagation(); setIdx(prev => prev < images.length - 1 ? prev + 1 : 0); }}
+                className="p-1.5 bg-white/80 backdrop-blur-md rounded-full shadow-lg text-gray-900 active:scale-90"
+              >
+                <ChevronRight className="w-3 h-3" />
+              </button>
+            </div>
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 z-10">
+              {images.map((_, i) => (
+                <div 
+                  key={i} 
+                  className={`h-1 rounded-full transition-all duration-300 ${i === idx ? 'w-4 bg-pink-600' : 'w-1 bg-white/50'}`}
+                />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
 
   if (shops.length === 0 && !searchTerm && selectedCategory === 'All') {
     return (
@@ -165,8 +225,8 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
             {newArrivals.map((product) => (
               <div key={product.id} onClick={() => navigate(`/product/${product.id}`)} className="flex-shrink-0 w-40 md:w-56 space-y-3 group cursor-pointer snap-start">
                 <div className="relative aspect-[4/5] rounded-2xl md:rounded-[3rem] overflow-hidden border border-gray-100 shadow-xl bg-gray-50 group-hover:scale-[1.02] transition-transform duration-500">
-                  <img src={(Array.isArray(product.images) ? product.images[0] : (product as any).image_url) || undefined} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
-                  <div className="absolute top-3 left-3 flex flex-col gap-1.5">
+                  <ProductCardImage product={product} />
+                  <div className="absolute top-3 left-3 flex flex-col gap-1.5 z-20">
                      {product.event_name && (
                        <span className="bg-pink-600 text-white text-[7px] md:text-[9px] font-black px-3 py-1.5 md:px-4 md:py-2 rounded-xl md:rounded-2xl uppercase shadow-xl border border-pink-500 flex items-center gap-2">
                          <Sparkles className="w-2 md:w-3 h-2 md:h-3" /> {product.event_name}
@@ -208,7 +268,7 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
             return (
               <div key={product.id} className="bg-white rounded-2xl md:rounded-[3rem] overflow-hidden shadow-md border border-gray-100 flex flex-col group transition-all hover:shadow-2xl">
                 <div className="relative aspect-[4/5] overflow-hidden cursor-pointer" onClick={() => navigate(`/product/${product.id}`)}>
-                  <img src={(Array.isArray(product.images) ? product.images[0] : (product as any).image_url) || undefined} referrerPolicy="no-referrer" className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700" />
+                  <ProductCardImage product={product} />
                   <div className="absolute top-2 right-2 flex flex-col gap-1 z-10">
                     {product.event_name && (
                       <div className="bg-white/90 backdrop-blur-md text-pink-600 text-[9px] font-black px-2.5 py-1.5 rounded-lg uppercase tracking-tight shadow-lg border border-pink-100 flex items-center gap-1.5">
