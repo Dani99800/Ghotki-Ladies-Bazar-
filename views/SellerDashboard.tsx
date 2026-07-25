@@ -2,9 +2,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   PlusCircle, X, Loader2, Settings, Trash2, 
-  Check, MessageCircle, Sparkles, Camera, Save, UploadCloud, Store, Trophy, CreditCard, Smartphone, Building2, Edit2, MapPin, Box, Package, History, AlertTriangle, ShieldCheck
+  Check, MessageCircle, Sparkles, Camera, Save, UploadCloud, Store, Trophy, CreditCard, Smartphone, Building2, Edit2, MapPin, Box, Package, History, AlertTriangle, ShieldCheck, Wallet, DollarSign, Play, Pause, Flame, Phone, Clock, User as UserIcon, MessageSquare
 } from 'lucide-react';
-import { Product, Order, User as UserType, Shop, Category, ProductCondition } from '../types';
+import { Product, Order, User as UserType, Shop, Category, ProductCondition, AdDeposit } from '../types';
 import { CATEGORIES, BAZAARS, GHOTKI_LOCATIONS } from '../constants';
 import { supabase, uploadFile } from '../services/supabase';
 
@@ -20,17 +20,30 @@ interface SellerDashboardProps {
 }
 
 const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addProduct, orders, shops, refreshShop, refreshOrders, categories = [] }) => {
-  const [activeTab, setActiveTab] = useState<'Inventory' | 'Orders' | 'Settings'>('Inventory');
+  const [activeTab, setActiveTab] = useState<'Inventory' | 'Orders' | 'AdsWallet' | 'BuyerDemands' | 'Settings'>('Inventory');
   const [orderSubTab, setOrderSubTab] = useState<'ACTIVE' | 'HISTORY'>('ACTIVE');
   const [showModal, setShowModal] = useState(false);
+  const [showDepositModal, setShowDepositModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploadingIdx, setUploadingIdx] = useState<number | null>(null);
   const [uploadingType, setUploadingType] = useState<'LOGO' | 'BANNER' | null>(null);
 
+  // Buyer Demands State
+  const [buyerDemands, setBuyerDemands] = useState<CustomRequest[]>([]);
+  const [demandFilter, setDemandFilter] = useState<'MY_CATEGORY' | 'ALL'>('MY_CATEGORY');
+
+  // Ad Deposit Form
+  const [depositAmount, setDepositAmount] = useState('500');
+  const [depositMethod, setDepositMethod] = useState('EasyPaisa');
+  const [depositTrxId, setDepositTrxId] = useState('');
+  const [depositProofUrl, setDepositProofUrl] = useState('');
+  const [myAdDeposits, setMyAdDeposits] = useState<AdDeposit[]>([]);
+
   const imgInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
+  const proofInputRef = useRef<HTMLInputElement>(null);
 
   const myShop = shops.find(s => s.owner_id === user.id);
   const isIndividual = myShop?.seller_type === 'INDIVIDUAL' || myShop?.seller_plan === 'INDIVIDUAL_5';
@@ -38,6 +51,168 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
   const isQuotaReached = isIndividual && myProductsCount >= 5;
 
   const activeCategoryList = categories.length > 0 ? categories : CATEGORIES;
+
+  // Fetch Buyer Demands for Seller
+  useEffect(() => {
+    const fetchDemands = async () => {
+      let remote: any[] = [];
+      if (supabase) {
+        try {
+          const { data } = await supabase.from('custom_requests').select('*').order('created_at', { ascending: false });
+          if (data) remote = data;
+        } catch (e) {}
+      }
+      const local = localStorage.getItem('glb_custom_requests');
+      let localReqs: any[] = [];
+      if (local) {
+        try { localReqs = JSON.parse(local); } catch (e) {}
+      }
+      const map = new Map();
+      [...remote, ...localReqs].forEach(r => { if (r.id && !map.has(r.id)) map.set(r.id, r); });
+      setBuyerDemands(Array.from(map.values()));
+    };
+    if (activeTab === 'BuyerDemands') fetchDemands();
+  }, [activeTab]);
+
+  // Fetch Seller's Ad Deposits
+  useEffect(() => {
+    const fetchDeposits = async () => {
+      if (!myShop) return;
+      try {
+        if (supabase) {
+          const { data } = await supabase
+            .from('ad_deposits')
+            .select('*')
+            .or(`shop_id.eq.${myShop.id},seller_id.eq.${user.id}`)
+            .order('created_at', { ascending: false });
+          if (data) {
+            setMyAdDeposits(data);
+            return;
+          }
+        }
+      } catch (e) {}
+      const saved = localStorage.getItem('glb_ad_deposits');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          setMyAdDeposits(parsed.filter((d: any) => d.shop_id === myShop.id || d.seller_id === user.id));
+        } catch (e) {}
+      }
+    };
+    fetchDeposits();
+  }, [myShop, user.id, activeTab]);
+
+  const handleDepositSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!myShop) return;
+    const amt = parseFloat(depositAmount);
+    if (isNaN(amt) || amt < 500) {
+      alert("Minimum deposit amount approved is PKR 500.");
+      return;
+    }
+    if (!depositTrxId.trim()) {
+      alert("Please enter the Transaction ID (TRX ID) from EasyPaisa/JazzCash.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const payload: Omit<AdDeposit, 'id'> = {
+        shop_id: myShop.id,
+        shop_name: myShop.name,
+        seller_id: user.id,
+        seller_name: user.name || myShop.ownerName || 'Merchant',
+        amount: amt,
+        payment_method: depositMethod,
+        trx_id: depositTrxId.trim(),
+        proof_url: depositProofUrl || undefined,
+        status: 'PENDING',
+        created_at: new Date().toISOString()
+      };
+
+      if (supabase) {
+        const { error } = await supabase.from('ad_deposits').insert([payload]);
+        if (error) console.warn("Supabase deposit insert notice:", error.message);
+      }
+
+      // Save to localStorage fallback as well
+      const saved = localStorage.getItem('glb_ad_deposits') || '[]';
+      const parsed = JSON.parse(saved);
+      const newDepositObj = { ...payload, id: 'dep_' + Date.now() };
+      parsed.unshift(newDepositObj);
+      localStorage.setItem('glb_ad_deposits', JSON.stringify(parsed));
+
+      setMyAdDeposits(prev => [newDepositObj as AdDeposit, ...prev]);
+      setShowDepositModal(false);
+      setDepositTrxId('');
+      setDepositProofUrl('');
+      alert("Deposit Submitted Successfully! Admin will approve your payment shortly and credit your Ad Wallet.");
+    } catch (err: any) {
+      alert("Error submitting deposit: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggleAd = async (product: Product) => {
+    if (!myShop || !supabase) return;
+    const currentBalance = Number(myShop.ad_wallet_balance || 0);
+
+    if (!product.is_ad_active) {
+      // START AD
+      if (currentBalance < 500) {
+        alert("Insufficient Ad Wallet Balance!\n\nMinimum PKR 500 balance required to run an ad (Cost: PKR 500 / 24 Hours).\nYour current balance is PKR " + currentBalance + ".\n\nPlease deposit funds to run ads.");
+        setActiveTab('AdsWallet');
+        return;
+      }
+
+      if (!window.confirm("Run Ad for '" + product.name + "'?\n\nCost: PKR 500 for 24 Hours of featured ad running.\nPKR 500 will be deducted from your Ad Wallet balance.")) return;
+
+      setLoading(true);
+      try {
+        const newBalance = currentBalance - 500;
+        // 1. Deduct balance from shop
+        await supabase.from('shops').update({ ad_wallet_balance: newBalance }).eq('id', myShop.id);
+
+        // 2. Activate product ad
+        await supabase.from('products').update({
+          is_ad_active: true,
+          ad_status: 'ACTIVE',
+          ad_started_at: new Date().toISOString(),
+          is_new_arrival: true,
+          sort_priority: 100
+        }).eq('id', product.id);
+
+        await refreshShop(true, true);
+        await addProduct(true, true);
+        alert("🎉 Ad Activated! PKR 500 deducted for 24 hours of running ad. You can pause or restart your ad anytime.");
+      } catch (err: any) {
+        alert("Failed to activate ad: " + err.message);
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      // PAUSE AD
+      if (!window.confirm("Pause Ad for '" + product.name + "'?\n\nYou can restart it whenever you like.")) return;
+
+      setLoading(true);
+      try {
+        await supabase.from('products').update({
+          is_ad_active: false,
+          ad_status: 'PAUSED',
+          sort_priority: 0
+        }).eq('id', product.id);
+
+        await refreshShop(true, true);
+        await addProduct(true, true);
+        alert("Ad Paused! You can restart this ad anytime from your dashboard.");
+      } catch (err: any) {
+        alert("Failed to pause ad: " + err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
 
   const [productForm, setProductForm] = useState({
     name: '',
@@ -378,13 +553,36 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         </div>
       )}
 
-      <div className="flex gap-2 p-1.5 bg-gray-100 rounded-[2.5rem] shadow-inner">
+      {/* Wallet Banner Widget */}
+      {myShop && (
+        <div className="bg-gradient-to-r from-gray-900 via-pink-950 to-gray-900 p-6 rounded-[3rem] text-white flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl border border-pink-500/20">
+           <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-pink-600/30 border border-pink-500/40 flex items-center justify-center text-pink-400">
+                 <Wallet className="w-6 h-6" />
+              </div>
+              <div>
+                 <p className="text-[9px] font-black uppercase text-pink-300 tracking-[0.2em]">Ad Wallet Balance</p>
+                 <p className="text-2xl font-black italic text-white">PKR {(myShop.ad_wallet_balance || 0).toLocaleString()}</p>
+              </div>
+           </div>
+           <button 
+             onClick={() => { setActiveTab('AdsWallet'); setShowDepositModal(true); }}
+             className="w-full sm:w-auto px-6 py-3 bg-pink-600 hover:bg-pink-500 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
+           >
+              <PlusCircle className="w-4 h-4" /> Deposit Funds (Min 500 PKR)
+           </button>
+        </div>
+      )}
+
+      <div className="flex gap-2 p-1.5 bg-gray-100 rounded-[2.5rem] shadow-inner overflow-x-auto">
         {[
           { id: 'Inventory', icon: Box, label: 'Products' },
-          { id: 'Orders', icon: Package, label: 'Orders' },
+          { id: 'AdsWallet', icon: Wallet, label: 'Ads & Wallet' },
+          { id: 'BuyerDemands', icon: Package, label: 'Buyer Requests' },
+          { id: 'Orders', icon: ClipboardList, label: 'Orders' },
           { id: 'Settings', icon: Settings, label: 'Shop Settings' }
         ].map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`flex-1 py-4 rounded-[2rem] text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${activeTab === tab.id ? 'bg-white text-pink-600 shadow-lg' : 'text-gray-400 hover:text-gray-600'}`}>
+          <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`flex-1 min-w-[110px] py-4 rounded-[2rem] text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${activeTab === tab.id ? 'bg-white text-pink-600 shadow-lg' : 'text-gray-400 hover:text-gray-600'}`}>
             <tab.icon className="w-4 h-4" /> {tab.label}
           </button>
         ))}
@@ -399,7 +597,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
                 <PlusCircle className="w-4 h-4" /> New Style
              </button>
           </div>
-          <div className="grid grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             {products.filter(p => p.shopId === myShop?.id).map(p => (
               <div key={p.id} className="bg-white p-5 rounded-[2.5rem] border border-gray-100 flex flex-col gap-4 shadow-sm group hover:shadow-xl transition-all relative">
                 <div className="relative aspect-[3/4] rounded-[2rem] overflow-hidden bg-gray-50 shadow-inner">
@@ -411,19 +609,229 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
                   {p.discount_percentage && p.discount_percentage > 0 && (
                     <div className="absolute top-2 left-2 bg-red-600 text-white text-[7px] font-black px-2 py-1 rounded-lg uppercase shadow-lg">-{p.discount_percentage}% OFF</div>
                   )}
+                  {p.is_ad_active && (
+                    <div className="absolute top-2 right-2 bg-pink-600 text-white text-[8px] font-black px-3 py-1 rounded-full uppercase shadow-lg flex items-center gap-1 animate-pulse">
+                      <Flame className="w-3 h-3 text-yellow-300 fill-yellow-300" /> AD RUNNING
+                    </div>
+                  )}
                   {p.stock !== undefined && (
                     <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-md px-3 py-1 rounded-lg border border-white/20">
                       <p className="text-[8px] font-black text-white uppercase tracking-widest">Qty: {p.stock}</p>
                     </div>
                   )}
                 </div>
-                <div className="px-1">
-                  <h4 className="font-black text-xs uppercase truncate text-gray-900 italic leading-none mb-1">{p.name}</h4>
-                  <p className="text-pink-600 font-black text-sm italic">PKR {p.price.toLocaleString()}</p>
+                <div className="px-1 space-y-2">
+                  <div className="flex justify-between items-start gap-2">
+                     <h4 className="font-black text-xs uppercase truncate text-gray-900 italic leading-none">{p.name}</h4>
+                     <p className="text-pink-600 font-black text-sm italic whitespace-nowrap">PKR {p.price.toLocaleString()}</p>
+                  </div>
+
+                  {/* Ad Management Button on Item */}
+                  <div className="pt-2 border-t border-gray-100 flex items-center justify-between gap-2">
+                     <span className="text-[8px] font-black uppercase text-gray-400">
+                       {p.is_ad_active ? 'PKR 500/24h Active' : 'Promote Product'}
+                     </span>
+                     <button 
+                       onClick={() => handleToggleAd(p)}
+                       disabled={loading}
+                       className={`px-4 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 ${
+                         p.is_ad_active 
+                           ? 'bg-amber-100 text-amber-800 hover:bg-amber-200' 
+                           : 'bg-gray-900 text-white hover:bg-black shadow-md'
+                       }`}
+                     >
+                        {p.is_ad_active ? (
+                           <><Pause className="w-3 h-3" /> Pause Ad</>
+                        ) : (
+                           <><Play className="w-3 h-3 text-pink-400 fill-pink-400" /> Run Ad (500 PKR/day)</>
+                        )}
+                     </button>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Ads & Wallet Tab Content */}
+      {activeTab === 'AdsWallet' && (
+        <div className="space-y-6 animate-in fade-in duration-500">
+           {/* Header Card */}
+           <div className="bg-white p-8 rounded-[3rem] border border-gray-100 shadow-sm space-y-6">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                 <div>
+                    <h3 className="text-xl font-black uppercase italic tracking-tighter text-gray-900">Ad Wallet & Campaigns</h3>
+                    <p className="text-[10px] font-black text-pink-600 uppercase tracking-widest mt-1">
+                      Promote your products on Ghotki Bazar • Flat PKR 500 / 24 Hours per Ad
+                    </p>
+                 </div>
+                 <button 
+                   onClick={() => setShowDepositModal(true)}
+                   className="px-6 py-4 bg-pink-600 hover:bg-pink-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center gap-2"
+                 >
+                    <PlusCircle className="w-4 h-4" /> Deposit PKR 500+
+                 </button>
+              </div>
+
+              {/* Instructions Box */}
+              <div className="bg-pink-50/50 border border-pink-100 p-6 rounded-[2.5rem] space-y-3">
+                 <h4 className="text-xs font-black uppercase tracking-wider text-pink-900 flex items-center gap-2">
+                   <Flame className="w-4 h-4 text-pink-600" /> How Ad Campaigns Work
+                 </h4>
+                 <ul className="text-xs text-gray-700 space-y-2 list-disc list-inside font-medium">
+                   <li>Minimum payment approval is <strong>PKR 500</strong>.</li>
+                   <li>Each running ad costs <strong>PKR 500 per 24 hours</strong>.</li>
+                   <li>You can <strong>pause and restart</strong> your ads at any time.</li>
+                   <li>Active ads appear at the top of buyer feeds across Ghotki District!</li>
+                 </ul>
+              </div>
+           </div>
+
+           {/* Deposit History */}
+           <div className="bg-white p-8 rounded-[3rem] border border-gray-100 shadow-sm space-y-6">
+              <h4 className="text-xs font-black uppercase tracking-widest text-gray-400">Your Deposit History</h4>
+              
+              {myAdDeposits.length === 0 ? (
+                <div className="text-center py-8 text-gray-400 text-xs italic font-bold">
+                  No deposits submitted yet. Click "Deposit PKR 500+" to add funds to your ad wallet.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                   {myAdDeposits.map(d => (
+                     <div key={d.id} className="p-4 bg-gray-50 rounded-2xl flex items-center justify-between border border-gray-100 text-xs">
+                        <div className="space-y-1">
+                           <div className="flex items-center gap-2">
+                              <span className="font-black text-gray-900">PKR {Number(d.amount).toLocaleString()}</span>
+                              <span className="text-[8px] font-black uppercase text-pink-600">via {d.payment_method}</span>
+                           </div>
+                           <p className="text-[9px] font-mono text-gray-500">TRX ID: {d.trx_id}</p>
+                        </div>
+                        <div className="text-right">
+                           <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase ${
+                             d.status === 'APPROVED' ? 'bg-green-100 text-green-700' :
+                             d.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
+                             'bg-orange-100 text-orange-700'
+                           }`}>
+                             {d.status}
+                           </span>
+                           <p className="text-[8px] text-gray-400 mt-1">{d.created_at ? new Date(d.created_at).toLocaleDateString() : ''}</p>
+                        </div>
+                     </div>
+                   ))}
+                </div>
+              )}
+           </div>
+        </div>
+      )}
+
+      {/* Buyer Demands Tab Content */}
+      {activeTab === 'BuyerDemands' && (
+        <div className="space-y-6 animate-in fade-in duration-500">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-2">
+            <div>
+              <h3 className="font-black uppercase text-[11px] tracking-widest text-gray-400">Buyer Demand Requests in District</h3>
+              <p className="text-xs font-black text-gray-900 uppercase italic">Connect directly with customers looking for specific items</p>
+            </div>
+
+            <div className="flex gap-2 bg-gray-100 p-1 rounded-2xl text-[9px] font-black uppercase">
+              <button 
+                onClick={() => setDemandFilter('MY_CATEGORY')}
+                className={`px-4 py-2 rounded-xl transition-all ${demandFilter === 'MY_CATEGORY' ? 'bg-pink-600 text-white shadow-md' : 'text-gray-500'}`}
+              >
+                My Category ({myShop?.category || 'General'})
+              </button>
+              <button 
+                onClick={() => setDemandFilter('ALL')}
+                className={`px-4 py-2 rounded-xl transition-all ${demandFilter === 'ALL' ? 'bg-pink-600 text-white shadow-md' : 'text-gray-500'}`}
+              >
+                All Demands ({buyerDemands.length})
+              </button>
+            </div>
+          </div>
+
+          {(() => {
+            const filtered = buyerDemands.filter(d => {
+              if (demandFilter === 'ALL') return true;
+              return !d.category || !myShop?.category || d.category.toLowerCase() === myShop.category.toLowerCase();
+            });
+
+            if (filtered.length === 0) {
+              return (
+                <div className="bg-white p-12 rounded-[3.5rem] border border-gray-100 shadow-sm text-center space-y-3">
+                  <Package className="w-14 h-14 text-pink-200 mx-auto" />
+                  <h4 className="font-black text-base uppercase italic text-gray-800">No Demands Found</h4>
+                  <p className="text-xs text-gray-400 font-medium max-w-sm mx-auto">
+                    {demandFilter === 'MY_CATEGORY' ? `No active buyer demands found in ${myShop?.category || 'your category'}. Switch to "All Demands" to explore.` : 'No buyer requests submitted yet.'}
+                  </p>
+                </div>
+              );
+            }
+
+            return (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                {filtered.map(req => (
+                  <div key={req.id} className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-md space-y-4 flex flex-col justify-between hover:border-pink-200 transition-all">
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-start gap-2">
+                        <div>
+                          <span className="text-[8px] font-black uppercase tracking-wider bg-pink-100 text-pink-700 px-2.5 py-0.5 rounded-full">
+                            {req.category || 'General Bazaar'}
+                          </span>
+                          <h4 className="font-black text-lg uppercase italic text-gray-900 tracking-tighter mt-1">{req.product_name}</h4>
+                        </div>
+                        {req.budget && (
+                          <div className="text-right">
+                            <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest block">Budget</span>
+                            <span className="font-black text-pink-600 italic text-sm">PKR {Number(req.budget).toLocaleString()}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {req.description && (
+                        <p className="text-xs text-gray-600 bg-gray-50 p-3 rounded-2xl italic font-medium">
+                          "{req.description}"
+                        </p>
+                      )}
+
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500 font-bold bg-gray-50 p-3 rounded-2xl">
+                        <span className="flex items-center gap-1 text-gray-900"><UserIcon className="w-3.5 h-3.5 text-pink-500" /> {req.customer_name}</span>
+                        <span>•</span>
+                        <span className="flex items-center gap-1 text-amber-600"><Clock className="w-3.5 h-3.5" /> Max {req.delivery_days || 3} Days</span>
+                        <span>•</span>
+                        <span className="flex items-center gap-1 text-gray-500"><MapPin className="w-3.5 h-3.5 text-pink-500" /> {req.customer_address}</span>
+                      </div>
+
+                      {Array.isArray(req.image_urls) && req.image_urls.length > 0 && (
+                        <div className="grid grid-cols-3 gap-2">
+                          {req.image_urls.map((img, i) => (
+                            <img key={i} src={img} className="aspect-square rounded-2xl object-cover border border-gray-100" alt="Demand sample" />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2 pt-2 border-t border-gray-100">
+                      <a 
+                        href={`https://wa.me/${(req.customer_mobile || '').replace(/[^0-9]/g, '')}?text=Hi%20${encodeURIComponent(req.customer_name)},%20I%20saw%20your%20product%20request%20for%20${encodeURIComponent(req.product_name)}%20on%20Ghotki%20Bazar!`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 py-3 bg-green-500 hover:bg-green-600 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl shadow-md flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+                      >
+                        <MessageSquare className="w-4 h-4" /> WhatsApp Buyer
+                      </a>
+                      <a 
+                        href={`tel:${req.customer_mobile}`}
+                        className="py-3 px-4 bg-pink-50 hover:bg-pink-100 text-pink-600 font-black text-[10px] uppercase tracking-widest rounded-2xl flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+                      >
+                        <Phone className="w-4 h-4" /> Call
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -679,6 +1087,121 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
 
                  <button type="submit" disabled={loading} className="w-full py-6 bg-gray-900 hover:bg-black text-white font-black rounded-full uppercase tracking-widest text-xs shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all">
                    {loading ? <Loader2 className="animate-spin" /> : <><Check className="w-6 h-6" /> {editingProduct ? 'Save Updates' : 'Publish Listing Now'}</>}
+                 </button>
+              </form>
+           </div>
+        </div>
+      )}
+
+      {/* Deposit Modal */}
+      {showDepositModal && (
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+           <div className="bg-white w-full max-w-md rounded-[3rem] p-8 space-y-6 animate-in zoom-in-95 duration-300 max-h-[90vh] overflow-y-auto no-scrollbar border-t-8 border-pink-600 shadow-2xl">
+              <div className="flex items-center justify-between">
+                 <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-pink-100 text-pink-600 rounded-2xl flex items-center justify-center font-black">
+                       <DollarSign className="w-5 h-5" />
+                    </div>
+                    <div>
+                       <h3 className="text-xl font-black uppercase italic tracking-tighter text-gray-900">Deposit Ad Funds</h3>
+                       <p className="text-[9px] font-black text-pink-600 uppercase tracking-widest">Min Approved Deposit: PKR 500</p>
+                    </div>
+                 </div>
+                 <button onClick={() => setShowDepositModal(false)} className="p-3 bg-gray-100 rounded-full hover:bg-gray-200 text-gray-400"><X className="w-5 h-5" /></button>
+              </div>
+
+              {/* Payment Account Details Card */}
+              <div className="bg-gray-900 p-6 rounded-[2.5rem] text-white space-y-3 shadow-xl">
+                 <p className="text-[8px] font-black uppercase tracking-[0.25em] text-pink-400">Official Admin Account for Deposits</p>
+                 <div className="flex justify-between items-center text-xs">
+                    <span className="font-bold text-gray-400">EasyPaisa / JazzCash:</span>
+                    <span className="font-black text-white text-sm tracking-wider font-mono select-all">0300-1234567</span>
+                 </div>
+                 <div className="flex justify-between items-center text-xs">
+                    <span className="font-bold text-gray-400">Account Title:</span>
+                    <span className="font-bold text-pink-300">Ghotki Bazar Ad Wallet</span>
+                 </div>
+                 <p className="text-[9px] text-gray-400 italic pt-2 border-t border-gray-800">
+                   Send PKR 500 or more to this account, then enter your Transaction ID (TRX ID) below for Admin verification.
+                 </p>
+              </div>
+
+              <form onSubmit={handleDepositSubmit} className="space-y-4">
+                 <div className="space-y-1">
+                    <p className="text-[9px] font-black uppercase text-gray-400 ml-3">Deposit Amount (PKR - Min 500)</p>
+                    <input 
+                      type="number" 
+                      min="500"
+                      required
+                      placeholder="e.g. 500, 1000, 2000" 
+                      className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl font-black text-sm outline-none focus:ring-2 focus:ring-pink-500/20"
+                      value={depositAmount} 
+                      onChange={e => setDepositAmount(e.target.value)} 
+                    />
+                 </div>
+
+                 <div className="space-y-1">
+                    <p className="text-[9px] font-black uppercase text-gray-400 ml-3">Payment Method</p>
+                    <select 
+                      className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl font-bold text-xs outline-none cursor-pointer"
+                      value={depositMethod}
+                      onChange={e => setDepositMethod(e.target.value)}
+                    >
+                      <option value="EasyPaisa">EasyPaisa</option>
+                      <option value="JazzCash">JazzCash</option>
+                      <option value="Bank Transfer">Bank Transfer</option>
+                    </select>
+                 </div>
+
+                 <div className="space-y-1">
+                    <p className="text-[9px] font-black uppercase text-gray-400 ml-3">Transaction ID (TRX ID / Reference #)</p>
+                    <input 
+                      type="text" 
+                      required
+                      placeholder="e.g. 12839402910" 
+                      className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl font-mono font-bold text-xs outline-none focus:ring-2 focus:ring-pink-500/20"
+                      value={depositTrxId} 
+                      onChange={e => setDepositTrxId(e.target.value)} 
+                    />
+                 </div>
+
+                 <div className="space-y-1">
+                    <p className="text-[9px] font-black uppercase text-gray-400 ml-3">Payment Receipt / Screenshot (Optional)</p>
+                    <input 
+                      type="file" 
+                      accept="image/*"
+                      ref={proofInputRef}
+                      className="hidden"
+                      onChange={async (e) => {
+                         if (!e.target.files?.[0]) return;
+                         setLoading(true);
+                         try {
+                           const file = e.target.files[0];
+                           const url = await uploadFile('marketplace', `deposits/${Date.now()}-${file.name}`, file);
+                           setDepositProofUrl(url);
+                           alert("Receipt uploaded!");
+                         } catch (err: any) {
+                           alert("Upload failed: " + err.message);
+                         } finally {
+                           setLoading(false);
+                         }
+                      }}
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => proofInputRef.current?.click()}
+                      className="w-full p-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2"
+                    >
+                       <Camera className="w-4 h-4" /> {depositProofUrl ? 'Receipt Uploaded ✓ (Click to change)' : 'Upload Receipt Screenshot'}
+                    </button>
+                 </div>
+
+                 <button 
+                   type="submit" 
+                   disabled={loading}
+                   className="w-full py-5 bg-pink-600 hover:bg-pink-700 text-white font-black rounded-2xl uppercase tracking-widest text-xs shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-all mt-4"
+                 >
+                    {loading ? <Loader2 className="animate-spin" /> : <><Check className="w-5 h-5" /> Submit Deposit Request</>}
                  </button>
               </form>
            </div>

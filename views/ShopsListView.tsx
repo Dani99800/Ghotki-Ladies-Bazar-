@@ -69,7 +69,7 @@ const ShopsListView: React.FC<ShopsListViewProps> = ({ shops, categories, lang }
           >
             All Shops
           </button>
-          {categories.map(cat => (
+          {categories.filter(c => !["men's footwear", "women's footwear", "costmatic", "cosmetics", "men's cloths", "men's clothes", "women's clothes", "footwear"].includes((c.name || '').toLowerCase().trim())).map(cat => (
             <button 
               key={cat.id}
               onClick={() => setSelectedCategory(cat.id)}

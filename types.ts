@@ -96,6 +96,7 @@ export interface Shop {
   sort_priority?: number; 
   is_top_seller?: boolean;
   is_verified?: boolean;
+  ad_wallet_balance?: number;
 }
 
 export interface Product {
@@ -126,6 +127,10 @@ export interface Product {
   seller_type?: SellerType;
   shop_name?: string;
   is_top_seller?: boolean;
+  is_ad_active?: boolean;
+  ad_status?: 'ACTIVE' | 'PAUSED' | 'EXPIRED' | 'INSUFFICIENT_FUNDS';
+  ad_started_at?: string;
+  ad_days_paid?: number;
 }
 
 export interface CartItem extends Product {
@@ -151,15 +156,17 @@ export interface Order {
 
 export interface CustomRequest {
   id: string;
-  user_id: string;
+  user_id?: string | null;
   product_name: string;
+  description?: string;
   budget?: number;
+  category?: string;
   location_city?: string;
   delivery_days: number;
   image_urls: string[];
   customer_name: string;
+  customer_mobile: string;
   customer_address: string;
-  customer_mobile?: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
   created_at: string;
 }
@@ -174,6 +181,20 @@ export interface PaymentProof {
   payment_method: string;
   trx_id: string;
   proof_url: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  created_at: string;
+}
+
+export interface AdDeposit {
+  id: string;
+  shop_id: string;
+  shop_name: string;
+  seller_id: string;
+  seller_name: string;
+  amount: number;
+  payment_method: string;
+  trx_id: string;
+  proof_url?: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   created_at: string;
 }

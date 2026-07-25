@@ -44,36 +44,94 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
 
   const normalize = (str: string) => (str || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
 
-  const activeCategories = categories.length > 0 ? categories : DEFAULT_CATEGORIES;
+  const REMOVED_CATEGORY_NAMES = [
+    "men's footwear", "women's footwear", "costmatic", "cosmetics", 
+    "men's cloths", "men's clothes", "women's clothes", "footwear"
+  ];
+
+  const activeCategories = useMemo(() => {
+    const source = categories.length > 0 ? categories : DEFAULT_CATEGORIES;
+    return source.filter(c => {
+      const norm = (c.name || '').toLowerCase().trim();
+      return !REMOVED_CATEGORY_NAMES.includes(norm);
+    });
+  }, [categories]);
 
   const activeCatObj = useMemo(() => {
     return activeCategories.find(c => c.id === selectedCategory || c.name === selectedCategory);
   }, [activeCategories, selectedCategory]);
 
-  const filteredProducts = products.filter(p => {
-    if (!isShopActive(p.shopId)) return false;
-    if (p.status && p.status !== 'APPROVED') return false;
+  const filteredProducts = useMemo(() => {
+    return products.filter(p => {
+      if (!isShopActive(p.shopId)) return false;
+      if (p.status && p.status !== 'APPROVED') return false;
 
-    const pCatNorm = normalize(p.category || '');
-    const selectedCatNorm = normalize(selectedCategory);
-    const selectedCatNameNorm = activeCatObj ? normalize(activeCatObj.name) : '';
+      // Handle category mapping for legacy products
+      let pCat = p.category || '';
+      const pCatLower = pCat.toLowerCase();
+      if (pCatLower.includes("cloth") || pCatLower.includes("wear") || pCatLower.includes("suit")) {
+        pCat = "Fashion & Clothing";
+      } else if (pCatLower.includes("shoe") || pCatLower.includes("footwear")) {
+        pCat = "Shoes & Accessories";
+      } else if (pCatLower.includes("cosmetic") || pCatLower.includes("makeup") || pCatLower.includes("beauty")) {
+        pCat = "Jewelry & Beauty";
+      }
 
-    const categoryMatch = selectedCategory === 'All' || 
-                          pCatNorm === selectedCatNorm ||
-                          (selectedCatNameNorm && pCatNorm === selectedCatNameNorm);
+      const pCatNorm = normalize(pCat);
+      const selectedCatNorm = normalize(selectedCategory);
+      const selectedCatNameNorm = activeCatObj ? normalize(activeCatObj.name) : '';
 
-    const subCategoryMatch = selectedSubCategory === 'All' || 
-                             normalize(p.subcategory || '') === normalize(selectedSubCategory);
+      const categoryMatch = selectedCategory === 'All' || 
+                            pCatNorm === selectedCatNorm ||
+                            (selectedCatNameNorm && pCatNorm === selectedCatNameNorm);
 
-    const locationMatch = selectedLocation === 'All' || 
-                          normalize(p.location_city || '') === normalize(selectedLocation);
+      const subCategoryMatch = selectedSubCategory === 'All' || 
+                               normalize(p.subcategory || '') === normalize(selectedSubCategory);
 
-    const searchMatch = searchTerm === '' || 
-                        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        (p.description && p.description.toLowerCase().includes(searchTerm.toLowerCase()));
+      const locationMatch = selectedLocation === 'All' || 
+                            normalize(p.location_city || '') === normalize(selectedLocation);
 
-    return categoryMatch && subCategoryMatch && locationMatch && searchMatch;
-  });
+      const searchMatch = searchTerm === '' || 
+                          p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (p.description && p.description.toLowerCase().includes(searchTerm.toLowerCase()));
+
+      return categoryMatch && subCategoryMatch && locationMatch && searchMatch;
+    });
+  }, [products, shops, user, selectedCategory, selectedSubCategory, selectedLocation, searchTerm, activeCatObj]);
+
+  // Check if customer is from Mirpur or Mirpur Mathelo
+  const isMirpurCustomer = useMemo(() => {
+    if (selectedLocation && selectedLocation.toLowerCase().includes('mirpur')) return true;
+    if (user && user.city && user.city.toLowerCase().includes('mirpur')) return true;
+    if (user && user.address && user.address.toLowerCase().includes('mirpur')) return true;
+    return false;
+  }, [user, selectedLocation]);
+
+  // Priority sorting: Show Mirpur Mathelo products FIRST if customer is from Mirpur or location filter is All/Mirpur Mathelo
+  const sortedDisplayProducts = useMemo(() => {
+    const list = [...filteredProducts];
+    const isMirpurPriority = isMirpurCustomer || selectedLocation === 'All' || selectedLocation === 'Mirpur Mathelo';
+
+    if (isMirpurPriority && (selectedLocation === 'All' || selectedLocation === 'Mirpur Mathelo')) {
+      return list.sort((a, b) => {
+        const aShop = shops.find(s => s.id === a.shopId);
+        const bShop = shops.find(s => s.id === b.shopId);
+
+        const aCity = (a.location_city || aShop?.city || '').toLowerCase();
+        const bCity = (b.location_city || bShop?.city || '').toLowerCase();
+
+        const aIsMirpur = aCity.includes('mirpur');
+        const bIsMirpur = bCity.includes('mirpur');
+
+        if (aIsMirpur && !bIsMirpur) return -1;
+        if (!aIsMirpur && bIsMirpur) return 1;
+
+        return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+      });
+    }
+
+    return list;
+  }, [filteredProducts, isMirpurCustomer, selectedLocation, shops]);
 
   // Reusable Product Image Scroller
   const ProductCardImage = ({ product }: { product: Product }) => {
@@ -330,25 +388,40 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
 
       {/* MAIN MARKETPLACE LISTINGS GRID */}
       <section id="marketplace-grid" className="space-y-6">
-        <div className="flex items-center justify-between px-2 border-b border-gray-100 pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-2 border-b border-gray-100 pb-4">
           <div className="space-y-0.5">
-            <h2 className="font-black text-2xl text-gray-900 uppercase italic tracking-tighter">Local Marketplace</h2>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="font-black text-2xl text-gray-900 uppercase italic tracking-tighter">Local Marketplace</h2>
+              {(isMirpurCustomer || selectedLocation === 'Mirpur Mathelo') && (
+                <span className="bg-pink-100 text-pink-700 border border-pink-200 text-[9px] font-black uppercase px-2.5 py-1 rounded-full flex items-center gap-1 shadow-sm">
+                  <MapPin className="w-3 h-3 text-pink-600" /> Mirpur Mathelo Items First
+                </span>
+              )}
+            </div>
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
               {selectedCategory !== 'All' ? selectedCategory : 'All Categories'} {selectedLocation !== 'All' ? `in ${selectedLocation}` : ''}
             </p>
           </div>
-          <span className="text-[10px] font-black text-gray-500 uppercase bg-gray-100 px-3 py-1.5 rounded-full">{filteredProducts.length} Listings</span>
+          <span className="text-[10px] font-black text-gray-500 uppercase bg-gray-100 px-3 py-1.5 rounded-full self-start sm:self-auto">{sortedDisplayProducts.length} Listings</span>
         </div>
 
-        {filteredProducts.length === 0 ? (
-          <div className="p-12 text-center bg-white rounded-3xl border border-gray-100 space-y-3">
+        {sortedDisplayProducts.length === 0 ? (
+          <div className="p-12 text-center bg-white rounded-3xl border border-gray-100 space-y-4 shadow-sm">
             <Box className="w-12 h-12 text-gray-300 mx-auto" />
-            <h3 className="text-base font-black uppercase text-gray-700">No products found</h3>
-            <p className="text-xs text-gray-400">Try changing your search term, location, or category filter.</p>
+            <div className="space-y-1">
+              <h3 className="text-base font-black uppercase text-gray-700">No products found</h3>
+              <p className="text-xs text-gray-400 font-medium max-w-sm mx-auto">Can't find the product you're looking for in Ghotki District shops?</p>
+            </div>
+            <button 
+              onClick={() => navigate('/custom-request')}
+              className="px-8 py-3.5 bg-pink-600 hover:bg-pink-700 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-lg shadow-pink-200 active:scale-95 transition-all"
+            >
+              Send Request to All Shops
+            </button>
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6">
-            {filteredProducts.map(product => {
+            {sortedDisplayProducts.map(product => {
               const shop = shops.find(s => s.id === product.shopId);
               return (
                 <div key={product.id} className="bg-white rounded-2xl md:rounded-[2.5rem] overflow-hidden shadow-sm border border-gray-100 flex flex-col group transition-all hover:shadow-xl">

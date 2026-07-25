@@ -187,14 +187,20 @@ const App: React.FC = () => {
         whatsapp: s.whatsapp || s.mobile || ''
       }));
       
+      const REMOVED_CATEGORY_NAMES = ["men's footwear", "women's footwear", "costmatic", "cosmetics", "men's cloths", "men's clothes", "women's clothes", "footwear"];
+      const cleanCategoriesData = (categoriesData.length > 0 ? categoriesData : FALLBACK_CATEGORIES).filter((c: any) => {
+        const name = (c.name || '').toLowerCase().trim();
+        return !REMOVED_CATEGORY_NAMES.includes(name);
+      });
+
       setShops(mappedShops);
       setProducts(mappedProducts);
-      setCategories(categoriesData.length > 0 ? categoriesData : FALLBACK_CATEGORIES);
+      setCategories(cleanCategoriesData);
       
       // Update Cache
       localStorage.setItem('glb_cache_shops', JSON.stringify(mappedShops));
       localStorage.setItem('glb_cache_products', JSON.stringify(mappedProducts));
-      localStorage.setItem('glb_cache_categories', JSON.stringify(categoriesData.length > 0 ? categoriesData : FALLBACK_CATEGORIES));
+      localStorage.setItem('glb_cache_categories', JSON.stringify(cleanCategoriesData));
       
       console.log(`GLB: Sync Complete. ${mappedShops.length} shops, ${mappedProducts.length} products.`);
       setError(null);
@@ -656,7 +662,7 @@ const App: React.FC = () => {
           <Route path="/seller/*" element={user?.role === 'SELLER' ? <SellerDashboard products={filteredProducts} user={user} addProduct={loadMarketplace} orders={orders} shops={filteredShops} refreshShop={loadMarketplace} refreshOrders={fetchOrders} categories={categories} /> : <Navigate to="/login" />} />
           <Route path="/checkout" element={<CheckoutView cart={cart} clearCart={() => setCart([])} user={user} lang="EN" onPlaceOrder={handlePlaceOrder} shops={filteredShops} loyaltyPlans={loyaltyPlans} />} />
           <Route path="/orders" element={user ? <OrdersView orders={orders} user={user} shops={shops} /> : <Navigate to="/login" />} />
-          <Route path="/custom-request" element={user ? <CustomRequestView user={user} /> : <Navigate to="/login" />} />
+          <Route path="/custom-request" element={<CustomRequestView user={user} categories={categories} />} />
         </Routes>
       </main>
 

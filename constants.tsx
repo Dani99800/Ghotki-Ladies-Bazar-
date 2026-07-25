@@ -106,7 +106,7 @@ export const CATEGORIES: Category[] = [
     name: 'Jewelry & Beauty',
     image_url: 'https://images.unsplash.com/photo-1596462502278-27bfdc4033c8?auto=format&fit=crop&q=80&w=600',
     icon: 'Sparkles',
-    subcategories: ['Gold Jewelry', 'Artificial Jewelry', 'Cosmetics', 'Perfumes', 'Makeup', 'Skincare', 'Bridal Makeup']
+    subcategories: ['Gold Jewelry', 'Artificial Jewelry', 'Perfumes', 'Makeup', 'Skincare', 'Bridal Makeup']
   },
   {
     id: 'property_realestate',
