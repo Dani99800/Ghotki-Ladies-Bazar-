@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { Home, ShoppingBag, User as UserIcon, ShoppingCart, LayoutDashboard, ShieldAlert, PlayCircle, Loader2, Package } from 'lucide-react';
+import { Home, ShoppingBag, User as UserIcon, ShoppingCart, LayoutDashboard, ShieldAlert, PlayCircle, Loader2, Package, Search, PlusCircle, Compass, ClipboardList, Store } from 'lucide-react';
 import { supabase } from './services/supabase';
 import { User as UserType, Shop, Product, CartItem, Order, Category, AppEvent } from './types';
 import { CATEGORIES as FALLBACK_CATEGORIES, NOTIFICATION_SOUND, PK_EVENTS } from './constants';
@@ -492,14 +492,13 @@ const App: React.FC = () => {
 
   const navItems = React.useMemo(() => [
     { icon: Home, label: 'Home', path: '/' },
-    { icon: ShoppingBag, label: 'Shops', path: '/shops' },
+    { icon: Search, label: 'Browse Ads', path: '/explore' },
+    { icon: Store, label: 'Stores', path: '/shops' },
+    { icon: Package, label: 'Buyer Demand', path: '/custom-request' },
+    { icon: ShoppingCart, label: 'Cart', path: '/cart' },
+    ...(user ? [{ icon: ClipboardList, label: 'My Orders', path: '/orders' }] : []),
+    ...(user?.role === 'SELLER' ? [{ icon: LayoutDashboard, label: 'Seller Dashboard', path: '/seller' }] : []),
     ...(isAdmin ? [{ icon: ShieldAlert, label: 'Admin', path: '/admin' }] : []),
-    { icon: Package, label: 'Request', path: '/custom-request' },
-    { 
-      icon: user?.role === 'SELLER' ? LayoutDashboard : ShoppingCart, 
-      label: user?.role === 'SELLER' ? 'Store' : 'Cart', 
-      path: user?.role === 'SELLER' ? '/seller' : '/cart' 
-    },
   ], [user, isAdmin]);
 
   if (loading) return (
@@ -591,7 +590,14 @@ const App: React.FC = () => {
           ))}
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => navigate(user ? '/seller' : '/login')} 
+            className="hidden sm:flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-pink-600 to-rose-600 text-white font-black text-[10px] uppercase tracking-widest rounded-full shadow-md shadow-pink-200 hover:shadow-lg active:scale-95 transition-all"
+          >
+            <PlusCircle className="w-4 h-4" />
+            <span>SELL</span>
+          </button>
           {user?.role === 'ADMIN' && <ShieldAlert onClick={() => navigate('/admin')} className="w-5 h-5 text-orange-500 cursor-pointer animate-pulse" />}
           <UserIcon onClick={() => navigate('/profile')} className="w-6 h-6 text-gray-400 cursor-pointer hover:text-pink-600 transition-colors" />
         </div>
@@ -656,15 +662,42 @@ const App: React.FC = () => {
 
       {/* Mobile Bottom Navigation */}
       {!location.pathname.startsWith('/product/') && (
-        <div className="fixed bottom-0 left-0 right-0 h-20 bg-white/80 backdrop-blur-xl border-t flex items-center justify-around z-50 px-2 shadow-2xl md:hidden">
-          {navItems.map(item => (
-            <button key={item.path} onClick={() => navigate(item.path)} className="flex flex-col items-center gap-1 group">
-              <div className={`p-2 rounded-2xl transition-all duration-300 ${location.pathname === item.path ? 'bg-pink-600 text-white shadow-lg' : 'text-gray-400 group-hover:text-pink-600'}`}>
-                <item.icon className="w-6 h-6" />
-              </div>
-              <span className={`text-[8px] font-black uppercase tracking-widest ${location.pathname === item.path ? 'text-pink-600' : 'text-gray-400'}`}>{item.label}</span>
-            </button>
-          ))}
+        <div className="fixed bottom-0 left-0 right-0 h-20 bg-white/95 backdrop-blur-xl border-t border-gray-100 flex items-center justify-around z-50 px-2 shadow-2xl md:hidden">
+          <button onClick={() => navigate('/')} className="flex flex-col items-center gap-1 group">
+            <div className={`p-2 rounded-2xl transition-all duration-300 ${location.pathname === '/' ? 'bg-pink-600 text-white shadow-lg shadow-pink-200' : 'text-gray-400 group-hover:text-pink-600'}`}>
+              <Home className="w-5 h-5" />
+            </div>
+            <span className={`text-[8px] font-black uppercase tracking-widest ${location.pathname === '/' ? 'text-pink-600' : 'text-gray-400'}`}>Home</span>
+          </button>
+
+          <button onClick={() => navigate('/explore')} className="flex flex-col items-center gap-1 group">
+            <div className={`p-2 rounded-2xl transition-all duration-300 ${location.pathname === '/explore' ? 'bg-pink-600 text-white shadow-lg shadow-pink-200' : 'text-gray-400 group-hover:text-pink-600'}`}>
+              <Search className="w-5 h-5" />
+            </div>
+            <span className={`text-[8px] font-black uppercase tracking-widest ${location.pathname === '/explore' ? 'text-pink-600' : 'text-gray-400'}`}>Explore</span>
+          </button>
+
+          {/* Elevated SELL CTA Center Button */}
+          <button onClick={() => navigate(user ? '/seller' : '/login')} className="flex flex-col items-center -mt-6 group">
+            <div className="w-12 h-12 bg-gradient-to-tr from-pink-600 to-rose-500 text-white rounded-full flex items-center justify-center shadow-xl border-4 border-white group-active:scale-90 transition-transform">
+              <PlusCircle className="w-6 h-6" />
+            </div>
+            <span className="text-[8px] font-black uppercase tracking-widest text-pink-600 mt-0.5">SELL</span>
+          </button>
+
+          <button onClick={() => navigate('/custom-request')} className="flex flex-col items-center gap-1 group">
+            <div className={`p-2 rounded-2xl transition-all duration-300 ${location.pathname === '/custom-request' ? 'bg-pink-600 text-white shadow-lg shadow-pink-200' : 'text-gray-400 group-hover:text-pink-600'}`}>
+              <Package className="w-5 h-5" />
+            </div>
+            <span className={`text-[8px] font-black uppercase tracking-widest ${location.pathname === '/custom-request' ? 'text-pink-600' : 'text-gray-400'}`}>Demand</span>
+          </button>
+
+          <button onClick={() => navigate(user ? '/orders' : '/cart')} className="flex flex-col items-center gap-1 group">
+            <div className={`p-2 rounded-2xl transition-all duration-300 ${location.pathname === '/orders' || location.pathname === '/cart' ? 'bg-pink-600 text-white shadow-lg shadow-pink-200' : 'text-gray-400 group-hover:text-pink-600'}`}>
+              {user ? <ClipboardList className="w-5 h-5" /> : <ShoppingCart className="w-5 h-5" />}
+            </div>
+            <span className={`text-[8px] font-black uppercase tracking-widest ${location.pathname === '/orders' || location.pathname === '/cart' ? 'text-pink-600' : 'text-gray-400'}`}>{user ? 'Orders' : 'Cart'}</span>
+          </button>
         </div>
       )}
     </div>
