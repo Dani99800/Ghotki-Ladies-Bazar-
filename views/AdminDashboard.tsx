@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { Shop, Order, Category, AppEvent, Product, CustomRequest } from '../types';
 import { supabase } from '../services/supabase';
-import { PK_EVENTS, SUBSCRIPTION_PLANS } from '../constants';
+import { PK_EVENTS, SELLER_PLANS, SUBSCRIPTION_PLANS } from '../constants';
 
 interface AdminDashboardProps {
   shops: Shop[];

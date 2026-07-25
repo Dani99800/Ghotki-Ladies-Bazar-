@@ -2,10 +2,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   PlusCircle, X, Loader2, Settings, Trash2, 
-  Check, MessageCircle, Sparkles, Camera, Save, UploadCloud, Store, Trophy, CreditCard, Smartphone, Building2, Edit2, MapPin, Box, Package, History, AlertTriangle
+  Check, MessageCircle, Sparkles, Camera, Save, UploadCloud, Store, Trophy, CreditCard, Smartphone, Building2, Edit2, MapPin, Box, Package, History, AlertTriangle, ShieldCheck
 } from 'lucide-react';
-import { Product, Order, User as UserType, Shop, Category } from '../types';
-import { CATEGORIES, BAZAARS } from '../constants';
+import { Product, Order, User as UserType, Shop, Category, ProductCondition } from '../types';
+import { CATEGORIES, BAZAARS, GHOTKI_LOCATIONS } from '../constants';
 import { supabase, uploadFile } from '../services/supabase';
 
 interface SellerDashboardProps {
@@ -33,19 +33,29 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
   const bannerInputRef = useRef<HTMLInputElement>(null);
 
   const myShop = shops.find(s => s.owner_id === user.id);
-  const canUploadVideo = myShop?.subscription_tier === 'STANDARD' || myShop?.subscription_tier === 'PREMIUM';
+  const isIndividual = myShop?.seller_type === 'INDIVIDUAL' || myShop?.seller_plan === 'INDIVIDUAL_5';
+  const myProductsCount = products.filter(p => p.shopId === myShop?.id).length;
+  const isQuotaReached = isIndividual && myProductsCount >= 5;
+
+  const activeCategoryList = categories.length > 0 ? categories : CATEGORIES;
 
   const [productForm, setProductForm] = useState({
     name: '',
     originalPrice: '',
     discountPercentage: '0',
     price: '', 
-    category: categories[0]?.name || CATEGORIES[0].name,
+    category: activeCategoryList[0]?.name || 'General',
+    subcategory: '',
+    condition: 'New' as ProductCondition,
+    locationCity: myShop?.city || 'Ghotki',
+    negotiable: true,
     description: '',
     eventName: '',
     images: [] as string[],
     stock: '1'
   });
+
+  const selectedCategoryObj = activeCategoryList.find(c => c.name === productForm.category || c.id === productForm.category);
 
   const [settingsForm, setSettingsForm] = useState({
     name: myShop?.name || '',
@@ -56,6 +66,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
     address: myShop?.address || '',
     bazaar: myShop?.bazaar || BAZAARS[0],
     category: myShop?.category || '',
+    city: myShop?.city || 'Ghotki',
     easypaisa: myShop?.easypaisa_number || '',
     jazzcash: myShop?.jazzcash_number || '',
     bank: myShop?.bank_details || ''
@@ -72,6 +83,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         address: myShop.address || '',
         bazaar: myShop.bazaar || BAZAARS[0],
         category: myShop.category || '',
+        city: myShop.city || 'Ghotki',
         easypaisa: myShop.easypaisa_number || '',
         jazzcash: myShop.jazzcash_number || '',
         bank: myShop.bank_details || ''
@@ -87,13 +99,31 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         discountPercentage: (editingProduct.discount_percentage || '0').toString(),
         price: editingProduct.price.toString(),
         category: editingProduct.category,
+        subcategory: editingProduct.subcategory || '',
+        condition: (editingProduct.condition as ProductCondition) || 'New',
+        locationCity: editingProduct.location_city || myShop?.city || 'Ghotki',
+        negotiable: editingProduct.negotiable !== false,
         description: editingProduct.description || '',
         eventName: editingProduct.event_name || '',
-        images: editingProduct.images || [],
+        images: Array.isArray(editingProduct.images) ? editingProduct.images : [editingProduct.images as any],
         stock: (editingProduct.stock || 1).toString()
       });
     } else {
-      setProductForm({ name: '', originalPrice: '', discountPercentage: '0', price: '', category: categories[0]?.name || CATEGORIES[0].name, description: '', eventName: '', images: [], stock: '1' });
+      setProductForm({ 
+        name: '', 
+        originalPrice: '', 
+        discountPercentage: '0', 
+        price: '', 
+        category: activeCategoryList[0]?.name || 'General', 
+        subcategory: '', 
+        condition: 'New', 
+        locationCity: myShop?.city || 'Ghotki', 
+        negotiable: true, 
+        description: '', 
+        eventName: '', 
+        images: [], 
+        stock: '1' 
+      });
     }
   }, [editingProduct, showModal]);
 
@@ -129,29 +159,18 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         if (replaceIndex !== undefined) {
            setProductForm(p => {
              const newImages = [...p.images];
-             // Ensure array has enough elements to avoid holes
              while (newImages.length <= replaceIndex) newImages.push('');
              newImages[replaceIndex] = finalUrl;
              return { ...p, images: newImages.filter(Boolean) };
            });
         } else {
-          if (productForm.images.length >= 3) {
-            alert("Maximum 3 images allowed per product.");
-            return;
-          }
           setProductForm(p => ({ ...p, images: [...p.images, finalUrl].filter(Boolean) }));
         }
       } else if (type === 'LOGO' || type === 'BANNER') {
         const field = type === 'LOGO' ? 'logo' : 'banner';
-        
-        // Update Supabase
         const { error: updateError } = await supabase.from('shops').update({ [field]: finalUrl }).eq('id', myShop.id);
         if (updateError) throw updateError;
-        
-        // Update local settings form immediately for instant feel
         setSettingsForm(prev => ({ ...prev, [type.toLowerCase()]: finalUrl }));
-        
-        // Silent refresh to update the global app state
         await refreshShop(true);
       }
     } catch (err: any) {
@@ -170,12 +189,17 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
     if (!supabase) return;
     
     if (!myShop) {
-      alert("Error: Your shop profile was not found. Please ensure your shop is registered and approved.");
+      alert("Error: Your seller profile was not found. Please ensure your shop is registered and approved.");
+      return;
+    }
+
+    if (!editingProduct && isQuotaReached) {
+      alert("Individual Seller Quota Reached: You have published 5 products (PKR 100 plan). Please upgrade to Business Seller (PKR 500/month) for unlimited listings.");
       return;
     }
 
     if (!productForm.name || !productForm.price || productForm.images.length === 0) {
-      alert("Please provide a name, price, and at least one image.");
+      alert("Please provide a name, price, and upload at least one image.");
       return;
     }
 
@@ -190,11 +214,16 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         discount_percentage: parseFloat(productForm.discountPercentage) || 0,
         event_name: productForm.eventName,
         category: productForm.category,
+        subcategory: productForm.subcategory || null,
+        condition: productForm.condition,
+        location_city: productForm.locationCity,
+        negotiable: productForm.negotiable,
         description: productForm.description,
         images: images,
         image_urls: images,
-        stock: parseInt(productForm.stock) || 0,
-        tags: productForm.discountPercentage !== '0' ? [`${productForm.discountPercentage}% OFF`] : ['New Arrival']
+        stock: parseInt(productForm.stock) || 1,
+        status: 'APPROVED',
+        tags: productForm.discountPercentage !== '0' ? [`${productForm.discountPercentage}% OFF`] : [productForm.condition]
       };
 
       const { error } = editingProduct 
@@ -203,12 +232,10 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
 
       if (error) throw error;
       
-      // Force refresh data to ensure listing appears immediately
       await addProduct(true, true);
-      
-      // Close modal and reset
       setShowModal(false);
       setEditingProduct(null);
+      alert(editingProduct ? "Product Updated Successfully!" : "Product Listed Successfully on Ghotki Bazar!");
     } catch (err: any) {
       console.error("Product Submission Error:", err);
       alert("Action failed: " + (err.message || "Unknown error occurred"));
@@ -592,51 +619,66 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
                  {/* Basic Details */}
                  <div className="space-y-4">
                    <div className="space-y-1">
-                      <p className="text-[10px] font-black uppercase text-gray-400 ml-4">Style Name</p>
-                      <input required placeholder="e.g. Silk Shalwar Kameez" className="w-full p-6 bg-gray-50 rounded-[2rem] font-black text-base outline-none focus:ring-2 focus:ring-pink-500/10" value={productForm.name} onChange={e => setProductForm({...productForm, name: e.target.value})} />
+                      <p className="text-[10px] font-black uppercase text-gray-400 ml-4">Item Title</p>
+                      <input required placeholder="e.g. Honda CD 70 2022, iPhone 13 128GB, Silk Suit..." className="w-full p-5 bg-gray-50 rounded-[2rem] font-black text-sm outline-none focus:ring-2 focus:ring-pink-500/10" value={productForm.name} onChange={e => setProductForm({...productForm, name: e.target.value})} />
                    </div>
 
-                   <div className="grid grid-cols-2 gap-4">
-                     <div className="space-y-1">
-                        <p className="text-[10px] font-black uppercase text-pink-600 ml-4 flex items-center gap-1"><Sparkles className="w-3 h-3" /> Event Label</p>
-                        <input placeholder="Eid Special" className="w-full p-6 bg-pink-50 border border-pink-100 rounded-[2rem] font-black text-sm outline-none text-pink-700" value={productForm.eventName} onChange={e => setProductForm({...productForm, eventName: e.target.value})} />
-                     </div>
+                   <div className="grid grid-cols-2 gap-3">
                      <div className="space-y-1">
                         <p className="text-[10px] font-black uppercase text-gray-400 ml-4">Category</p>
-                        <select className="w-full p-6 bg-gray-50 border border-transparent rounded-[2rem] font-black text-sm outline-none cursor-pointer" value={productForm.category} onChange={e => setProductForm({...productForm, category: e.target.value})}>
-                          {(categories.length > 0 ? categories : CATEGORIES).map(c => <option key={c.id || c.name} value={c.name}>{c.name}</option>)}
+                        <select className="w-full p-5 bg-gray-50 border border-transparent rounded-[2rem] font-black text-xs outline-none cursor-pointer" value={productForm.category} onChange={e => setProductForm({...productForm, category: e.target.value, subcategory: ''})}>
+                          {activeCategoryList.map(c => <option key={c.id || c.name} value={c.name}>{c.name}</option>)}
+                        </select>
+                     </div>
+                     <div className="space-y-1">
+                        <p className="text-[10px] font-black uppercase text-gray-400 ml-4">Condition</p>
+                        <select className="w-full p-5 bg-gray-50 border border-transparent rounded-[2rem] font-black text-xs outline-none cursor-pointer" value={productForm.condition} onChange={e => setProductForm({...productForm, condition: e.target.value as any})}>
+                          <option value="New">New</option>
+                          <option value="Used">Used</option>
+                          <option value="Refurbished">Refurbished</option>
                         </select>
                      </div>
                    </div>
+
+                   {selectedCategoryObj?.subcategories && selectedCategoryObj.subcategories.length > 0 && (
+                     <div className="space-y-1">
+                        <p className="text-[10px] font-black uppercase text-gray-400 ml-4">Subcategory</p>
+                        <select className="w-full p-5 bg-gray-50 border border-transparent rounded-[2rem] font-black text-xs outline-none cursor-pointer" value={productForm.subcategory} onChange={e => setProductForm({...productForm, subcategory: e.target.value})}>
+                          <option value="">Select Subcategory (Optional)</option>
+                          {selectedCategoryObj.subcategories.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                     </div>
+                   )}
                  </div>
                  
-                 {/* Pricing and Stock */}
-                 <div className="bg-gray-50/50 p-6 rounded-[3rem] border border-gray-100 space-y-6">
-                    <div className="grid grid-cols-2 gap-4">
+                 {/* Pricing, Location and Description */}
+                 <div className="bg-gray-50/50 p-6 rounded-[3rem] border border-gray-100 space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
-                          <p className="text-[8px] font-black uppercase text-gray-400 ml-4">Retail Price (PKR)</p>
-                          <input required type="number" placeholder="Original Price" className="w-full p-5 bg-white border border-gray-100 rounded-2xl font-black text-sm outline-none" value={productForm.originalPrice} onChange={e => setProductForm({...productForm, originalPrice: e.target.value})} />
+                          <p className="text-[9px] font-black uppercase text-gray-400 ml-4">Price (PKR)</p>
+                          <input required type="number" placeholder="Price in PKR" className="w-full p-4 bg-white border border-gray-100 rounded-2xl font-black text-xs outline-none" value={productForm.originalPrice} onChange={e => setProductForm({...productForm, originalPrice: e.target.value})} />
                         </div>
                         <div className="space-y-1">
-                          <p className="text-[8px] font-black uppercase text-red-600 ml-4">% Off Discount</p>
-                          <input type="number" placeholder="0" className="w-full p-5 bg-white border border-gray-100 rounded-2xl font-black text-sm outline-none text-red-600" value={productForm.discountPercentage} onChange={e => setProductForm({...productForm, discountPercentage: e.target.value})} />
+                          <p className="text-[9px] font-black uppercase text-gray-400 ml-4">Location City</p>
+                          <select className="w-full p-4 bg-white border border-gray-100 rounded-2xl font-black text-xs outline-none cursor-pointer" value={productForm.locationCity} onChange={e => setProductForm({...productForm, locationCity: e.target.value})}>
+                            {GHOTKI_LOCATIONS.map(loc => <option key={loc} value={loc}>{loc}</option>)}
+                          </select>
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4 items-end">
-                       <div className="space-y-1">
-                         <p className="text-[8px] font-black uppercase text-gray-400 ml-4">Final Bazar Price</p>
-                         <input disabled className="w-full p-5 bg-pink-50 rounded-2xl font-black text-sm text-pink-600 border border-pink-100" value={productForm.price} />
-                       </div>
-                       <div className="space-y-1">
-                         <p className="text-[8px] font-black uppercase text-gray-400 ml-4">Stock Qty</p>
-                         <input required type="number" className="w-full p-5 bg-white border border-gray-100 rounded-2xl font-black text-sm outline-none" value={productForm.stock} onChange={e => setProductForm({...productForm, stock: e.target.value})} />
-                       </div>
+                    <div className="flex items-center gap-3 px-2">
+                       <input type="checkbox" id="neg_chk" checked={productForm.negotiable} onChange={e => setProductForm({...productForm, negotiable: e.target.checked})} className="w-4 h-4 accent-pink-600 rounded cursor-pointer" />
+                       <label htmlFor="neg_chk" className="text-xs font-bold text-gray-700 cursor-pointer">Price is Negotiable (Gunjaysh Hai)</label>
+                    </div>
+
+                    <div className="space-y-1">
+                       <p className="text-[9px] font-black uppercase text-gray-400 ml-4">Item Description</p>
+                       <textarea placeholder="Describe condition, specifications, warranty, reason for selling..." className="w-full p-4 bg-white border border-gray-100 rounded-2xl font-bold text-xs h-24 outline-none" value={productForm.description} onChange={e => setProductForm({...productForm, description: e.target.value})} />
                     </div>
                  </div>
 
-                 <button type="submit" disabled={loading} className="w-full py-6 bg-gray-900 text-white font-black rounded-full uppercase tracking-widest text-xs shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all">
-                   {loading ? <Loader2 className="animate-spin" /> : <><Check className="w-6 h-6" /> {editingProduct ? 'Save Updates' : 'Launch Style'}</>}
+                 <button type="submit" disabled={loading} className="w-full py-6 bg-gray-900 hover:bg-black text-white font-black rounded-full uppercase tracking-widest text-xs shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all">
+                   {loading ? <Loader2 className="animate-spin" /> : <><Check className="w-6 h-6" /> {editingProduct ? 'Save Updates' : 'Publish Listing Now'}</>}
                  </button>
               </form>
            </div>

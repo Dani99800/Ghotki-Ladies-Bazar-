@@ -1,6 +1,10 @@
 
 export type UserRole = 'ADMIN' | 'SELLER' | 'BUYER' | 'GUEST';
 export type SubscriptionTier = 'BASIC' | 'STANDARD' | 'PREMIUM' | 'NONE';
+export type SellerType = 'INDIVIDUAL' | 'BUSINESS';
+export type SellerPlan = 'INDIVIDUAL_5' | 'BUSINESS_MONTHLY' | 'NONE';
+export type PaymentStatus = 'UNPAID' | 'PENDING' | 'APPROVED' | 'REJECTED';
+export type ProductCondition = 'New' | 'Used';
 
 export interface User {
   id: string;
@@ -9,6 +13,12 @@ export interface User {
   mobile: string;
   role: UserRole;
   subscription_tier?: SubscriptionTier;
+  seller_type?: SellerType;
+  seller_plan?: SellerPlan;
+  payment_status?: PaymentStatus;
+  payment_proof_url?: string;
+  payment_trx_id?: string;
+  payment_method?: string;
   address?: string;
   city?: string;
   savedProductIds?: string[];
@@ -30,10 +40,17 @@ export interface LoyaltyPlan {
   color?: string;
 }
 
+export interface SubCategory {
+  id: string;
+  name: string;
+}
+
 export interface Category {
   id: string;
   name: string;
   image_url: string;
+  subcategories?: string[];
+  icon?: string;
 }
 
 export interface AppEvent {
@@ -53,6 +70,14 @@ export interface Shop {
   owner_id: string;
   bazaar: string;
   category: string;
+  seller_type?: SellerType;
+  seller_plan?: SellerPlan;
+  payment_status?: PaymentStatus;
+  payment_proof_url?: string;
+  payment_trx_id?: string;
+  payment_method?: string;
+  payment_submitted_at?: string;
+  plan_expires_at?: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
   subscription_tier: SubscriptionTier;
   registration_paid?: boolean;
@@ -62,6 +87,7 @@ export interface Shop {
   mobile?: string;
   whatsapp?: string;
   address?: string;
+  city?: string;
   bio?: string;
   easypaisa_number?: string;
   jazzcash_number?: string;
@@ -69,6 +95,7 @@ export interface Shop {
   featured?: boolean;
   sort_priority?: number; 
   is_top_seller?: boolean;
+  is_verified?: boolean;
 }
 
 export interface Product {
@@ -81,6 +108,10 @@ export interface Product {
   discount_percentage?: number;
   event_name?: string;
   category: string;
+  subcategory?: string;
+  condition?: ProductCondition;
+  negotiable?: boolean;
+  location_city?: string;
   images: string[];
   videoUrl?: string;
   tags: string[];
@@ -88,6 +119,13 @@ export interface Product {
   stock?: number;
   is_new_arrival?: boolean;
   sort_priority?: number;
+  status?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'HIDDEN';
+  report_count?: number;
+  whatsapp?: string;
+  contact_number?: string;
+  seller_type?: SellerType;
+  shop_name?: string;
+  is_top_seller?: boolean;
 }
 
 export interface CartItem extends Product {
@@ -115,10 +153,27 @@ export interface CustomRequest {
   id: string;
   user_id: string;
   product_name: string;
+  budget?: number;
+  location_city?: string;
   delivery_days: number;
   image_urls: string[];
   customer_name: string;
   customer_address: string;
+  customer_mobile?: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
+  created_at: string;
+}
+
+export interface PaymentProof {
+  id: string;
+  seller_id: string;
+  seller_name: string;
+  seller_type: SellerType;
+  plan_name: string;
+  amount: number;
+  payment_method: string;
+  trx_id: string;
+  proof_url: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
   created_at: string;
 }
