@@ -5,6 +5,7 @@ import { Home, ShoppingBag, User as UserIcon, ShoppingCart, LayoutDashboard, Shi
 import { supabase } from './services/supabase';
 import { User as UserType, Shop, Product, CartItem, Order, Category, AppEvent } from './types';
 import { CATEGORIES as FALLBACK_CATEGORIES, NOTIFICATION_SOUND, PK_EVENTS } from './constants';
+import { MOCK_SHOPS, MOCK_PRODUCTS } from './data';
 import BuyerHome from './views/BuyerHome';
 import ShopView from './views/ShopView';
 import ProductView from './views/ProductView';
@@ -26,14 +27,30 @@ const App: React.FC = () => {
   const [shops, setShops] = useState<Shop[]>(() => {
     try {
       const cached = localStorage.getItem('glb_cache_shops');
-      return cached ? JSON.parse(cached) : [];
-    } catch { return []; }
+      const parsed = cached ? JSON.parse(cached) : [];
+      if (parsed.length > 0) {
+        const merged = [...parsed];
+        MOCK_SHOPS.forEach(ms => {
+          if (!merged.some(s => s.id === ms.id)) merged.push(ms);
+        });
+        return merged;
+      }
+      return MOCK_SHOPS;
+    } catch { return MOCK_SHOPS; }
   });
   const [products, setProducts] = useState<Product[]>(() => {
     try {
       const cached = localStorage.getItem('glb_cache_products');
-      return cached ? JSON.parse(cached) : [];
-    } catch { return []; }
+      const parsed = cached ? JSON.parse(cached) : [];
+      if (parsed.length > 0) {
+        const merged = [...parsed];
+        MOCK_PRODUCTS.forEach(mp => {
+          if (!merged.some(p => p.id === mp.id)) merged.push(mp);
+        });
+        return merged;
+      }
+      return MOCK_PRODUCTS;
+    } catch { return MOCK_PRODUCTS; }
   });
   const [categories, setCategories] = useState<Category[]>(() => {
     try {
@@ -193,13 +210,27 @@ const App: React.FC = () => {
         return !REMOVED_CATEGORY_NAMES.includes(name);
       });
 
-      setShops(mappedShops);
-      setProducts(mappedProducts);
+      const combinedShops = [...mappedShops];
+      MOCK_SHOPS.forEach(ms => {
+        if (!combinedShops.some(s => s.id === ms.id)) {
+          combinedShops.push(ms);
+        }
+      });
+
+      const combinedProducts = [...mappedProducts];
+      MOCK_PRODUCTS.forEach(mp => {
+        if (!combinedProducts.some(p => p.id === mp.id)) {
+          combinedProducts.push(mp);
+        }
+      });
+
+      setShops(combinedShops);
+      setProducts(combinedProducts);
       setCategories(cleanCategoriesData);
       
       // Update Cache
-      localStorage.setItem('glb_cache_shops', JSON.stringify(mappedShops));
-      localStorage.setItem('glb_cache_products', JSON.stringify(mappedProducts));
+      localStorage.setItem('glb_cache_shops', JSON.stringify(combinedShops));
+      localStorage.setItem('glb_cache_products', JSON.stringify(combinedProducts));
       localStorage.setItem('glb_cache_categories', JSON.stringify(cleanCategoriesData));
       
       console.log(`GLB: Sync Complete. ${mappedShops.length} shops, ${mappedProducts.length} products.`);

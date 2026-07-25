@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, MapPin, Star, ChevronRight, AlertCircle, ShoppingBag, Filter, Trophy } from 'lucide-react';
 import { Category, Shop } from '../types';
+import { GHOTKI_LOCATIONS } from '../constants';
 
 interface ShopsListViewProps {
   shops: Shop[];
@@ -14,6 +15,7 @@ const ShopsListView: React.FC<ShopsListViewProps> = ({ shops, categories, lang }
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | 'ALL'>('ALL');
+  const [selectedLocation, setSelectedLocation] = useState<string>('All');
 
   const normalize = (str: string) => (str || '').toLowerCase().replace(/[^a-z0-9]/g, '').replace(/s(?=clothes|footwear|wear|store|$)/g, '').trim();
 
@@ -23,7 +25,11 @@ const ShopsListView: React.FC<ShopsListViewProps> = ({ shops, categories, lang }
       const isApproved = status === 'APPROVED';
       const matchesSearch = (s.name || '').toLowerCase().includes(searchTerm.toLowerCase());
       
-      if (selectedCategory === 'ALL') return isApproved && matchesSearch;
+      const shopLoc = (s.city || s.address || s.bazaar || '').toLowerCase();
+      const matchesLocation = selectedLocation === 'All' || shopLoc.includes(selectedLocation.toLowerCase());
+
+      if (!isApproved || !matchesSearch || !matchesLocation) return false;
+      if (selectedCategory === 'ALL') return true;
       
       const shopCatNorm = normalize(s.category || '');
       const selectedCatNorm = normalize(selectedCategory);
@@ -33,7 +39,7 @@ const ShopsListView: React.FC<ShopsListViewProps> = ({ shops, categories, lang }
       const matchesCategory = shopCatNorm === selectedCatNorm || 
                               (selectedCatNameNorm && shopCatNorm === selectedCatNameNorm);
                               
-      return isApproved && matchesSearch && matchesCategory;
+      return matchesCategory;
     })
     .sort((a, b) => {
       const priorityA = Number(a.sort_priority) || 0;
@@ -59,6 +65,22 @@ const ShopsListView: React.FC<ShopsListViewProps> = ({ shops, categories, lang }
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
           />
+        </div>
+
+        {/* Location Filter */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+          <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider flex items-center gap-1 shrink-0 pl-1">
+            <MapPin className="w-3 h-3 text-pink-600" /> City:
+          </span>
+          {GHOTKI_LOCATIONS.map(loc => (
+            <button
+              key={loc}
+              onClick={() => setSelectedLocation(loc)}
+              className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap transition-all border ${selectedLocation === loc ? 'bg-gray-900 border-gray-900 text-white shadow-md' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}`}
+            >
+              {loc}
+            </button>
+          ))}
         </div>
 
         {/* Category Filter */}

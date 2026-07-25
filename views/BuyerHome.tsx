@@ -88,8 +88,11 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
       const subCategoryMatch = selectedSubCategory === 'All' || 
                                normalize(p.subcategory || '') === normalize(selectedSubCategory);
 
+      const pShop = shops.find(s => s.id === p.shopId);
+      const shopLoc = pShop ? (pShop.city || pShop.address || pShop.bazaar || '') : '';
       const locationMatch = selectedLocation === 'All' || 
-                            normalize(p.location_city || '') === normalize(selectedLocation);
+                            normalize(p.location_city || '') === normalize(selectedLocation) ||
+                            normalize(shopLoc).includes(normalize(selectedLocation));
 
       const searchMatch = searchTerm === '' || 
                           p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
