@@ -131,6 +131,21 @@ export interface Product {
   ad_status?: 'ACTIVE' | 'PAUSED' | 'EXPIRED' | 'INSUFFICIENT_FUNDS';
   ad_started_at?: string;
   ad_days_paid?: number;
+
+  // Portal Specifications
+  portal_type?: 'MARKETPLACE' | 'PROPERTY' | 'RENTAL' | 'MOTOR';
+  property_type?: 'House' | 'Plot' | 'Shop' | 'Commercial' | 'Agricultural' | 'Apartment';
+  area_sqft?: string;
+  bedrooms?: number;
+  bathrooms?: number;
+  rental_period?: 'Monthly' | 'Daily' | 'Yearly' | 'Hourly';
+  security_deposit?: number;
+  vehicle_make?: string;
+  vehicle_model?: string;
+  vehicle_year?: number;
+  mileage_km?: number;
+  fuel_type?: 'Petrol' | 'Diesel' | 'EV' | 'CNG' | 'Hybrid';
+  transmission?: 'Automatic' | 'Manual';
 }
 
 export interface CartItem extends Product {
@@ -152,6 +167,16 @@ export interface Order {
   buyerMobile: string;
   buyerAddress: string;
   createdAt: string;
+
+  // Category-Specific Booking Details
+  portalType?: 'MARKETPLACE' | 'PROPERTY' | 'RENTAL' | 'MOTOR';
+  cnicNumber?: string;
+  bookingStartDate?: string;
+  rentalDuration?: string;
+  guarantorContact?: string;
+  tourInspectionDate?: string;
+  testDriveDate?: string;
+  tokenAmount?: number;
 }
 
 export interface CustomRequest {

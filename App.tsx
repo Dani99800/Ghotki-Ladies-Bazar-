@@ -19,6 +19,9 @@ import AdminDashboard from './views/AdminDashboard';
 import OrdersView from './views/OrdersView';
 import CheckoutView from './views/CheckoutView';
 import CustomRequestView from './views/CustomRequestView';
+import RentalsPortalView from './views/RentalsPortalView';
+import PropertyPortalView from './views/PropertyPortalView';
+import MotorsPortalView from './views/MotorsPortalView';
 
 const App: React.FC = () => {
   const navigate = useNavigate();
@@ -692,6 +695,9 @@ const App: React.FC = () => {
           })()} />
           <Route path="/seller/*" element={user?.role === 'SELLER' ? <SellerDashboard products={filteredProducts} user={user} addProduct={loadMarketplace} orders={orders} shops={filteredShops} refreshShop={loadMarketplace} refreshOrders={fetchOrders} categories={categories} /> : <Navigate to="/login" />} />
           <Route path="/checkout" element={<CheckoutView cart={cart} clearCart={() => setCart([])} user={user} lang="EN" onPlaceOrder={handlePlaceOrder} shops={filteredShops} loyaltyPlans={loyaltyPlans} />} />
+          <Route path="/portal/rentals" element={<RentalsPortalView products={filteredProducts} shops={filteredShops} user={user} addToCart={addToCart} />} />
+          <Route path="/portal/property" element={<PropertyPortalView products={filteredProducts} shops={filteredShops} user={user} addToCart={addToCart} />} />
+          <Route path="/portal/motors" element={<MotorsPortalView products={filteredProducts} shops={filteredShops} user={user} addToCart={addToCart} />} />
           <Route path="/orders" element={user ? <OrdersView orders={orders} user={user} shops={shops} /> : <Navigate to="/login" />} />
           <Route path="/custom-request" element={<CustomRequestView user={user} categories={categories} />} />
         </Routes>

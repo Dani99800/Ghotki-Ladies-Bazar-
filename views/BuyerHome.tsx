@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { Shop, Product, Order, User as UserType, Category, AppEvent } from '../types';
 import { BAZAARS, GHOTKI_LOCATIONS, CATEGORIES as DEFAULT_CATEGORIES } from '../constants';
+import PortalHeaderBar from '../components/PortalHeaderBar';
 
 interface BuyerHomeProps {
   shops: Shop[];
@@ -201,7 +202,9 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6 space-y-8 pb-32 animate-in fade-in duration-700">
+    <div className="space-y-8 pb-32 animate-in fade-in duration-700">
+      <PortalHeaderBar activePortal="MARKETPLACE" />
+      <div className="max-w-4xl mx-auto px-4 space-y-8">
       
       {/* HERO SECTION */}
       <div className="bg-gradient-to-br from-pink-600 via-pink-700 to-purple-900 rounded-[2.5rem] p-6 md:p-10 text-white shadow-2xl relative overflow-hidden space-y-4">
@@ -490,6 +493,7 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
           </div>
         )}
       </section>
+      </div>
     </div>
   );
 };
