@@ -147,60 +147,104 @@ export const CATEGORIES: Category[] = [
 
 export const SUBSCRIPTION_PLANS = [
   { id: 'FREE', label: 'Basic / Free' },
-  { id: 'INDIVIDUAL', label: 'Individual (PKR 100)' },
-  { id: 'BUSINESS', label: 'Business (PKR 500/Mo)' },
-  { id: 'STANDARD', label: 'Standard Shop' },
-  { id: 'PREMIUM', label: 'Premium VIP Shop' }
+  { id: 'INDIVIDUAL_100', label: 'Individual Trader (PKR 100)' },
+  { id: 'SHOP_500', label: 'Local Shop Limited (PKR 500/Mo)' },
+  { id: 'BUSINESS_1000', label: 'Standard Business Shop (PKR 1,000/Mo) 🔥 Target' },
+  { id: 'PROPERTY_2500', label: 'Property Agency (PKR 2,500/Mo)' }
 ];
 
 export const SELLER_PLANS = [
   {
     type: 'INDIVIDUAL',
-    id: 'INDIVIDUAL_5',
-    title: 'Individual Seller Plan',
+    id: 'INDIVIDUAL_100',
+    title: 'Individual Trader',
     price: 100,
     priceLabel: 'PKR 100',
     quota: '1 to 5 Product Listings',
+    badge: 'Starter Trial',
+    popular: false,
+    target: false,
+    description: 'For individuals selling personal items or 1 to 5 used products.',
     features: [
       'List 1 to 5 items',
       'Individual seller profile',
-      'Upload photos & videos',
       'Direct WhatsApp contact button',
-      'Location tag (Ghotki District & nearby)',
+      'Location tag (Ghotki District)',
       'Condition tag (New / Used)'
     ]
   },
   {
     type: 'BUSINESS',
-    id: 'BUSINESS_MONTHLY',
-    title: 'Business / Shop Seller Plan',
+    id: 'SHOP_500',
+    title: 'Local Shop (Limited Access)',
     price: 500,
     priceLabel: 'PKR 500 / Month',
-    quota: 'Unlimited Product Listings',
+    quota: 'Up to 15 Product Listings',
+    badge: 'Limited Access',
+    popular: false,
+    target: false,
+    description: 'Basic online presence for small local shops with limited listings.',
     features: [
-      'Unlimited product listings',
-      'Custom Shop Page & Branding (Logo & Cover)',
-      'Verified Seller & Top Seller ⭐ Badge eligibility',
-      'Customer Requests Access (See what buyers want)',
-      'Product videos & reels',
-      'Featured store promotion on homepage',
-      'Full Seller Dashboard & Analytics'
+      'Up to 15 Product Listings',
+      'Standard shop profile & logo',
+      'Basic WhatsApp inquiry button',
+      'Standard search visibility'
+    ]
+  },
+  {
+    type: 'BUSINESS',
+    id: 'BUSINESS_1000',
+    title: 'Standard Business Shop',
+    price: 1000,
+    priceLabel: 'PKR 1,000 / Month',
+    quota: 'UNLIMITED Product Listings',
+    badge: '🔥 MOST POPULAR - BEST VALUE (RECOMMENDED)',
+    popular: true,
+    target: true,
+    description: 'Target plan for Cars, Bikes, Mobiles, Laptops, ACs, Electronics & General Retail Shops! Unlimited sales and max visibility.',
+    features: [
+      'UNLIMITED Product Listings (Cars, Bikes, Mobiles, ACs, Electronics & Retail)',
+      'Verified Seller ⭐ & Top Store Badge',
+      'Featured Shop Promotion on Homepage & Category Banners',
+      'Customer Demand Access (See what buyers request)',
+      'HD Video Reels & Photo Showcases',
+      'Priority Search Ranking & Top Store Boost',
+      'Direct WhatsApp Leads & Buyer Inquiries'
+    ]
+  },
+  {
+    type: 'BUSINESS',
+    id: 'PROPERTY_2500',
+    title: 'Property & Real Estate Agency Plan',
+    price: 2500,
+    priceLabel: 'PKR 2,500 / Month',
+    quota: 'UNLIMITED Property Listings',
+    badge: 'Real Estate Special',
+    popular: false,
+    target: false,
+    description: 'Dedicated plan for Real Estate Agencies, Plot Brokers, Houses & Commercial Property dealers.',
+    features: [
+      'UNLIMITED Property, House, Plot & Shop Listings',
+      'Verified Real Estate Agency Badge 🛡️',
+      'High-Ticket Buyer Inquiry Delivery to WhatsApp',
+      'Featured Banner Showcase in Real Estate Portal',
+      'Direct Client Property Tour & Booking Inquiries'
     ]
   }
 ];
 
 export const PAYMENT_ACCOUNTS = {
   easypaisa: {
-    accountName: 'Ghotki Bazar Admin',
-    accountNumber: '0300-1234567'
+    accountName: 'Ghotki Online Directory / Admin',
+    accountNumber: '03462904137'
   },
   jazzcash: {
-    accountName: 'Ghotki Bazar Admin',
-    accountNumber: '0301-7654321'
+    accountName: 'Ghotki Online Directory / Admin',
+    accountNumber: '03462904137'
   },
   bank: {
     bankName: 'Meezan Bank Limited',
-    accountTitle: 'Ghotki Bazar Local Services',
+    accountTitle: 'Ghotki Online Directory / Admin',
     iban: 'PK12MEZN0001020304050607'
   }
 };

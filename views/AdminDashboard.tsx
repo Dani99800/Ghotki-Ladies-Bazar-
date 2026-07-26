@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  Store, Shield, Loader2, Check, Palette, Star, Trophy, ShoppingBag, Clock, ArrowUp, ArrowDown, CreditCard, X, ExternalLink, Package, User as UserIcon, MapPin, Search, Filter, CheckCircle2, AlertCircle, Phone, MessageSquare, Car, Smartphone, Building, Shirt, Sparkles, Briefcase, Footprints, Wheat, Armchair, Plus, Wallet, DollarSign
+  Store, Shield, Loader2, Check, Palette, Star, Trophy, ShoppingBag, Clock, ArrowUp, ArrowDown, CreditCard, X, ExternalLink, Package, User as UserIcon, MapPin, Search, Filter, CheckCircle2, AlertCircle, Phone, MessageSquare, Car, Smartphone, Building, Shirt, Sparkles, Briefcase, Footprints, Wheat, Armchair, Plus, Wallet, DollarSign, KeyRound, Building2, FileText
 } from 'lucide-react';
 import { Shop, Order, Category, AppEvent, Product, CustomRequest, AdDeposit } from '../types';
 import { supabase } from '../services/supabase';
@@ -22,14 +22,24 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   shops, setShops, orders, categories, refreshData, activeEvent, onUpdateEvent 
 }) => {
   const [loadingId, setLoadingId] = useState<string | null>(null);
-  const [activeAdminTab, setActiveAdminTab] = useState<'SHOPS' | 'AD_DEPOSITS' | 'CUSTOM_REQUESTS' | 'THEME'>('SHOPS');
+  const [activeAdminTab, setActiveAdminTab] = useState<'SHOPS' | 'PENDING' | 'INVENTORY' | 'LOYALTY' | 'AD_DEPOSITS' | 'CUSTOM_REQUESTS' | 'THEME'>('SHOPS');
   
   // Category & Filter States
+  const [selectedPortalFilter, setSelectedPortalFilter] = useState<'ALL' | 'MARKETPLACE' | 'RENTAL' | 'PROPERTY' | 'MOTOR'>('ALL');
   const [selectedApprovalCategory, setSelectedApprovalCategory] = useState<string>('All');
   const [selectedDirectoryCategory, setSelectedDirectoryCategory] = useState<string>('All');
   const [selectedInventoryCategory, setSelectedInventoryCategory] = useState<string>('All');
   const [directorySearch, setDirectorySearch] = useState<string>('');
   const [inventorySearch, setInventorySearch] = useState<string>('');
+
+  const getShopPortal = (shop: Shop): 'MARKETPLACE' | 'RENTAL' | 'PROPERTY' | 'MOTOR' => {
+    if (shop.portal_type) return shop.portal_type;
+    const cat = (shop.category || '').toLowerCase();
+    if (cat.includes('rental') || cat.includes('lease')) return 'RENTAL';
+    if (cat.includes('property') || cat.includes('real estate') || cat.includes('house') || cat.includes('plot')) return 'PROPERTY';
+    if (cat.includes('car') || cat.includes('motor') || cat.includes('vehicle')) return 'MOTOR';
+    return 'MARKETPLACE';
+  };
 
   const [adminProducts, setAdminProducts] = useState<Product[]>([]);
   const [customRequests, setCustomRequests] = useState<CustomRequest[]>([]);
@@ -47,6 +57,21 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const pendingShops = useMemo(() => {
     return shops.filter(s => s.status === 'PENDING');
   }, [shops]);
+
+  const pendingShopsByPortal = useMemo(() => {
+    return {
+      ALL: pendingShops.length,
+      MARKETPLACE: pendingShops.filter(s => getShopPortal(s) === 'MARKETPLACE').length,
+      RENTAL: pendingShops.filter(s => getShopPortal(s) === 'RENTAL').length,
+      PROPERTY: pendingShops.filter(s => getShopPortal(s) === 'PROPERTY').length,
+      MOTOR: pendingShops.filter(s => getShopPortal(s) === 'MOTOR').length,
+    };
+  }, [pendingShops]);
+
+  const displayedPendingShops = useMemo(() => {
+    if (selectedPortalFilter === 'ALL') return pendingShops;
+    return pendingShops.filter(s => getShopPortal(s) === selectedPortalFilter);
+  }, [pendingShops, selectedPortalFilter]);
 
   const pendingCount = pendingShops.length;
 
@@ -402,17 +427,55 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="bg-gradient-to-r from-orange-500 to-amber-500 p-6 md:p-8 rounded-[3rem] text-white space-y-6 shadow-xl border border-orange-400">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                  <div>
-                   <h3 className="text-xl font-black uppercase italic tracking-tighter text-white">Pending Store Applications ({pendingShops.length})</h3>
-                   <p className="text-[10px] font-black text-orange-100 uppercase tracking-widest mt-1">New seller applications awaiting admin review & verification</p>
+                   <h3 className="text-xl font-black uppercase italic tracking-tighter text-white">Pending Portal Applications ({pendingShops.length})</h3>
+                   <p className="text-[10px] font-black text-orange-100 uppercase tracking-widest mt-1">Review seller & agency applications organized by specialized portals</p>
                  </div>
                  <span className="px-4 py-2 bg-white/20 backdrop-blur-md rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
                    <AlertCircle className="w-4 h-4" /> Action Required
                  </span>
               </div>
 
+              {/* Portal Filter Pills */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+                {[
+                  { id: 'ALL', label: 'All Portals', count: pendingShopsByPortal.ALL, icon: Store },
+                  { id: 'MARKETPLACE', label: 'Marketplace', count: pendingShopsByPortal.MARKETPLACE, icon: ShoppingBag },
+                  { id: 'RENTAL', label: 'Rentals', count: pendingShopsByPortal.RENTAL, icon: KeyRound },
+                  { id: 'PROPERTY', label: 'Real Estate', count: pendingShopsByPortal.PROPERTY, icon: Building2 },
+                  { id: 'MOTOR', label: 'Motors', count: pendingShopsByPortal.MOTOR, icon: Car },
+                ].map(p => {
+                  const IconComponent = p.icon;
+                  const isActive = selectedPortalFilter === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => setSelectedPortalFilter(p.id as any)}
+                      className={`px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-wider flex items-center gap-2 transition-all whitespace-nowrap ${
+                        isActive 
+                          ? 'bg-white text-orange-600 shadow-md scale-105' 
+                          : 'bg-black/20 text-white hover:bg-black/30'
+                      }`}
+                    >
+                      <IconComponent className="w-3.5 h-3.5" />
+                      {p.label}
+                      <span className={`px-2 py-0.5 rounded-full text-[9px] ${isActive ? 'bg-orange-100 text-orange-700 font-bold' : 'bg-white/20 text-white'}`}>
+                        {p.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
               <div className="grid grid-cols-1 gap-4">
-                {pendingShops.map(shop => (
-                  <div key={shop.id} className="bg-white p-5 md:p-6 rounded-[2.5rem] text-gray-900 space-y-4 shadow-md">
+                {displayedPendingShops.length === 0 ? (
+                  <div className="bg-white/10 backdrop-blur-md p-6 rounded-2xl text-center text-orange-100 font-bold text-xs uppercase tracking-wider">
+                    No pending applications for this portal category.
+                  </div>
+                ) : (
+                  displayedPendingShops.map(shop => {
+                    const shopPortal = getShopPortal(shop);
+                    return (
+                      <div key={shop.id} className="bg-white p-5 md:p-6 rounded-[2.5rem] text-gray-900 space-y-4 shadow-md">
                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div className="flex items-center gap-4">
                            <img src={shop.logo || 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&q=80&w=200'} className="w-14 h-14 rounded-2xl object-cover bg-gray-50 border border-gray-100 shadow-sm flex-shrink-0" />
@@ -447,21 +510,27 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                      </div>
 
                      <div className="flex flex-wrap items-center gap-4 pt-3 border-t border-gray-100 text-xs text-gray-600">
+                        <span><strong>Plan:</strong> <span className="text-pink-600 font-black uppercase">{shop.seller_plan || 'BUSINESS_1000'}</span></span>
+                        <span>•</span>
+                        <span><strong>TRX ID:</strong> <span className="font-mono font-bold text-gray-900">{shop.payment_trx_id || 'Pending TRX'}</span></span>
+                        <span>•</span>
                         <span><strong>Phone:</strong> {shop.mobile || 'N/A'}</span>
                         <span>•</span>
                         <span><strong>WhatsApp:</strong> {shop.whatsapp || shop.mobile || 'N/A'}</span>
                         <span>•</span>
                         <span><strong>Address:</strong> {shop.address || shop.bazaar || 'Ghotki District'}</span>
                      </div>
-                  </div>
-                ))}
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
           )}
 
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 px-2">
              <div className="space-y-1">
-               <h2 className="text-xl font-black uppercase italic tracking-tighter text-gray-900">District Stores Directory</h2>
+               <h2 className="text-xl font-black uppercase italic tracking-tighter text-gray-900">District Portals & Stores Directory</h2>
                <p className="text-[9px] font-black text-pink-500 uppercase tracking-widest">Manage priorities, top seller badges and live store visibility</p>
              </div>
 

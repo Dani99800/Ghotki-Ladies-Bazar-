@@ -2,7 +2,7 @@
 export type UserRole = 'ADMIN' | 'SELLER' | 'BUYER' | 'GUEST';
 export type SubscriptionTier = 'BASIC' | 'STANDARD' | 'PREMIUM' | 'NONE';
 export type SellerType = 'INDIVIDUAL' | 'BUSINESS';
-export type SellerPlan = 'INDIVIDUAL_5' | 'BUSINESS_MONTHLY' | 'NONE';
+export type SellerPlan = 'INDIVIDUAL_100' | 'INDIVIDUAL_5' | 'SHOP_500' | 'BUSINESS_1000' | 'PROPERTY_2500' | 'BUSINESS_MONTHLY' | 'NONE';
 export type PaymentStatus = 'UNPAID' | 'PENDING' | 'APPROVED' | 'REJECTED';
 export type ProductCondition = 'New' | 'Used';
 
@@ -97,6 +97,8 @@ export interface Shop {
   is_top_seller?: boolean;
   is_verified?: boolean;
   ad_wallet_balance?: number;
+  portal_type?: 'MARKETPLACE' | 'PROPERTY' | 'RENTAL' | 'MOTOR';
+  cnic_license?: string;
 }
 
 export interface Product {

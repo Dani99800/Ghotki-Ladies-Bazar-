@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  User, Store, Phone, Mail, CheckCircle, Loader2, ChevronDown, AlertTriangle, Briefcase, ShoppingBag, MapPin, Sparkles, CreditCard, ShieldCheck, UserCheck
+  User, Store, Phone, Mail, CheckCircle, Loader2, ChevronDown, AlertTriangle, Briefcase, ShoppingBag, MapPin, Sparkles, CreditCard, ShieldCheck, UserCheck, KeyRound, Building2, Car, FileText
 } from 'lucide-react';
 import { supabase, uploadFile } from '../services/supabase';
 import { BAZAARS, CATEGORIES, SELLER_PLANS, GHOTKI_LOCATIONS, PAYMENT_ACCOUNTS } from '../constants';
@@ -17,7 +17,9 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
   const navigate = useNavigate();
   const [view, setView] = useState<'LOGIN' | 'SIGNUP_CHOICE' | 'SIGNUP_BUYER' | 'SIGNUP_SELLER' | 'PENDING' | 'CHECK_EMAIL'>('LOGIN');
   const [loading, setLoading] = useState(false);
-  const [sellerType, setSellerType] = useState<SellerType>('INDIVIDUAL');
+  const [sellerType, setSellerType] = useState<SellerType>('BUSINESS');
+  const [portalType, setPortalType] = useState<'MARKETPLACE' | 'RENTAL' | 'PROPERTY' | 'MOTOR'>('MARKETPLACE');
+  const [cnicLicense, setCnicLicense] = useState('');
   
   const [formData, setFormData] = useState({ 
     email: '',
@@ -29,7 +31,7 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
     shopAddress: '',
     bazaar: BAZAARS[0],
     category: CATEGORIES[0].name,
-    plan: 'INDIVIDUAL_5' as SellerPlan,
+    plan: 'BUSINESS_1000' as SellerPlan,
     paymentMethod: 'Easypaisa',
     trxId: '',
     proofUrl: ''
@@ -111,7 +113,14 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
         }
       }
 
-      const activePlan = sellerType === 'INDIVIDUAL' ? 'INDIVIDUAL_5' : 'BUSINESS_MONTHLY';
+      const activePlan = formData.plan || 'BUSINESS_1000';
+      const effectiveSellerType = activePlan === 'INDIVIDUAL_100' ? 'INDIVIDUAL' : 'BUSINESS';
+
+      // Portal-specific category resolution
+      const effectiveCategory = portalType === 'RENTAL' ? (formData.category || 'Rentals & Leases') :
+        portalType === 'PROPERTY' ? (formData.category || 'Property & Real Estate') :
+        portalType === 'MOTOR' ? (formData.category || 'Cars & Vehicles') :
+        (formData.category || 'General');
 
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
@@ -123,13 +132,15 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
             mobile: formData.mobile,
             role: role,
             city: formData.city,
-            seller_type: sellerType,
+            seller_type: effectiveSellerType,
             seller_plan: activePlan,
-            tier: sellerType === 'BUSINESS' ? 'PREMIUM' : 'BASIC',
-            shop_name: sellerType === 'BUSINESS' ? (formData.shopName || `${formData.name}'s Shop`) : formData.name,
+            tier: effectiveSellerType === 'BUSINESS' ? 'PREMIUM' : 'BASIC',
+            shop_name: effectiveSellerType === 'BUSINESS' ? (formData.shopName || `${formData.name}'s Shop`) : formData.name,
             address: formData.shopAddress || '',
             bazaar: formData.bazaar || 'General',
-            category: formData.category || 'General',
+            category: effectiveCategory,
+            portal_type: portalType,
+            cnic_license: cnicLicense,
             payment_method: formData.paymentMethod,
             payment_trx_id: formData.trxId,
             payment_proof_url: formData.proofUrl
@@ -144,13 +155,15 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
         // Create shop explicitly if needed
         const { error: shopErr } = await supabase.from('shops').insert({
           owner_id: authData.user.id,
-          name: sellerType === 'BUSINESS' ? (formData.shopName || `${formData.name}'s Shop`) : formData.name,
+          name: effectiveSellerType === 'BUSINESS' ? (formData.shopName || `${formData.name}'s Shop`) : formData.name,
           bazaar: formData.bazaar,
-          category: formData.category,
+          category: effectiveCategory,
           city: formData.city,
-          seller_type: sellerType,
+          seller_type: effectiveSellerType,
           seller_plan: activePlan,
           status: 'PENDING',
+          portal_type: portalType,
+          cnic_license: cnicLicense,
           payment_status: formData.trxId || formData.proofUrl ? 'PENDING' : 'UNPAID',
           payment_method: formData.paymentMethod,
           payment_trx_id: formData.trxId,
@@ -275,40 +288,157 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
 
             {view === 'SIGNUP_SELLER' && (
               <div className="space-y-5 pt-4 border-t border-gray-100 animate-in slide-in-from-top-4">
+                
+                {/* PORTAL SELECTION */}
                 <div className="space-y-2">
-                  <p className="text-[11px] font-black uppercase text-gray-900 tracking-wider">What type of seller are you?</p>
-                  <div className="grid grid-cols-2 gap-3">
+                  <p className="text-[11px] font-black uppercase text-gray-900 tracking-wider">Select Portal Category for Your Business</p>
+                  <div className="grid grid-cols-2 gap-2.5">
                     <button 
                       type="button" 
-                      onClick={() => { setSellerType('INDIVIDUAL'); setFormData({...formData, plan: 'INDIVIDUAL_5'}); }}
-                      className={`p-4 rounded-2xl border-2 text-left transition-all flex flex-col justify-between ${sellerType === 'INDIVIDUAL' ? 'border-pink-600 bg-pink-50/50 text-pink-700' : 'border-gray-100 bg-white text-gray-600'}`}
+                      onClick={() => { setPortalType('MARKETPLACE'); setFormData({...formData, category: 'General'}); }}
+                      className={`p-3.5 rounded-2xl border-2 text-left transition-all flex items-center gap-3 ${portalType === 'MARKETPLACE' ? 'border-pink-600 bg-pink-50/50 text-pink-700 shadow-sm' : 'border-gray-100 bg-white text-gray-600'}`}
                     >
-                      <UserCheck className="w-5 h-5 mb-2 text-pink-600" />
+                      <ShoppingBag className="w-5 h-5 text-pink-600 flex-shrink-0" />
                       <div>
-                        <div className="text-xs font-black uppercase">Individual Seller</div>
-                        <div className="text-[10px] font-bold text-pink-600">PKR 100 (1–5 Listings)</div>
+                        <div className="text-[11px] font-black uppercase">Marketplace</div>
+                        <div className="text-[9px] font-bold text-gray-400">Retail Shops</div>
                       </div>
                     </button>
 
                     <button 
                       type="button" 
-                      onClick={() => { setSellerType('BUSINESS'); setFormData({...formData, plan: 'BUSINESS_MONTHLY'}); }}
-                      className={`p-4 rounded-2xl border-2 text-left transition-all flex flex-col justify-between ${sellerType === 'BUSINESS' ? 'border-pink-600 bg-pink-50/50 text-pink-700' : 'border-gray-100 bg-white text-gray-600'}`}
+                      onClick={() => { setPortalType('RENTAL'); setFormData({...formData, category: 'Rentals & Leases'}); }}
+                      className={`p-3.5 rounded-2xl border-2 text-left transition-all flex items-center gap-3 ${portalType === 'RENTAL' ? 'border-indigo-600 bg-indigo-50/50 text-indigo-700 shadow-sm' : 'border-gray-100 bg-white text-gray-600'}`}
                     >
-                      <Store className="w-5 h-5 mb-2 text-pink-600" />
+                      <KeyRound className="w-5 h-5 text-indigo-600 flex-shrink-0" />
                       <div>
-                        <div className="text-xs font-black uppercase">Business / Shop</div>
-                        <div className="text-[10px] font-bold text-pink-600">PKR 500 / Month</div>
+                        <div className="text-[11px] font-black uppercase">Rentals</div>
+                        <div className="text-[9px] font-bold text-gray-400">Cars & Items</div>
+                      </div>
+                    </button>
+
+                    <button 
+                      type="button" 
+                      onClick={() => { setPortalType('PROPERTY'); setFormData({...formData, category: 'Property & Real Estate'}); }}
+                      className={`p-3.5 rounded-2xl border-2 text-left transition-all flex items-center gap-3 ${portalType === 'PROPERTY' ? 'border-emerald-600 bg-emerald-50/50 text-emerald-700 shadow-sm' : 'border-gray-100 bg-white text-gray-600'}`}
+                    >
+                      <Building2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                      <div>
+                        <div className="text-[11px] font-black uppercase">Real Estate</div>
+                        <div className="text-[9px] font-bold text-gray-400">Property Agency</div>
+                      </div>
+                    </button>
+
+                    <button 
+                      type="button" 
+                      onClick={() => { setPortalType('MOTOR'); setFormData({...formData, category: 'Cars & Vehicles'}); }}
+                      className={`p-3.5 rounded-2xl border-2 text-left transition-all flex items-center gap-3 ${portalType === 'MOTOR' ? 'border-amber-600 bg-amber-50/50 text-amber-700 shadow-sm' : 'border-gray-100 bg-white text-gray-600'}`}
+                    >
+                      <Car className="w-5 h-5 text-amber-600 flex-shrink-0" />
+                      <div>
+                        <div className="text-[11px] font-black uppercase">Motors</div>
+                        <div className="text-[9px] font-bold text-gray-400">Car Dealerships</div>
                       </div>
                     </button>
                   </div>
                 </div>
 
-                {sellerType === 'BUSINESS' && (
-                  <div className="space-y-3">
-                    <input required type="text" placeholder="Shop / Brand Name" className="w-full p-4 bg-white border border-gray-100 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-pink-500/10" value={formData.shopName} onChange={e => setFormData({...formData, shopName: e.target.value})} />
-                    <textarea required placeholder="Shop Address (e.g. Main Bazar Ghotki, Shop #12)" className="w-full p-4 bg-white border border-gray-100 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-pink-500/10 h-20 shadow-sm" value={formData.shopAddress} onChange={e => setFormData({...formData, shopAddress: e.target.value})} />
-                    
+                {/* SELLER PLAN SELECTION */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] font-black uppercase text-gray-900 tracking-wider">Select Seller Plan & Registration</p>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-pink-600 bg-pink-50 px-2 py-0.5 rounded-full border border-pink-100">Official Pricing</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {SELLER_PLANS.map(p => {
+                      const isSelected = formData.plan === p.id;
+                      const isTarget = p.target;
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => {
+                            setSellerType(p.type as SellerType);
+                            setFormData({ ...formData, plan: p.id as SellerPlan });
+                          }}
+                          className={`p-4 rounded-2xl border-2 text-left transition-all relative flex flex-col justify-between ${
+                            isSelected
+                              ? isTarget 
+                                ? 'border-amber-500 bg-gradient-to-br from-amber-50/90 via-orange-50 to-pink-50 text-gray-900 shadow-lg ring-2 ring-amber-400/50 scale-[1.01]' 
+                                : 'border-pink-600 bg-pink-50/50 text-pink-900 shadow-sm'
+                              : isTarget
+                                ? 'border-amber-200 bg-amber-50/30 text-gray-800 hover:border-amber-400'
+                                : 'border-gray-100 bg-white text-gray-600 hover:border-gray-200'
+                          }`}
+                        >
+                          {p.badge && (
+                            <span className={`absolute -top-2.5 right-3 px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider shadow-sm ${
+                              isTarget ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black' : 'bg-gray-800 text-white'
+                            }`}>
+                              {p.badge}
+                            </span>
+                          )}
+
+                          <div className="space-y-1 mt-1">
+                            <div className="flex items-center gap-1.5">
+                              {p.type === 'INDIVIDUAL' ? <UserCheck className="w-4 h-4 text-pink-600" /> : <Store className="w-4 h-4 text-amber-600" />}
+                              <div className="text-xs font-black uppercase tracking-tight text-gray-900">{p.title}</div>
+                            </div>
+                            <div className="text-sm font-black text-pink-600">{p.priceLabel}</div>
+                            <p className="text-[10px] text-gray-600 font-medium leading-tight">{p.description}</p>
+                          </div>
+
+                          <div className="mt-2 pt-2 border-t border-black/5 text-[9px] font-bold text-gray-700">
+                            ✓ {p.quota}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* DYNAMIC PORTAL INPUTS */}
+                <div className="space-y-3">
+                  <input 
+                    required 
+                    type="text" 
+                    placeholder={
+                      portalType === 'RENTAL' ? 'Rental Outlet / Business Name (e.g. Ghotki Rent-a-Car)' :
+                      portalType === 'PROPERTY' ? 'Real Estate Agency Name (e.g. Sukkur Property Advisors)' :
+                      portalType === 'MOTOR' ? 'Motor Dealership / Showroom Name (e.g. Indus Motors Showroom)' :
+                      'Shop / Brand Name'
+                    } 
+                    className="w-full p-4 bg-white border border-gray-100 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-pink-500/10 shadow-sm" 
+                    value={formData.shopName} 
+                    onChange={e => setFormData({...formData, shopName: e.target.value})} 
+                  />
+
+                  <textarea 
+                    required 
+                    placeholder={
+                      portalType === 'RENTAL' ? 'Office / Garage Address in Ghotki District' :
+                      portalType === 'PROPERTY' ? 'Real Estate Agency Office Location' :
+                      portalType === 'MOTOR' ? 'Vehicle Showroom Physical Location' :
+                      'Shop Address (e.g. Main Bazar Ghotki, Shop #12)'
+                    } 
+                    className="w-full p-4 bg-white border border-gray-100 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-pink-500/10 h-20 shadow-sm" 
+                    value={formData.shopAddress} 
+                    onChange={e => setFormData({...formData, shopAddress: e.target.value})} 
+                  />
+
+                  <div className="relative">
+                    <FileText className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input 
+                      type="text" 
+                      placeholder="CNIC / Business Registration # (Verification)" 
+                      className="w-full pl-10 pr-4 py-4 bg-white border border-gray-100 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-pink-500/10 shadow-sm" 
+                      value={cnicLicense} 
+                      onChange={e => setCnicLicense(e.target.value)} 
+                    />
+                  </div>
+
+                  {portalType === 'MARKETPLACE' && (
                     <div className="space-y-1">
                       <label className="text-[10px] font-black uppercase text-gray-400 ml-1">Main Shop Category</label>
                       <select required className="w-full p-4 bg-white border border-gray-100 rounded-2xl font-bold text-sm outline-none" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
@@ -317,40 +447,60 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
                         ))}
                       </select>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
 
                 {/* PAYMENT INSTRUCTIONS */}
-                <div className="p-5 bg-gradient-to-br from-pink-50 to-purple-50 rounded-2xl border border-pink-100 space-y-3 text-left">
-                  <div className="flex items-center gap-2 text-pink-700 font-black text-xs uppercase">
-                    <CreditCard className="w-4 h-4" /> Payment Instructions
-                  </div>
-                  <p className="text-xs text-gray-600">
-                    Send <span className="font-bold text-gray-900">{sellerType === 'INDIVIDUAL' ? 'PKR 100' : 'PKR 500'}</span> to any account below:
-                  </p>
-                  <div className="bg-white/80 p-3 rounded-xl border border-pink-100 text-[11px] space-y-1 font-mono">
-                    <div>📱 <span className="font-bold">Easypaisa:</span> {PAYMENT_ACCOUNTS.easypaisa.accountNumber} ({PAYMENT_ACCOUNTS.easypaisa.accountName})</div>
-                    <div>📱 <span className="font-bold">JazzCash:</span> {PAYMENT_ACCOUNTS.jazzcash.accountNumber} ({PAYMENT_ACCOUNTS.jazzcash.accountName})</div>
-                    <div>🏦 <span className="font-bold">Meezan Bank:</span> {PAYMENT_ACCOUNTS.bank.iban}</div>
-                  </div>
+                {(() => {
+                  const currentPlan = SELLER_PLANS.find(p => p.id === formData.plan) || SELLER_PLANS[2];
+                  return (
+                    <div className="p-5 bg-gradient-to-br from-pink-50 via-purple-50 to-amber-50 rounded-2xl border border-pink-200 space-y-3 text-left shadow-sm">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-pink-700 font-black text-xs uppercase tracking-wider">
+                          <CreditCard className="w-4 h-4" /> Payment Instructions
+                        </div>
+                        <span className="text-[10px] font-black bg-pink-600 text-white px-3 py-1 rounded-full uppercase tracking-wider">
+                          Amount: {currentPlan.priceLabel}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-700 font-medium">
+                        Please send <span className="font-black text-gray-900 bg-amber-100 px-2 py-0.5 rounded-md">{currentPlan.priceLabel}</span> for <strong>{currentPlan.title}</strong> to any verified admin account below:
+                      </p>
 
-                  <div className="space-y-2 pt-2">
-                    <input 
-                      type="text" 
-                      placeholder="Transaction ID / TRX ID" 
-                      className="w-full p-3 bg-white border border-pink-200 rounded-xl font-bold text-xs" 
-                      value={formData.trxId} 
-                      onChange={e => setFormData({...formData, trxId: e.target.value})} 
-                    />
+                      <div className="bg-white p-4 rounded-xl border border-pink-200 text-xs space-y-2 font-mono shadow-sm">
+                        <div className="flex items-center justify-between pb-1 border-b border-gray-100">
+                          <span className="font-bold text-emerald-700 flex items-center gap-1">📱 EasyPaisa:</span>
+                          <span className="font-black text-gray-900 text-sm select-all">{PAYMENT_ACCOUNTS.easypaisa.accountNumber}</span>
+                        </div>
+                        <div className="flex items-center justify-between pb-1 border-b border-gray-100">
+                          <span className="font-bold text-red-600 flex items-center gap-1">📱 JazzCash:</span>
+                          <span className="font-black text-gray-900 text-sm select-all">{PAYMENT_ACCOUNTS.jazzcash.accountNumber}</span>
+                        </div>
+                        <div className="text-[10px] text-gray-600 font-sans pt-1">
+                          Account Title: <strong className="text-gray-900 font-bold">{PAYMENT_ACCOUNTS.easypaisa.accountName}</strong>
+                        </div>
+                      </div>
 
-                    <div className="flex items-center gap-2">
-                      <label className="flex-1 bg-white border border-pink-200 text-pink-600 p-3 rounded-xl text-xs font-bold text-center cursor-pointer hover:bg-pink-100/50 transition-colors">
-                        {uploadingProof ? 'Uploading Proof...' : (formData.proofUrl ? '✓ Proof Uploaded' : 'Upload Payment Screenshot')}
-                        <input type="file" accept="image/*" className="hidden" onChange={handleProofUpload} />
-                      </label>
+                      <div className="space-y-2 pt-1">
+                        <input 
+                          type="text" 
+                          required
+                          placeholder="Transaction ID / TRX ID (Required)" 
+                          className="w-full p-3.5 bg-white border border-pink-200 rounded-xl font-bold text-xs outline-none focus:ring-2 focus:ring-pink-500/30" 
+                          value={formData.trxId} 
+                          onChange={e => setFormData({...formData, trxId: e.target.value})} 
+                        />
+
+                        <div className="flex items-center gap-2">
+                          <label className="flex-1 bg-white border border-pink-200 text-pink-600 p-3.5 rounded-xl text-xs font-bold text-center cursor-pointer hover:bg-pink-100/50 transition-colors shadow-sm">
+                            {uploadingProof ? 'Uploading Proof...' : (formData.proofUrl ? '✓ Payment Proof Screenshot Attached' : 'Attach Payment Receipt / Screenshot')}
+                            <input type="file" accept="image/*" className="hidden" onChange={handleProofUpload} />
+                          </label>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
+                  );
+                })()}
               </div>
             )}
           </div>

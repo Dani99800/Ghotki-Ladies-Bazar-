@@ -2,10 +2,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   PlusCircle, X, Loader2, Settings, Trash2, 
-  Check, MessageCircle, Sparkles, Camera, Save, UploadCloud, Store, Trophy, CreditCard, Smartphone, Building2, Edit2, MapPin, Box, Package, History, AlertTriangle, ShieldCheck, Wallet, DollarSign, Play, Pause, Flame, Phone, Clock, User as UserIcon, MessageSquare
+  Check, MessageCircle, Sparkles, Camera, Save, UploadCloud, Store, Trophy, CreditCard, Smartphone, Building2, Edit2, MapPin, Box, Package, History, AlertTriangle, ShieldCheck, Wallet, DollarSign, Play, Pause, Flame, Phone, Clock, User as UserIcon, MessageSquare, ClipboardList
 } from 'lucide-react';
-import { Product, Order, User as UserType, Shop, Category, ProductCondition, AdDeposit } from '../types';
-import { CATEGORIES, BAZAARS, GHOTKI_LOCATIONS } from '../constants';
+import { Product, Order, User as UserType, Shop, Category, ProductCondition, AdDeposit, CustomRequest } from '../types';
+import { CATEGORIES, BAZAARS, GHOTKI_LOCATIONS, PAYMENT_ACCOUNTS, SELLER_PLANS } from '../constants';
 import { supabase, uploadFile } from '../services/supabase';
 
 interface SellerDashboardProps {
@@ -46,9 +46,10 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
   const proofInputRef = useRef<HTMLInputElement>(null);
 
   const myShop = shops.find(s => s.owner_id === user.id);
-  const isIndividual = myShop?.seller_type === 'INDIVIDUAL' || myShop?.seller_plan === 'INDIVIDUAL_5';
+  const isIndividual = myShop?.seller_type === 'INDIVIDUAL' || myShop?.seller_plan === 'INDIVIDUAL_100' || myShop?.seller_plan === 'INDIVIDUAL_5';
+  const isLimitedShop = myShop?.seller_plan === 'SHOP_500';
   const myProductsCount = products.filter(p => p.shopId === myShop?.id).length;
-  const isQuotaReached = isIndividual && myProductsCount >= 5;
+  const isQuotaReached = (isIndividual && myProductsCount >= 5) || (isLimitedShop && myProductsCount >= 15);
 
   const activeCategoryList = categories.length > 0 ? categories : CATEGORIES;
 
@@ -804,7 +805,7 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
 
                       {Array.isArray(req.image_urls) && req.image_urls.length > 0 && (
                         <div className="grid grid-cols-3 gap-2">
-                          {req.image_urls.map((img, i) => (
+                          {req.image_urls.map((img: string, i: number) => (
                             <img key={i} src={img} className="aspect-square rounded-2xl object-cover border border-gray-100" alt="Demand sample" />
                           ))}
                         </div>
@@ -1114,15 +1115,19 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
               <div className="bg-gray-900 p-6 rounded-[2.5rem] text-white space-y-3 shadow-xl">
                  <p className="text-[8px] font-black uppercase tracking-[0.25em] text-pink-400">Official Admin Account for Deposits</p>
                  <div className="flex justify-between items-center text-xs">
-                    <span className="font-bold text-gray-400">EasyPaisa / JazzCash:</span>
-                    <span className="font-black text-white text-sm tracking-wider font-mono select-all">0300-1234567</span>
+                    <span className="font-bold text-gray-400">EasyPaisa:</span>
+                    <span className="font-black text-white text-sm tracking-wider font-mono select-all">{PAYMENT_ACCOUNTS.easypaisa.accountNumber}</span>
+                 </div>
+                 <div className="flex justify-between items-center text-xs">
+                    <span className="font-bold text-gray-400">JazzCash:</span>
+                    <span className="font-black text-white text-sm tracking-wider font-mono select-all">{PAYMENT_ACCOUNTS.jazzcash.accountNumber}</span>
                  </div>
                  <div className="flex justify-between items-center text-xs">
                     <span className="font-bold text-gray-400">Account Title:</span>
-                    <span className="font-bold text-pink-300">Ghotki Bazar Ad Wallet</span>
+                    <span className="font-bold text-pink-300">{PAYMENT_ACCOUNTS.easypaisa.accountName}</span>
                  </div>
                  <p className="text-[9px] text-gray-400 italic pt-2 border-t border-gray-800">
-                   Send PKR 500 or more to this account, then enter your Transaction ID (TRX ID) below for Admin verification.
+                   Send payment to this account, then enter your Transaction ID (TRX ID) below for Admin verification.
                  </p>
               </div>
 

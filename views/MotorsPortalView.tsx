@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-down';
-import { useNavigate as useNav } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Car, MapPin, Search, PlusCircle, ShieldCheck, Phone, Filter, Wrench, Fuel, Gauge, Calendar, CheckCircle2, ChevronRight, Tag } from 'lucide-react';
 import { Product, Shop, User as UserType } from '../types';
 import PortalHeaderBar from '../components/PortalHeaderBar';
@@ -14,7 +13,7 @@ interface MotorsPortalViewProps {
 }
 
 const MotorsPortalView: React.FC<MotorsPortalViewProps> = ({ products, shops, user, addToCart }) => {
-  const navigate = useNav();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSubCategory, setSelectedSubCategory] = useState<string>('All');
   const [selectedLocation, setSelectedLocation] = useState<string>('All');
