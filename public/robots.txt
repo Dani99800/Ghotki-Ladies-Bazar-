@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+
+# Exclude private user & dashboard routes
+Disallow: /admin
+Disallow: /seller
+Disallow: /profile
+Disallow: /checkout
+Disallow: /orders
+
+# Sitemap URL for Google Search Console and Crawlers
+Sitemap: https://ghotkibazar.com/sitemap.xml
