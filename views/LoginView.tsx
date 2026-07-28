@@ -151,6 +151,23 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
       if (authError) throw authError;
       if (!authData.user) throw new Error("Registration failed to create user.");
 
+      // Ensure profile record is upserted immediately
+      const profilePayload = {
+        id: authData.user.id,
+        name: formData.name,
+        email: formData.email,
+        role: role,
+        mobile: formData.mobile,
+        city: formData.city,
+        seller_type: effectiveSellerType,
+        seller_plan: activePlan,
+        subscription_tier: effectiveSellerType === 'BUSINESS' ? 'PREMIUM' : 'BASIC',
+        address: formData.shopAddress || '',
+        shop_name: effectiveSellerType === 'BUSINESS' ? (formData.shopName || `${formData.name}'s Shop`) : formData.name
+      };
+      const { error: profErr } = await supabase.from('profiles').upsert(profilePayload);
+      if (profErr) console.warn("Profile upsert notice:", profErr.message);
+
       if (role === 'SELLER') {
         // Create shop explicitly if needed
         const { error: shopErr } = await supabase.from('shops').insert({
