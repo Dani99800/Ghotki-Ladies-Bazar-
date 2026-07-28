@@ -1,7 +1,21 @@
 -- FIX FOR ORDERS TABLE COLUMNS AND RLS
 -- Run this in your Supabase SQL Editor
 
--- 1. Ensure columns exist (in case they were missed)
+-- 1. Safely alter seller_id and buyer_id columns to TEXT to allow string IDs (e.g. mock shops like "sukkur_s_1_1", "s1", guest IDs)
+DO $$ 
+BEGIN
+    -- Drop FK constraints on orders if present so column type change works smoothly
+    ALTER TABLE public.orders DROP CONSTRAINT IF EXISTS orders_buyer_id_fkey;
+    ALTER TABLE public.orders DROP CONSTRAINT IF EXISTS orders_seller_id_fkey;
+
+    -- Convert buyer_id and seller_id to TEXT
+    ALTER TABLE public.orders ALTER COLUMN buyer_id TYPE TEXT USING buyer_id::text;
+    ALTER TABLE public.orders ALTER COLUMN seller_id TYPE TEXT USING seller_id::text;
+EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'Notice: Column alter skipped or already updated.';
+END $$;
+
+-- 2. Ensure columns exist
 DO $$ 
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='orders' AND column_name='delivery_fee') THEN
@@ -17,16 +31,15 @@ BEGIN
     END IF;
 END $$;
 
--- 2. Adjust RLS to allow guest orders (when buyer_id is NULL)
--- First, drop existing if needed or just add a new one
+-- 3. Adjust RLS to allow guest orders (when buyer_id is NULL or string)
 DROP POLICY IF EXISTS "Public can insert orders" ON public.orders;
 CREATE POLICY "Public can insert orders" ON public.orders 
 FOR INSERT WITH CHECK (true);
 
--- 3. Ensure users can see their own orders (even if admin)
+-- 4. Ensure users can see their own orders (even if admin)
 DROP POLICY IF EXISTS "Users Manage Own Orders" ON public.orders;
 CREATE POLICY "Users Manage Own Orders" ON public.orders 
-FOR SELECT USING (auth.uid() = buyer_id OR (auth.jwt() ->> 'email') = 'd46050573@gmail.com');
+FOR SELECT USING (auth.uid()::text = buyer_id OR buyer_id IS NULL OR (auth.jwt() ->> 'email') = 'd46050573@gmail.com');
 
--- 4. Refresh schema cache (Implicitly happens on DDL usually, but good to know)
--- If errors persist, go to Supabase -> Settings -> API -> PostgREST -> Reload Schema
+-- 5. Refresh schema cache
+NOTIFY pgrst, 'reload schema';

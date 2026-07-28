@@ -472,10 +472,20 @@ const App: React.FC = () => {
 
   const handlePlaceOrder = async (order: Order) => {
     if (!supabase) return;
-    const isGuest = !order.buyerId || order.buyerId.startsWith('guest_');
-    const { error } = await supabase.from('orders').insert({
-      buyer_id: isGuest ? null : order.buyerId,
-      seller_id: order.sellerId, 
+
+    // Helper to validate UUID format
+    const isValidUUID = (id: string | null | undefined): boolean => {
+      if (!id) return false;
+      return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    };
+
+    const isGuest = !order.buyerId || order.buyerId.startsWith('guest_') || !isValidUUID(order.buyerId);
+    const validBuyerId = isGuest ? null : (isValidUUID(order.buyerId) ? order.buyerId : null);
+    const validSellerId = isValidUUID(order.sellerId) ? order.sellerId : null;
+
+    const payload: any = {
+      buyer_id: validBuyerId,
+      seller_id: validSellerId, 
       items: order.items,
       subtotal: Number(order.subtotal),
       delivery_fee: Number(order.deliveryFee || 0),
@@ -486,7 +496,18 @@ const App: React.FC = () => {
       buyer_name: order.buyerName,
       buyer_mobile: order.buyerMobile,
       buyer_address: order.buyerAddress
-    });
+    };
+
+    let { error } = await supabase.from('orders').insert(payload);
+
+    if (error && (error.code === '22P02' || error.message?.includes('uuid') || error.message?.includes('foreign key'))) {
+      console.warn("GLB: Retrying order placement with nullified IDs due to DB constraint:", error.message);
+      payload.seller_id = null;
+      payload.buyer_id = null;
+      const retry = await supabase.from('orders').insert(payload);
+      error = retry.error;
+    }
+
     if (error) {
       console.error("GLB: Order Placement Error", error);
       throw error;

@@ -99,8 +99,13 @@ const CustomRequestView: React.FC<CustomRequestViewProps> = ({ user, categories 
         ? autoDetectCategory(productName, productDescription)
         : selectedCategory;
 
+      const isValidUUID = (id: string | null | undefined): boolean => {
+        if (!id) return false;
+        return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+      };
+
       const payload: Omit<CustomRequest, 'id'> = {
-        user_id: user?.id || null,
+        user_id: user?.id && isValidUUID(user.id) ? user.id : null,
         product_name: productName.trim(),
         description: productDescription.trim() || undefined,
         budget: budget ? parseFloat(budget) : undefined,
