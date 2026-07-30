@@ -70,12 +70,8 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
       // Handle category mapping for legacy products
       let pCat = p.category || '';
       const pCatLower = pCat.toLowerCase();
-      if (pCatLower.includes("cloth") || pCatLower.includes("wear") || pCatLower.includes("suit")) {
-        pCat = "Fashion & Clothing";
-      } else if (pCatLower.includes("shoe") || pCatLower.includes("footwear")) {
-        pCat = "Shoes & Accessories";
-      } else if (pCatLower.includes("cosmetic") || pCatLower.includes("makeup") || pCatLower.includes("beauty")) {
-        pCat = "Jewelry & Beauty";
+      if (pCatLower.includes("cloth") || pCatLower.includes("fashion") || pCatLower.includes("wear") || pCatLower.includes("suit") || pCatLower.includes("shoe") || pCatLower.includes("footwear") || pCatLower.includes("cosmetic") || pCatLower.includes("makeup") || pCatLower.includes("beauty") || pCatLower.includes("jewelry") || pCatLower.includes("accessories") || pCatLower.includes("abaya")) {
+        pCat = "Shopping (Clothes, Shoes & Cosmetics)";
       }
 
       const pCatNorm = normalize(pCat);
@@ -136,6 +132,28 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
 
     return list;
   }, [filteredProducts, isMirpurCustomer, selectedLocation, shops]);
+
+  // Group products by active categories when on "All" view without active search
+  const categoryGroups = useMemo(() => {
+    if (selectedCategory !== 'All' || searchTerm) return [];
+
+    return activeCategories.map(cat => {
+      const catNameNorm = normalize(cat.name);
+      const catProducts = sortedDisplayProducts.filter(p => {
+        let pCat = p.category || '';
+        const pCatLower = pCat.toLowerCase();
+        if (pCatLower.includes("cloth") || pCatLower.includes("fashion") || pCatLower.includes("wear") || pCatLower.includes("suit") || pCatLower.includes("shoe") || pCatLower.includes("footwear") || pCatLower.includes("cosmetic") || pCatLower.includes("makeup") || pCatLower.includes("beauty") || pCatLower.includes("jewelry") || pCatLower.includes("accessories") || pCatLower.includes("abaya")) {
+          pCat = "Shopping (Clothes, Shoes & Cosmetics)";
+        }
+        return normalize(pCat) === catNameNorm || pCatLower.includes(catNameNorm);
+      });
+
+      return {
+        category: cat,
+        products: catProducts
+      };
+    }).filter(group => group.products.length > 0);
+  }, [activeCategories, sortedDisplayProducts, selectedCategory, searchTerm]);
 
   // Reusable Product Image Scroller
   const ProductCardImage = ({ product }: { product: Product }) => {
@@ -393,7 +411,7 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
       </div>
 
       {/* MAIN MARKETPLACE LISTINGS GRID */}
-      <section id="marketplace-grid" className="space-y-6">
+      <section id="marketplace-grid" className="space-y-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-2 border-b border-gray-100 pb-4">
           <div className="space-y-0.5">
             <div className="flex items-center gap-2 flex-wrap">
@@ -405,13 +423,109 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
               )}
             </div>
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-              {selectedCategory !== 'All' ? selectedCategory : 'All Categories'} {selectedLocation !== 'All' ? `in ${selectedLocation}` : ''}
+              {selectedCategory !== 'All' ? selectedCategory : 'All Products Grouped by Categories'} {selectedLocation !== 'All' ? `in ${selectedLocation}` : ''}
             </p>
           </div>
-          <span className="text-[10px] font-black text-gray-500 uppercase bg-gray-100 px-3 py-1.5 rounded-full self-start sm:self-auto">{sortedDisplayProducts.length} Listings</span>
+          <span className="text-[10px] font-black text-gray-500 uppercase bg-gray-100 px-3 py-1.5 rounded-full self-start sm:self-auto">{sortedDisplayProducts.length} Total Listings</span>
         </div>
 
-        {sortedDisplayProducts.length === 0 ? (
+        {/* CATEGORY BY CATEGORY VIEW ON HOMEPAGE */}
+        {selectedCategory === 'All' && !searchTerm && categoryGroups.length > 0 ? (
+          <div className="space-y-10">
+            {categoryGroups.map(group => (
+              <div key={group.category.id} className="space-y-4">
+                {/* Category Group Header */}
+                <div className="flex items-center justify-between bg-white p-3.5 rounded-2xl border border-gray-100 shadow-2xs">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl overflow-hidden border border-pink-100 bg-pink-50 flex-shrink-0">
+                      <img src={group.category.image_url || undefined} referrerPolicy="no-referrer" className="w-full h-full object-cover" alt={group.category.name} />
+                    </div>
+                    <div>
+                      <h3 className="font-black text-sm md:text-base text-gray-900 uppercase italic tracking-tight flex items-center gap-2">
+                        {group.category.name}
+                      </h3>
+                      <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">
+                        {group.products.length} Products Available
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => { setSelectedCategory(group.category.name); setSelectedSubCategory('All'); }}
+                    className="text-[10px] font-black uppercase text-pink-600 bg-pink-50 px-3.5 py-2 rounded-xl hover:bg-pink-600 hover:text-white transition-all flex items-center gap-1"
+                  >
+                    View All {group.category.name.split(' ')[0]} &rarr;
+                  </button>
+                </div>
+
+                {/* Category Product Grid */}
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
+                  {group.products.map(product => {
+                    const shop = shops.find(s => s.id === product.shopId);
+                    return (
+                      <div key={product.id} className="bg-white rounded-2xl md:rounded-[2rem] overflow-hidden shadow-2xs border border-gray-100 flex flex-col group transition-all hover:shadow-xl">
+                        <div className="relative aspect-[4/5] overflow-hidden cursor-pointer" onClick={() => navigate(`/product/${product.id}`)}>
+                          <ProductCardImage product={product} />
+                          
+                          <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
+                            {product.condition && (
+                              <span className={`text-[8px] font-black px-2 py-0.5 rounded-md uppercase shadow-md ${product.condition === 'New' ? 'bg-green-600 text-white' : 'bg-orange-500 text-white'}`}>
+                                {product.condition}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="absolute top-2 right-2 flex flex-col gap-1 z-10">
+                            {shop?.is_top_seller && (
+                              <div className="bg-yellow-400 text-gray-900 text-[8px] font-black px-2 py-0.5 rounded-md shadow-md flex items-center gap-1">
+                                <Star className="w-2.5 h-2.5 fill-gray-900" /> Top Seller
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="absolute bottom-2 left-2 z-10">
+                            <span className="bg-black/60 backdrop-blur-md text-white text-[8px] font-bold px-2 py-1 rounded-md flex items-center gap-1">
+                              <MapPin className="w-2.5 h-2.5 text-pink-400" /> {product.location_city || shop?.city || 'Ghotki'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="p-3 md:p-4 flex-1 space-y-2 flex flex-col justify-between bg-white">
+                          <div onClick={() => navigate(`/product/${product.id}`)} className="cursor-pointer space-y-1">
+                            <h3 className="font-bold text-xs md:text-sm text-gray-900 truncate uppercase tracking-tight hover:text-pink-600 transition-colors">
+                              {product.name}
+                            </h3>
+                            <div className="flex items-baseline justify-between gap-1">
+                              <p className="text-pink-600 font-black text-sm md:text-lg italic leading-none">
+                                PKR {product.price.toLocaleString()}
+                              </p>
+                              {product.negotiable !== false && (
+                                <span className="text-[7px] md:text-[8px] font-bold text-gray-400 uppercase">Negotiable</span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="pt-2 border-t border-gray-50 flex items-center justify-between gap-2">
+                            <span className="text-[9px] font-bold text-gray-500 truncate">
+                              {shop?.name || product.shop_name || 'Local Seller'}
+                            </span>
+                            
+                            <button 
+                              onClick={(e) => openWhatsApp(e, product)}
+                              className="bg-emerald-600 text-white p-2 rounded-xl text-[10px] font-black uppercase tracking-wider shadow-md hover:bg-emerald-700 flex items-center gap-1 active:scale-95 transition-all"
+                            >
+                              <MessageCircle className="w-3.5 h-3.5" />
+                              <span className="hidden md:inline">WhatsApp</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : sortedDisplayProducts.length === 0 ? (
           <div className="p-12 text-center bg-white rounded-3xl border border-gray-100 space-y-4 shadow-sm">
             <Box className="w-12 h-12 text-gray-300 mx-auto" />
             <div className="space-y-1">

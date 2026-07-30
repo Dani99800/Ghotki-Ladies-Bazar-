@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  User, Store, Phone, Mail, CheckCircle, Loader2, ChevronDown, AlertTriangle, Briefcase, ShoppingBag, MapPin, Sparkles, CreditCard, ShieldCheck, UserCheck, KeyRound, Building2, Car, FileText
+  User, Store, Phone, Mail, CheckCircle, Loader2, ChevronDown, AlertTriangle, Briefcase, ShoppingBag, MapPin, Sparkles, CreditCard, ShieldCheck, UserCheck, KeyRound, Building2, Car, FileText, Shirt
 } from 'lucide-react';
 import { supabase, uploadFile } from '../services/supabase';
 import { BAZAARS, CATEGORIES, SELLER_PLANS, GHOTKI_LOCATIONS, PAYMENT_ACCOUNTS } from '../constants';
@@ -18,7 +18,7 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
   const [view, setView] = useState<'LOGIN' | 'SIGNUP_CHOICE' | 'SIGNUP_BUYER' | 'SIGNUP_SELLER' | 'PENDING' | 'CHECK_EMAIL'>('LOGIN');
   const [loading, setLoading] = useState(false);
   const [sellerType, setSellerType] = useState<SellerType>('BUSINESS');
-  const [portalType, setPortalType] = useState<'MARKETPLACE' | 'RENTAL' | 'PROPERTY' | 'MOTOR'>('MARKETPLACE');
+  const [portalType, setPortalType] = useState<'MARKETPLACE' | 'SHOPPING' | 'RENTAL' | 'PROPERTY' | 'MOTOR'>('MARKETPLACE');
   const [cnicLicense, setCnicLicense] = useState('');
   
   const [formData, setFormData] = useState({ 
@@ -117,7 +117,8 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
       const effectiveSellerType = activePlan === 'INDIVIDUAL_100' ? 'INDIVIDUAL' : 'BUSINESS';
 
       // Portal-specific category resolution
-      const effectiveCategory = portalType === 'RENTAL' ? (formData.category || 'Rentals & Leases') :
+      const effectiveCategory = portalType === 'SHOPPING' ? (formData.category || 'Shopping (Clothes, Shoes & Cosmetics)') :
+        portalType === 'RENTAL' ? (formData.category || 'Rentals & Leases') :
         portalType === 'PROPERTY' ? (formData.category || 'Property & Real Estate') :
         portalType === 'MOTOR' ? (formData.category || 'Cars & Vehicles') :
         (formData.category || 'General');
@@ -318,7 +319,19 @@ const LoginView: React.FC<LoginViewProps> = ({ setUser, lang }) => {
                       <ShoppingBag className="w-5 h-5 text-pink-600 flex-shrink-0" />
                       <div>
                         <div className="text-[11px] font-black uppercase">Marketplace</div>
-                        <div className="text-[9px] font-bold text-gray-400">Retail Shops</div>
+                        <div className="text-[9px] font-bold text-gray-400">All Products</div>
+                      </div>
+                    </button>
+
+                    <button 
+                      type="button" 
+                      onClick={() => { setPortalType('SHOPPING'); setFormData({...formData, category: 'Shopping (Clothes, Shoes & Cosmetics)'}); }}
+                      className={`p-3.5 rounded-2xl border-2 text-left transition-all flex items-center gap-3 ${portalType === 'SHOPPING' ? 'border-purple-600 bg-purple-50/50 text-purple-700 shadow-sm' : 'border-gray-100 bg-white text-gray-600'}`}
+                    >
+                      <Shirt className="w-5 h-5 text-purple-600 flex-shrink-0" />
+                      <div>
+                        <div className="text-[11px] font-black uppercase">Shopping Portal</div>
+                        <div className="text-[9px] font-bold text-gray-400">Clothes, Shoes & Beauty</div>
                       </div>
                     </button>
 

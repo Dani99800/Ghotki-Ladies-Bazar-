@@ -74,11 +74,11 @@ export const BAZAARS = [
 
 export const CATEGORIES: Category[] = [
   {
-    id: 'cars_vehicles',
-    name: 'Cars & Vehicles',
-    image_url: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&q=80&w=600',
-    icon: 'Car',
-    subcategories: ['Cars', 'Motorcycles', 'Rickshaws', 'Tractors', 'Commercial Vehicles', 'Auto Parts', 'Tyres', 'Car Accessories']
+    id: 'shopping_fashion',
+    name: 'Shopping (Clothes, Shoes & Cosmetics)',
+    image_url: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&q=80&w=600',
+    icon: 'Shirt',
+    subcategories: ['Ladies Clothing', 'Men Clothing', 'Kids Wear', 'Shoes & Sandals', 'Cosmetics & Makeup', 'Jewelry & Perfumes', 'Abayas & Hijabs', 'Bags & Handbags', 'Bridal & Party Wear']
   },
   {
     id: 'mobiles_electronics',
@@ -88,25 +88,11 @@ export const CATEGORIES: Category[] = [
     subcategories: ['New Mobile Phones', 'Used Mobile Phones', 'Laptops', 'Computers', 'TVs', 'Refrigerators', 'Washing Machines', 'Air Conditioners', 'Mobile Accessories', 'Other Electronics']
   },
   {
-    id: 'fashion_clothing',
-    name: 'Fashion & Clothing',
-    image_url: 'https://images.unsplash.com/photo-1621112904887-419379ce6824?auto=format&fit=crop&q=80&w=600',
-    icon: 'Shirt',
-    subcategories: ['Ladies Clothing', 'Men Clothing', 'Kids Clothing', 'Suits', 'Abayas', 'Hijabs', 'Wedding Dresses', 'Bags']
-  },
-  {
-    id: 'shoes_accessories',
-    name: 'Shoes & Accessories',
-    image_url: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?auto=format&fit=crop&q=80&w=600',
-    icon: 'Footprints',
-    subcategories: ['Men Shoes', 'Ladies Shoes', 'Kids Shoes', 'Sandals', 'Sports Shoes', 'Bags', 'Wallets', 'Belts']
-  },
-  {
-    id: 'jewelry_beauty',
-    name: 'Jewelry & Beauty',
-    image_url: 'https://images.unsplash.com/photo-1596462502278-27bfdc4033c8?auto=format&fit=crop&q=80&w=600',
-    icon: 'Sparkles',
-    subcategories: ['Gold Jewelry', 'Artificial Jewelry', 'Perfumes', 'Makeup', 'Skincare', 'Bridal Makeup']
+    id: 'cars_vehicles',
+    name: 'Cars & Vehicles',
+    image_url: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&q=80&w=600',
+    icon: 'Car',
+    subcategories: ['Cars', 'Motorcycles', 'Rickshaws', 'Tractors', 'Commercial Vehicles', 'Auto Parts', 'Tyres', 'Car Accessories']
   },
   {
     id: 'property_realestate',

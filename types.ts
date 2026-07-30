@@ -97,7 +97,7 @@ export interface Shop {
   is_top_seller?: boolean;
   is_verified?: boolean;
   ad_wallet_balance?: number;
-  portal_type?: 'MARKETPLACE' | 'PROPERTY' | 'RENTAL' | 'MOTOR';
+  portal_type?: 'MARKETPLACE' | 'SHOPPING' | 'PROPERTY' | 'RENTAL' | 'MOTOR';
   cnic_license?: string;
 }
 
@@ -135,7 +135,7 @@ export interface Product {
   ad_days_paid?: number;
 
   // Portal Specifications
-  portal_type?: 'MARKETPLACE' | 'PROPERTY' | 'RENTAL' | 'MOTOR';
+  portal_type?: 'MARKETPLACE' | 'SHOPPING' | 'PROPERTY' | 'RENTAL' | 'MOTOR';
   property_type?: 'House' | 'Plot' | 'Shop' | 'Commercial' | 'Agricultural' | 'Apartment';
   area_sqft?: string;
   bedrooms?: number;
@@ -171,7 +171,7 @@ export interface Order {
   createdAt: string;
 
   // Category-Specific Booking Details
-  portalType?: 'MARKETPLACE' | 'PROPERTY' | 'RENTAL' | 'MOTOR';
+  portalType?: 'MARKETPLACE' | 'SHOPPING' | 'PROPERTY' | 'RENTAL' | 'MOTOR';
   cnicNumber?: string;
   bookingStartDate?: string;
   rentalDuration?: string;

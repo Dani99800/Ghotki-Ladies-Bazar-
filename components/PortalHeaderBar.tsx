@@ -1,9 +1,9 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ShoppingBag, KeyRound, Building2, Car } from 'lucide-react';
+import { ShoppingBag, KeyRound, Building2, Car, Shirt } from 'lucide-react';
 
 interface PortalHeaderBarProps {
-  activePortal?: 'MARKETPLACE' | 'RENTAL' | 'PROPERTY' | 'MOTOR';
+  activePortal?: 'MARKETPLACE' | 'SHOPPING' | 'RENTAL' | 'PROPERTY' | 'MOTOR';
 }
 
 const PortalHeaderBar: React.FC<PortalHeaderBarProps> = ({ activePortal }) => {
@@ -12,6 +12,7 @@ const PortalHeaderBar: React.FC<PortalHeaderBarProps> = ({ activePortal }) => {
 
   const getCurrentPortal = () => {
     if (activePortal) return activePortal;
+    if (location.pathname.startsWith('/portal/shopping')) return 'SHOPPING';
     if (location.pathname.startsWith('/portal/rentals')) return 'RENTAL';
     if (location.pathname.startsWith('/portal/property')) return 'PROPERTY';
     if (location.pathname.startsWith('/portal/motors')) return 'MOTOR';
@@ -23,12 +24,21 @@ const PortalHeaderBar: React.FC<PortalHeaderBarProps> = ({ activePortal }) => {
   const portals = [
     {
       id: 'MARKETPLACE',
-      label: 'Marketplace',
-      sublabel: 'Shops & Products',
+      label: 'All Marketplace',
+      sublabel: 'Ghotki Directory',
       icon: ShoppingBag,
       path: '/',
       activeBg: 'bg-pink-600 text-white shadow-pink-200 shadow-md',
       activeBorder: 'border-pink-600',
+    },
+    {
+      id: 'SHOPPING',
+      label: 'Shopping Portal',
+      sublabel: 'Clothes, Shoes & Cosmetics',
+      icon: Shirt,
+      path: '/portal/shopping',
+      activeBg: 'bg-purple-600 text-white shadow-purple-200 shadow-md',
+      activeBorder: 'border-purple-600',
     },
     {
       id: 'RENTAL',
