@@ -187,7 +187,12 @@ const PropertyPortalView: React.FC<PropertyPortalViewProps> = ({ products, shops
                       <div className="absolute top-3 left-3 bg-emerald-700 text-white text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full shadow-md flex items-center gap-1">
                         <Building2 className="w-3 h-3" /> FOR SALE
                       </div>
-                      {product.area_sqft && (
+                      {product.is_installment_available && (
+                        <div className="absolute top-3 right-3 bg-purple-900/90 backdrop-blur-md text-white text-[9px] font-black uppercase tracking-wider px-3 py-1 rounded-xl shadow-lg border border-purple-400/40 animate-pulse">
+                          💳 Installment Available
+                        </div>
+                      )}
+                      {!product.is_installment_available && product.area_sqft && (
                         <div className="absolute bottom-3 right-3 bg-black/80 backdrop-blur-md text-white text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-xl">
                           📐 {product.area_sqft}
                         </div>
@@ -231,6 +236,11 @@ const PropertyPortalView: React.FC<PropertyPortalViewProps> = ({ products, shops
                           <p className="text-lg font-black text-emerald-700 italic">
                             PKR {product.price.toLocaleString()}
                           </p>
+                          {product.is_installment_available && (
+                            <p className="text-[10px] font-black text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md mt-1 inline-block">
+                              Advance: PKR {(product.advance_payment || 0).toLocaleString()} • PKR {(product.monthly_installment || 0).toLocaleString()}/mo ({product.installment_duration_months || 12}m)
+                            </p>
+                          )}
                         </div>
 
                         <div className="flex items-center gap-2">

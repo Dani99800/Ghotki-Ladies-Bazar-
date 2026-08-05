@@ -18,6 +18,10 @@ const InstantCheckout: React.FC<InstantCheckoutProps> = ({ product, onClose, onP
   const [loading, setLoading] = useState(false);
   const [sellerShop, setSellerShop] = useState<Shop | null>(null);
   
+  const [purchaseType, setPurchaseType] = useState<'CASH' | 'INSTALLMENT'>(
+    product.is_installment_available ? 'INSTALLMENT' : 'CASH'
+  );
+
   const [formData, setFormData] = useState({
     name: user?.name || '',
     mobile: user?.mobile || '',
@@ -43,21 +47,31 @@ const InstantCheckout: React.FC<InstantCheckoutProps> = ({ product, onClose, onP
     }
     setLoading(true);
     
+    const deliveryFee = formData.method === 'DELIVERY' ? 150 : 0;
+    const isInst = purchaseType === 'INSTALLMENT' && product.is_installment_available;
+    const subtotal = isInst ? (product.advance_payment || product.price) : product.price;
+    const totalPayableNow = subtotal + deliveryFee;
+
     const order: Order = {
       id: 'ord_' + Math.random().toString(36).substr(2, 9),
       buyerId: user?.id || 'guest_' + Date.now(),
       sellerId: shopId,
       items: [{ ...product, quantity: 1 }],
-      subtotal: product.price,
-      deliveryFee: formData.method === 'DELIVERY' ? 150 : 0,
+      subtotal: subtotal,
+      deliveryFee: deliveryFee,
       platformFee: PLATFORM_FEE_PKR,
-      total: product.price + (formData.method === 'DELIVERY' ? 150 : 0),
+      total: totalPayableNow,
       status: 'PENDING',
       paymentMethod: formData.payment,
       buyerName: formData.name,
       buyerMobile: formData.mobile,
       buyerAddress: formData.address,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      purchaseType: purchaseType,
+      advancePaymentPaid: isInst ? (product.advance_payment || 0) : undefined,
+      monthlyInstallmentAmount: isInst ? (product.monthly_installment || 0) : undefined,
+      installmentDurationMonths: isInst ? (product.installment_duration_months || 12) : undefined,
+      installmentCondition: isInst ? product.installment_condition : undefined
     };
     
     try {
@@ -102,6 +116,56 @@ const InstantCheckout: React.FC<InstantCheckoutProps> = ({ product, onClose, onP
                     <p className="text-pink-600 font-black text-lg">PKR {product.price.toLocaleString()}</p>
                  </div>
               </div>
+
+              {product.is_installment_available && (
+                <div className="bg-gradient-to-br from-purple-900 to-indigo-950 p-5 rounded-[2rem] text-white space-y-3 shadow-md border border-purple-500/30">
+                   <div className="flex items-center justify-between">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-purple-300">Choose Purchase Option</p>
+                      <span className="bg-purple-500 text-white font-black text-[8px] uppercase px-2 py-0.5 rounded-full">
+                         Installments Available
+                      </span>
+                   </div>
+
+                   <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPurchaseType('CASH')}
+                        className={`p-3 rounded-xl text-[10px] font-black uppercase transition-all text-left ${
+                          purchaseType === 'CASH' 
+                            ? 'bg-white text-purple-900 shadow-md ring-2 ring-purple-400' 
+                            : 'bg-white/10 text-purple-200 hover:bg-white/20'
+                        }`}
+                      >
+                         <p>Full Payment</p>
+                         <p className="text-xs font-black italic mt-0.5">PKR {product.price.toLocaleString()}</p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setPurchaseType('INSTALLMENT')}
+                        className={`p-3 rounded-xl text-[10px] font-black uppercase transition-all text-left ${
+                          purchaseType === 'INSTALLMENT' 
+                            ? 'bg-purple-600 text-white shadow-md ring-2 ring-purple-300' 
+                            : 'bg-white/10 text-purple-200 hover:bg-white/20'
+                        }`}
+                      >
+                         <p>Installment Plan</p>
+                         <p className="text-xs font-black italic mt-0.5">PKR {(product.advance_payment || 0).toLocaleString()} <span className="text-[8px] font-bold">Down</span></p>
+                      </button>
+                   </div>
+
+                   {purchaseType === 'INSTALLMENT' && (
+                      <div className="text-[10px] bg-purple-950/70 p-3 rounded-xl border border-purple-500/20 space-y-1">
+                         <p className="font-black text-purple-200">
+                            Paying Advance Today: <span className="text-white font-bold">PKR {(product.advance_payment || 0).toLocaleString()}</span>
+                         </p>
+                         <p className="text-purple-300">
+                            Monthly: <span className="text-white font-bold">PKR {(product.monthly_installment || 0).toLocaleString()} / month</span> ({product.installment_duration_months || 12} Months)
+                         </p>
+                      </div>
+                   )}
+                </div>
+              )}
 
               <div className="space-y-3">
                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Select Payment Method</p>

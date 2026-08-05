@@ -86,12 +86,53 @@ const ProductView: React.FC<ProductViewProps> = ({ products, addToCart, lang }) 
         {/* Style Notes */}
         <div className="space-y-2">
           <h3 className="font-black text-[9px] uppercase tracking-widest text-gray-400 flex items-center gap-1.5">
-            <Tag className="w-3 h-3" /> Style Notes
+            <Tag className="w-3 h-3" /> Style & Listing Notes
           </h3>
           <p className="text-gray-600 text-sm md:text-base leading-relaxed italic font-medium">
-             {product.description || "Premium handcrafted traditional style from the heart of Ghotki's finest boutiques."}
+             {product.description || "Premium verified listing from the heart of Ghotki's finest market."}
           </p>
         </div>
+
+        {/* Installment Plan Details Card */}
+        {product.is_installment_available && (
+          <div className="bg-gradient-to-br from-purple-900 via-purple-950 to-indigo-950 p-6 md:p-8 rounded-[2.5rem] text-white space-y-4 shadow-xl border border-purple-500/30 my-6">
+             <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-purple-500/30 border border-purple-400/40 flex items-center justify-center text-purple-300">
+                   <Tag className="w-5 h-5" />
+                </div>
+                <div>
+                   <span className="px-2.5 py-0.5 bg-purple-500 text-white rounded-full text-[8px] font-black uppercase tracking-wider">
+                      Easy Installments
+                   </span>
+                   <h3 className="text-lg font-black uppercase italic tracking-tighter text-white mt-0.5">
+                      Installment Plan Available (قسطن تي)
+                   </h3>
+                </div>
+             </div>
+
+             <div className="grid grid-cols-2 md:grid-cols-3 gap-3 bg-white/10 p-4 rounded-2xl border border-white/10">
+                <div>
+                   <p className="text-[9px] font-black uppercase text-purple-300">Advance / Down Payment</p>
+                   <p className="text-base font-black text-white italic">PKR {(product.advance_payment || 0).toLocaleString()}</p>
+                </div>
+                <div>
+                   <p className="text-[9px] font-black uppercase text-purple-300">Monthly Payment</p>
+                   <p className="text-base font-black text-white italic">PKR {(product.monthly_installment || 0).toLocaleString()} <span className="text-[10px] font-normal text-purple-200">/mo</span></p>
+                </div>
+                <div className="col-span-2 md:col-span-1">
+                   <p className="text-[9px] font-black uppercase text-purple-300">Duration</p>
+                   <p className="text-base font-black text-white italic">{product.installment_duration_months || 12} Months</p>
+                </div>
+             </div>
+
+             {product.installment_condition && (
+                <div className="space-y-1 bg-purple-950/60 p-3.5 rounded-xl border border-purple-800/40">
+                   <p className="text-[9px] font-black uppercase text-purple-300">Seller Terms & Conditions:</p>
+                   <p className="text-xs font-medium text-purple-100 italic">{product.installment_condition}</p>
+                </div>
+             )}
+          </div>
+        )}
 
         {/* Quick Info Grid */}
         <div className="grid grid-cols-2 gap-3 mt-6">

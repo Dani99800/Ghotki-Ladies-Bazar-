@@ -72,7 +72,34 @@ const App: React.FC = () => {
   });
   const [error, setError] = useState<string | null>(null);
   const [showForceLoad, setShowForceLoad] = useState(false);
+  const [hiddenCategories, setHiddenCategories] = useState<string[]>(() => {
+    try {
+      const cached = localStorage.getItem('glb_hidden_categories');
+      return cached ? JSON.parse(cached) : [];
+    } catch { return []; }
+  });
   const [activeEvent, setActiveEvent] = useState<AppEvent>(PK_EVENTS[0]);
+
+  const toggleHideCategory = async (catName: string) => {
+    const normName = catName.trim().toLowerCase();
+    const isHidden = hiddenCategories.some(c => c.toLowerCase() === normName);
+    let nextHidden: string[];
+    if (isHidden) {
+      nextHidden = hiddenCategories.filter(c => c.toLowerCase() !== normName);
+    } else {
+      nextHidden = [...hiddenCategories, catName];
+    }
+    setHiddenCategories(nextHidden);
+    localStorage.setItem('glb_hidden_categories', JSON.stringify(nextHidden));
+
+    if (supabase) {
+      try {
+        await supabase.from('categories').update({ is_hidden: !isHidden }).eq('name', catName);
+      } catch (e) {
+        console.warn("DB category update failed:", e);
+      }
+    }
+  };
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -529,28 +556,102 @@ const App: React.FC = () => {
     return isMasterAdmin || user?.role === 'ADMIN';
   }, [user]);
 
+  const normalizeStr = (str: string) => (str || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+
+  const isCategoryHidden = (catStr: string | undefined, hiddenCats: string[]) => {
+    if (!catStr || !hiddenCats || hiddenCats.length === 0) return false;
+    const catNorm = normalizeStr(catStr);
+    if (!catNorm) return false;
+
+    for (const hc of hiddenCats) {
+      if (!hc) continue;
+      const hcNorm = normalizeStr(hc);
+      if (!hcNorm) continue;
+
+      // Direct or substring match
+      if (catNorm === hcNorm || catNorm.includes(hcNorm) || hcNorm.includes(catNorm)) {
+        return true;
+      }
+
+      // Keyword domain matching:
+      // Shopping, Clothes, Shoes, Cosmetics, Fashion
+      const isHcShopping = hcNorm.includes('shopping') || hcNorm.includes('cloth') || hcNorm.includes('fashion') || hcNorm.includes('shoe') || hcNorm.includes('cosmetic');
+      const isCatShopping = catNorm.includes('shopping') || catNorm.includes('cloth') || catNorm.includes('fashion') || catNorm.includes('wear') || catNorm.includes('suit') || catNorm.includes('shoe') || catNorm.includes('footwear') || catNorm.includes('cosmetic') || catNorm.includes('beauty') || catNorm.includes('jewelry') || catNorm.includes('abaya') || catNorm.includes('makeup') || catNorm.includes('sandal');
+      if (isHcShopping && isCatShopping) return true;
+
+      // Motors, Cars, Vehicles, Bikes
+      const isHcMotor = hcNorm.includes('car') || hcNorm.includes('vehicle') || hcNorm.includes('motor');
+      const isCatMotor = catNorm.includes('car') || catNorm.includes('vehicle') || catNorm.includes('motor') || catNorm.includes('bike') || catNorm.includes('auto') || catNorm.includes('rickshaw') || catNorm.includes('tractor') || catNorm.includes('tyre');
+      if (isHcMotor && isCatMotor) return true;
+
+      // Property & Real Estate
+      const isHcProperty = hcNorm.includes('property') || hcNorm.includes('estate') || hcNorm.includes('plot') || hcNorm.includes('house');
+      const isCatProperty = catNorm.includes('property') || catNorm.includes('estate') || catNorm.includes('plot') || catNorm.includes('house') || catNorm.includes('flat') || catNorm.includes('land') || catNorm.includes('realestate');
+      if (isHcProperty && isCatProperty) return true;
+
+      // Mobiles & Electronics
+      const isHcTech = hcNorm.includes('mobile') || hcNorm.includes('electronic') || hcNorm.includes('tech');
+      const isCatTech = catNorm.includes('mobile') || catNorm.includes('electronic') || catNorm.includes('phone') || catNorm.includes('tech') || catNorm.includes('laptop') || catNorm.includes('computer') || catNorm.includes('tv');
+      if (isHcTech && isCatTech) return true;
+
+      // Agriculture & Livestock
+      const isHcAgri = hcNorm.includes('agri') || hcNorm.includes('livestock') || hcNorm.includes('farm') || hcNorm.includes('cattle');
+      const isCatAgri = catNorm.includes('agri') || catNorm.includes('livestock') || catNorm.includes('farm') || catNorm.includes('cattle') || catNorm.includes('cow') || catNorm.includes('goat') || catNorm.includes('sheep');
+      if (isHcAgri && isCatAgri) return true;
+
+      // Furniture & Home
+      const isHcHome = hcNorm.includes('furniture') || hcNorm.includes('home');
+      const isCatHome = catNorm.includes('furniture') || catNorm.includes('home') || catNorm.includes('bed') || catNorm.includes('sofa') || catNorm.includes('cupboard');
+      if (isHcHome && isCatHome) return true;
+
+      // Jobs & Services
+      const isHcJob = hcNorm.includes('job') || hcNorm.includes('service');
+      const isCatJob = catNorm.includes('job') || catNorm.includes('service') || catNorm.includes('work') || catNorm.includes('hire');
+      if (isHcJob && isCatJob) return true;
+    }
+
+    return false;
+  };
+
   const filteredShops = React.useMemo(() => {
     return shops.filter(s => {
+      // If the shop's category is hidden, hide the shop completely!
+      if (isCategoryHidden(s.category, hiddenCategories)) {
+        return false;
+      }
+
       const userEmail = user?.email?.toLowerCase();
       const isMasterAdmin = userEmail === 'd46050573@gmail.com';
       const isAdmin = isMasterAdmin || user?.role === 'ADMIN';
       const isOwner = user?.id === s.owner_id;
-      
-      if (isMasterAdmin) return true;
-      if (isAdmin) return true;
-      if (isOwner) return true;
+
+      if (isMasterAdmin || isAdmin || isOwner) return true;
       return s.status === 'APPROVED';
     });
-  }, [shops, user]);
+  }, [shops, user, hiddenCategories]);
 
   const filteredProducts = React.useMemo(() => {
     const approvedShopIds = new Set(shops.filter(s => s.status === 'APPROVED').map(s => s.id));
+
     return products.filter(p => {
+      const pShop = shops.find(s => s.id === p.shopId);
+
+      // Hide product if its category, subcategory, or shop's category is hidden
+      if (isCategoryHidden(p.category, hiddenCategories) || 
+          isCategoryHidden(p.subcategory, hiddenCategories) || 
+          (pShop && isCategoryHidden(pShop.category, hiddenCategories))) {
+        return false;
+      }
+
+      const userEmail = user?.email?.toLowerCase();
+      const isMasterAdmin = userEmail === 'd46050573@gmail.com';
+      const isAdmin = isMasterAdmin || user?.role === 'ADMIN';
+      const isMine = user && pShop?.owner_id === user.id;
+
       const isApproved = approvedShopIds.has(p.shopId);
-      const isMine = user && shops.find(s => s.id === p.shopId)?.owner_id === user.id;
-      return isApproved || isMine;
+      return isApproved || isMine || isAdmin;
     });
-  }, [products, shops, user]);
+  }, [products, shops, user, hiddenCategories]);
 
   const navItems = React.useMemo(() => [
     { icon: Home, label: 'Home', path: '/' },
@@ -667,7 +768,7 @@ const App: React.FC = () => {
 
       <main className="flex-1 pt-16 pb-24 md:pb-10">
         <Routes>
-          <Route path="/" element={<BuyerHome shops={filteredShops} products={filteredProducts} categories={categories} addToCart={addToCart} lang="EN" user={user} onPlaceOrder={handlePlaceOrder} activeEvent={activeEvent} />} />
+          <Route path="/" element={<BuyerHome shops={filteredShops} products={filteredProducts} categories={categories} addToCart={addToCart} lang="EN" user={user} onPlaceOrder={handlePlaceOrder} activeEvent={activeEvent} hiddenCategories={hiddenCategories} />} />
           <Route path="/explore" element={<ExploreView products={filteredProducts} addToCart={addToCart} onPlaceOrder={handlePlaceOrder} user={user} savedProductIds={[]} onToggleSave={() => {}} />} />
           <Route path="/shops" element={<ShopsListView shops={filteredShops} categories={categories} lang="EN" />} />
           <Route path="/shop/:id" element={<ShopView shops={filteredShops} products={filteredProducts} addToCart={addToCart} lang="EN" user={user} onPlaceOrder={handlePlaceOrder} />} />
@@ -713,7 +814,7 @@ const App: React.FC = () => {
             const isMasterAdmin = user?.email?.toLowerCase() === 'd46050573@gmail.com';
             const isAdmin = isMasterAdmin || user?.role === 'ADMIN';
             console.log("Admin Route Access Attempt:", { isAdmin, isMasterAdmin, userRole: user?.role });
-            return isAdmin ? <AdminDashboard shops={filteredShops} setShops={setShops} orders={orders} refreshData={loadMarketplace} categories={categories} activeEvent={activeEvent} onUpdateEvent={handleUpdateEvent} /> : <Navigate to="/" />;
+            return isAdmin ? <AdminDashboard shops={shops} setShops={setShops} orders={orders} refreshData={loadMarketplace} categories={categories} activeEvent={activeEvent} onUpdateEvent={handleUpdateEvent} hiddenCategories={hiddenCategories} onToggleHideCategory={toggleHideCategory} /> : <Navigate to="/" />;
           })()} />
           <Route path="/seller/*" element={user?.role === 'SELLER' ? <SellerDashboard products={filteredProducts} user={user} addProduct={loadMarketplace} orders={orders} shops={filteredShops} refreshShop={loadMarketplace} refreshOrders={fetchOrders} categories={categories} /> : <Navigate to="/login" />} />
           <Route path="/checkout" element={<CheckoutView cart={cart} clearCart={() => setCart([])} user={user} lang="EN" onPlaceOrder={handlePlaceOrder} shops={filteredShops} loyaltyPlans={loyaltyPlans} />} />

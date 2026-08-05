@@ -51,6 +51,7 @@ export interface Category {
   image_url: string;
   subcategories?: string[];
   icon?: string;
+  is_hidden?: boolean;
 }
 
 export interface AppEvent {
@@ -148,6 +149,13 @@ export interface Product {
   mileage_km?: number;
   fuel_type?: 'Petrol' | 'Diesel' | 'EV' | 'CNG' | 'Hybrid';
   transmission?: 'Automatic' | 'Manual';
+
+  // Installment System Fields
+  is_installment_available?: boolean;
+  advance_payment?: number;
+  monthly_installment?: number;
+  installment_duration_months?: number;
+  installment_condition?: string;
 }
 
 export interface CartItem extends Product {
@@ -179,6 +187,11 @@ export interface Order {
   tourInspectionDate?: string;
   testDriveDate?: string;
   tokenAmount?: number;
+  purchaseType?: 'CASH' | 'INSTALLMENT';
+  advancePaymentPaid?: number;
+  monthlyInstallmentAmount?: number;
+  installmentDurationMonths?: number;
+  installmentCondition?: string;
 }
 
 export interface CustomRequest {

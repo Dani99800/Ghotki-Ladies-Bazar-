@@ -17,9 +17,10 @@ interface BuyerHomeProps {
   user?: UserType | null;
   onPlaceOrder?: (o: Order) => void;
   activeEvent: AppEvent;
+  hiddenCategories?: string[];
 }
 
-const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [], addToCart, lang, user, onPlaceOrder, activeEvent }) => {
+const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [], addToCart, lang, user, onPlaceOrder, activeEvent, hiddenCategories = [] }) => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
@@ -51,12 +52,19 @@ const BuyerHome: React.FC<BuyerHomeProps> = ({ shops, products, categories = [],
   ];
 
   const activeCategories = useMemo(() => {
+    const hiddenSet = new Set(hiddenCategories.map(c => c.toLowerCase().trim()));
     const source = categories.length > 0 ? categories : DEFAULT_CATEGORIES;
     return source.filter(c => {
       const norm = (c.name || '').toLowerCase().trim();
-      return !REMOVED_CATEGORY_NAMES.includes(norm);
+      if (REMOVED_CATEGORY_NAMES.includes(norm)) return false;
+      if (hiddenSet.has(norm)) return false;
+      for (const hc of hiddenCategories) {
+        const normHc = hc.toLowerCase().trim();
+        if (normHc && (norm.includes(normHc) || normHc.includes(norm))) return false;
+      }
+      return true;
     });
-  }, [categories]);
+  }, [categories, hiddenCategories]);
 
   const activeCatObj = useMemo(() => {
     return activeCategories.find(c => c.id === selectedCategory || c.name === selectedCategory);

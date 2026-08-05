@@ -228,7 +228,12 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
     description: '',
     eventName: '',
     images: [] as string[],
-    stock: '1'
+    stock: '1',
+    isInstallmentAvailable: false,
+    advancePayment: '',
+    monthlyInstallment: '',
+    installmentDurationMonths: '12',
+    installmentCondition: ''
   });
 
   const selectedCategoryObj = activeCategoryList.find(c => c.name === productForm.category || c.id === productForm.category);
@@ -282,7 +287,12 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         description: editingProduct.description || '',
         eventName: editingProduct.event_name || '',
         images: Array.isArray(editingProduct.images) ? editingProduct.images : [editingProduct.images as any],
-        stock: (editingProduct.stock || 1).toString()
+        stock: (editingProduct.stock || 1).toString(),
+        isInstallmentAvailable: Boolean(editingProduct.is_installment_available),
+        advancePayment: editingProduct.advance_payment ? editingProduct.advance_payment.toString() : '',
+        monthlyInstallment: editingProduct.monthly_installment ? editingProduct.monthly_installment.toString() : '',
+        installmentDurationMonths: editingProduct.installment_duration_months ? editingProduct.installment_duration_months.toString() : '12',
+        installmentCondition: editingProduct.installment_condition || ''
       });
     } else {
       setProductForm({ 
@@ -298,7 +308,12 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         description: '', 
         eventName: '', 
         images: [], 
-        stock: '1' 
+        stock: '1',
+        isInstallmentAvailable: false,
+        advancePayment: '',
+        monthlyInstallment: '',
+        installmentDurationMonths: '12',
+        installmentCondition: ''
       });
     }
   }, [editingProduct, showModal]);
@@ -399,7 +414,12 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
         image_urls: images,
         stock: parseInt(productForm.stock) || 1,
         status: 'APPROVED',
-        tags: productForm.discountPercentage !== '0' ? [`${productForm.discountPercentage}% OFF`] : [productForm.condition]
+        tags: productForm.discountPercentage !== '0' ? [`${productForm.discountPercentage}% OFF`] : [productForm.condition],
+        is_installment_available: productForm.isInstallmentAvailable,
+        advance_payment: productForm.isInstallmentAvailable ? (parseFloat(productForm.advancePayment) || 0) : null,
+        monthly_installment: productForm.isInstallmentAvailable ? (parseFloat(productForm.monthlyInstallment) || 0) : null,
+        installment_duration_months: productForm.isInstallmentAvailable ? (parseInt(productForm.installmentDurationMonths) || 12) : null,
+        installment_condition: productForm.isInstallmentAvailable ? productForm.installmentCondition : null
       };
 
       const { error } = editingProduct 
@@ -1084,6 +1104,86 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ products, user, addPr
                        <p className="text-[9px] font-black uppercase text-gray-400 ml-4">Item Description</p>
                        <textarea placeholder="Describe condition, specifications, warranty, reason for selling..." className="w-full p-4 bg-white border border-gray-100 rounded-2xl font-bold text-xs h-24 outline-none" value={productForm.description} onChange={e => setProductForm({...productForm, description: e.target.value})} />
                     </div>
+                 </div>
+
+                 {/* Installment Plan Section (For Motors, Property, Vehicles & Products) */}
+                 <div className="bg-gradient-to-br from-purple-900 to-indigo-950 p-6 rounded-[2.5rem] text-white space-y-4 shadow-xl border border-purple-500/30">
+                    <div className="flex items-center justify-between">
+                       <div className="flex items-center gap-2">
+                          <CreditCard className="w-5 h-5 text-purple-300" />
+                          <h4 className="font-black text-sm uppercase tracking-wide text-white">Installment Plan (قسطن تي وڪرو)</h4>
+                       </div>
+                       <input 
+                         type="checkbox" 
+                         id="inst_chk" 
+                         checked={productForm.isInstallmentAvailable} 
+                         onChange={e => setProductForm({...productForm, isInstallmentAvailable: e.target.checked})} 
+                         className="w-5 h-5 accent-purple-500 rounded cursor-pointer" 
+                       />
+                    </div>
+                    <p className="text-[10px] text-purple-200 font-medium">Allow buyers to buy this vehicle, property, or item on monthly installment plans.</p>
+
+                    {productForm.isInstallmentAvailable && (
+                       <div className="space-y-3 pt-2 border-t border-purple-800/50 animate-in fade-in duration-300">
+                          <div className="grid grid-cols-2 gap-3">
+                             <div className="space-y-1">
+                                <p className="text-[8px] font-black uppercase text-purple-300 ml-2">Advance / Down Payment (PKR)</p>
+                                <input 
+                                  required 
+                                  type="number" 
+                                  placeholder="e.g. 50000" 
+                                  className="w-full p-3.5 bg-white/10 border border-purple-400/30 rounded-2xl font-black text-xs text-white outline-none focus:bg-white/20" 
+                                  value={productForm.advancePayment} 
+                                  onChange={e => setProductForm({...productForm, advancePayment: e.target.value})} 
+                                />
+                             </div>
+                             <div className="space-y-1">
+                                <p className="text-[8px] font-black uppercase text-purple-300 ml-2">Monthly Installment (PKR)</p>
+                                <input 
+                                  required 
+                                  type="number" 
+                                  placeholder="e.g. 15000" 
+                                  className="w-full p-3.5 bg-white/10 border border-purple-400/30 rounded-2xl font-black text-xs text-white outline-none focus:bg-white/20" 
+                                  value={productForm.monthlyInstallment} 
+                                  onChange={e => setProductForm({...productForm, monthlyInstallment: e.target.value})} 
+                                />
+                             </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                             <div className="space-y-1">
+                                <p className="text-[8px] font-black uppercase text-purple-300 ml-2">Plan Duration (Months)</p>
+                                <select 
+                                  className="w-full p-3.5 bg-gray-900 border border-purple-400/30 rounded-2xl font-black text-xs text-white outline-none cursor-pointer" 
+                                  value={productForm.installmentDurationMonths} 
+                                  onChange={e => setProductForm({...productForm, installmentDurationMonths: e.target.value})}
+                                >
+                                   <option value="6">6 Months</option>
+                                   <option value="12">12 Months (1 Year)</option>
+                                   <option value="18">18 Months</option>
+                                   <option value="24">24 Months (2 Years)</option>
+                                   <option value="36">36 Months (3 Years)</option>
+                                </select>
+                             </div>
+                             <div className="space-y-1">
+                                <p className="text-[8px] font-black uppercase text-purple-300 ml-2">Total Payable Estimate</p>
+                                <div className="p-3.5 bg-purple-950/60 rounded-2xl border border-purple-500/20 font-black text-xs text-purple-300">
+                                   PKR {((parseFloat(productForm.advancePayment) || 0) + ((parseFloat(productForm.monthlyInstallment) || 0) * (parseInt(productForm.installmentDurationMonths) || 12))).toLocaleString()}
+                                </div>
+                             </div>
+                          </div>
+
+                          <div className="space-y-1">
+                             <p className="text-[8px] font-black uppercase text-purple-300 ml-2">Installment Terms & Seller Conditions</p>
+                             <textarea 
+                               placeholder="e.g. 2 Local Guarantors required, CNIC copies, post-dated cheques..." 
+                               className="w-full p-3.5 bg-white/10 border border-purple-400/30 rounded-2xl font-medium text-xs text-white placeholder-purple-300/50 h-20 outline-none" 
+                               value={productForm.installmentCondition} 
+                               onChange={e => setProductForm({...productForm, installmentCondition: e.target.value})} 
+                             />
+                          </div>
+                       </div>
+                    )}
                  </div>
 
                  <button type="submit" disabled={loading} className="w-full py-6 bg-gray-900 hover:bg-black text-white font-black rounded-full uppercase tracking-widest text-xs shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all">

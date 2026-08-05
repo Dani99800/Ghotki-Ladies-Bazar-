@@ -16,13 +16,15 @@ interface AdminDashboardProps {
   refreshData?: () => Promise<void>;
   activeEvent: AppEvent;
   onUpdateEvent: (e: AppEvent) => void;
+  hiddenCategories?: string[];
+  onToggleHideCategory?: (catName: string) => void;
 }
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
-  shops, setShops, orders, categories, refreshData, activeEvent, onUpdateEvent 
+  shops, setShops, orders, categories, refreshData, activeEvent, onUpdateEvent, hiddenCategories = [], onToggleHideCategory 
 }) => {
   const [loadingId, setLoadingId] = useState<string | null>(null);
-  const [activeAdminTab, setActiveAdminTab] = useState<'SHOPS' | 'PENDING' | 'INVENTORY' | 'LOYALTY' | 'AD_DEPOSITS' | 'CUSTOM_REQUESTS' | 'THEME'>('SHOPS');
+  const [activeAdminTab, setActiveAdminTab] = useState<'SHOPS' | 'CATEGORIES' | 'PENDING' | 'INVENTORY' | 'LOYALTY' | 'AD_DEPOSITS' | 'CUSTOM_REQUESTS' | 'THEME'>('SHOPS');
   
   // Category & Filter States
   const [selectedPortalFilter, setSelectedPortalFilter] = useState<'ALL' | 'MARKETPLACE' | 'RENTAL' | 'PROPERTY' | 'MOTOR'>('ALL');
@@ -32,9 +34,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [directorySearch, setDirectorySearch] = useState<string>('');
   const [inventorySearch, setInventorySearch] = useState<string>('');
 
-  const getShopPortal = (shop: Shop): 'MARKETPLACE' | 'RENTAL' | 'PROPERTY' | 'MOTOR' => {
+  const getShopPortal = (shop: Shop): 'MARKETPLACE' | 'SHOPPING' | 'RENTAL' | 'PROPERTY' | 'MOTOR' => {
     if (shop.portal_type) return shop.portal_type;
     const cat = (shop.category || '').toLowerCase();
+    if (cat.includes('shopping') || cat.includes('cloth') || cat.includes('fashion')) return 'SHOPPING';
     if (cat.includes('rental') || cat.includes('lease')) return 'RENTAL';
     if (cat.includes('property') || cat.includes('real estate') || cat.includes('house') || cat.includes('plot')) return 'PROPERTY';
     if (cat.includes('car') || cat.includes('motor') || cat.includes('vehicle')) return 'MOTOR';
@@ -398,6 +401,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       <div className="flex gap-2 p-1.5 bg-gray-200 rounded-[2.5rem] overflow-x-auto no-scrollbar">
         {[
           { id: 'SHOPS', icon: Store, label: 'District Stores Directory', badge: pendingCount },
+          { id: 'CATEGORIES', icon: Filter, label: 'Category Hide/Show', badge: hiddenCategories.length > 0 ? hiddenCategories.length : undefined },
           { id: 'AD_DEPOSITS', icon: Wallet, label: 'Ad Wallet Deposits', badge: pendingAdDepositsCount },
           { id: 'CUSTOM_REQUESTS', icon: Package, label: 'Buyer Requests' },
           { id: 'THEME', icon: Palette, label: 'Festival Themes' }
@@ -742,6 +746,82 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                    </div>
                  );
                })}
+          </div>
+        </div>
+      )}
+
+      {/* ----------------- TAB: CATEGORIES CONTROL (HIDE / SHOW) ----------------- */}
+      {activeAdminTab === 'CATEGORIES' && (
+        <div className="space-y-6 animate-in slide-in-from-bottom-4">
+          <div className="bg-gradient-to-r from-gray-900 via-pink-950 to-gray-900 p-8 rounded-[3rem] text-white space-y-3 shadow-2xl border border-pink-500/20">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-pink-600/30 border border-pink-500/40 flex items-center justify-center text-pink-400">
+                <Filter className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-black uppercase italic tracking-tighter text-white">Category Visibility Authority</h2>
+                <p className="text-[10px] font-black text-pink-300 uppercase tracking-widest">Admin Control: Hide or Show entire categories across all portals</p>
+              </div>
+            </div>
+            <div className="bg-white/10 p-4 rounded-2xl text-xs font-medium text-gray-200 border border-white/10 leading-relaxed">
+              ⚡ <strong>How it works:</strong> Toggling a category to <span className="text-red-400 font-bold uppercase">Hidden</span> will automatically hide all shops and products belonging to that category from public buyers. Toggling it back to <span className="text-green-400 font-bold uppercase font-black">Visible</span> will immediately reveal all associated shops and products again.
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {activeCategories.map(cat => {
+              const normCatName = cat.name.toLowerCase().trim();
+              const isHidden = hiddenCategories.some(c => c.toLowerCase().trim() === normCatName);
+              
+              const categoryShopsCount = shops.filter(s => matchesCategory(s.category, cat.name)).length;
+              const categoryProductsCount = adminProducts.filter(p => matchesCategory(p.category, cat.name)).length;
+
+              return (
+                <div key={cat.id || cat.name} className={`p-6 rounded-[2.5rem] border transition-all flex items-center justify-between gap-4 shadow-md ${
+                  isHidden ? 'bg-red-50/70 border-red-200/80' : 'bg-white border-gray-100 hover:border-pink-200'
+                }`}>
+                  <div className="flex items-center gap-4 min-w-0">
+                    <img 
+                      src={cat.image_url || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200'} 
+                      alt={cat.name} 
+                      className="w-14 h-14 rounded-2xl object-cover border border-gray-100 flex-shrink-0"
+                    />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-black text-base uppercase italic text-gray-900 truncate">{cat.name}</h3>
+                        {isHidden && (
+                          <span className="px-2 py-0.5 bg-red-600 text-white rounded-full text-[8px] font-black uppercase tracking-wider">
+                            Hidden
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] font-bold text-gray-500 uppercase mt-1">
+                        {categoryShopsCount} Shops • {categoryProductsCount} Products
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => onToggleHideCategory && onToggleHideCategory(cat.name)}
+                    className={`px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-md transition-all flex items-center gap-2 flex-shrink-0 ${
+                      isHidden 
+                        ? 'bg-green-600 hover:bg-green-700 text-white' 
+                        : 'bg-red-600 hover:bg-red-700 text-white'
+                    }`}
+                  >
+                    {isHidden ? (
+                      <>
+                        <Check className="w-4 h-4" /> Show Category
+                      </>
+                    ) : (
+                      <>
+                        <X className="w-4 h-4" /> Hide Category
+                      </>
+                    )}
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
